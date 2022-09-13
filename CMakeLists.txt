@@ -7,7 +7,7 @@ project(SimplePath)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp)
+add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp base/FileParser.h)
 
 if (UNIX)
     set(THREADS_PREFER_PTHREAD_FLAG ON)

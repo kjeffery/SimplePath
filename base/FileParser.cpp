@@ -55,6 +55,7 @@ class Token
 public:
     friend std::istream& operator>>(std::istream& ins, Token& token)
     {
+        token.m_data.clear();
         while (is_space(ins.peek())) {
             char c;
             ins.get(c);
@@ -142,8 +143,12 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(std:
 IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string& body)
 {
     std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
     for (Token token; ins;) {
         ins >> token;
+        if (ins.eof()) {
+            break;
+        }
         consume_character(ins, ':');
 
         const std::string& word = token;
@@ -167,10 +172,13 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
 }
 #endif
 
-std::string file_to_string(std::istream& ins)
+auto file_to_string(std::istream& ins)
 {
-    std::string file_contents;
+    std::string      file_contents;
+    std::vector<int> line_numbers;
+    int              line_number = 0;
     for (std::string line; std::getline(ins, line);) {
+        ++line_number;
         auto trimmed = trim(line);
         if (trimmed.empty() || trimmed.starts_with('#')) {
             continue;
@@ -181,15 +189,16 @@ std::string file_to_string(std::istream& ins)
         assert(trimmed.find_first_of('#') == std::string_view::npos);
         file_contents.append(trimmed);
         file_contents.push_back(' '); // We read and discard the '\n', so we need a deliminator.
+        line_numbers.insert(line_numbers.end(), trimmed.size() + 1u, line_number);
     }
-    return file_contents;
+    return std::make_pair(file_contents, line_numbers);
 }
 
 IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 {
     // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
     // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
-    std::string file_contents = file_to_string(ins);
+    const auto [file_contents, line_numbers] = file_to_string(ins);
     std::istringstream cleaned_ins(file_contents);
     try {
         const auto version = parse_version(cleaned_ins);
@@ -203,7 +212,7 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     for (Token token; cleaned_ins;) {
         cleaned_ins >> token;
 
-        consume_character(cleaned_ins, '{');
+        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
 
         const std::string& word = token;
         if (std::string body; word.starts_with("perspective_camera")) {

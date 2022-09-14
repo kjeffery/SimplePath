@@ -2,6 +2,7 @@
 
 #include "base/FileParser.h"
 #include "base/Util.h"
+#include "math/Vector3.h"
 
 #include <filesystem>
 #include <fstream>
@@ -13,6 +14,11 @@ namespace fs = std::filesystem;
 int main(const int argc, const char* const argv[])
 {
     using namespace std::literals;
+
+    sp::Vector3 a{33962.035f, 41563.4f, 7706.415f};
+    sp::Vector3 b{-24871.969f, -30438.8f, -5643.727f};
+    const auto c = cross(a, b);
+                //(1556.0276, -1257.5153, -75.1656)
 
     if (argc == 2) {
         if (std::string_view file_name{ argv[1] }; file_name == "-"sv) {

@@ -8,10 +8,20 @@ project(SimplePath)
 set(CMAKE_CXX_STANDARD 20)
 
 if (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+    # Windows doesn't define these: it only sets the expected definitions for __AVX__ and up.
+    # https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros
+    add_definitions(/D__SSE4_1__)
+    add_definitions(/D__SSE4_2__)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfma")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfma") # Only set this for axv2 or above
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
 endif(MSVC)
 
 add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp base/FileParser.h base/Scene.h math/Vector3.h base/Constants.h math/Math.h)

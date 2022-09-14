@@ -9,11 +9,44 @@
 #include <istream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace sp {
 
 namespace {
+
+class Token
+{
+    std::string m_data;
+
+    static bool is_valid_character(char c) noexcept
+    {
+        // This depends on the current locale, and I'm assuming something ASCII-like.
+        return c == '_' || std::isalnum(c) != 0;
+    }
+
+public:
+    friend std::istream& operator>>(std::istream& ins, Token& token)
+    {
+        if (is_valid_character(ins.peek())) {
+            char c;
+            ins.get(c);
+            token.m_data.push_back(c);
+        }
+    }
+
+    operator const std::string&() const
+    {
+        return m_data;
+    }
+
+    operator std::string() &&
+    {
+        return std::move(m_data);
+    }
+};
+
 void parse_type(std::string_view type_id, std::istream& ins)
 {
 }
@@ -42,23 +75,17 @@ int parse_version(std::istream& ins)
     return version;
 }
 
-IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string& body)
+IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(std::istream& ins)
 {
-    std::istringstream ins(body);
-    for (std::string line; std::getline(ins, line);) {
-        auto trimmed = sp::trim(line);
-        if (trimmed.empty() || trimmed.starts_with('#')) {
-            continue;
-        }
-
+    for (std::string word; ins;) {
+        ins >> word;
+        const auto trimmed = sp::trim_end(word, ':');
         if (trimmed.starts_with("origin")) {
-            const auto start = trimmed.find_first_of(':');
-            if (start == std::string_view::npos) {
-                throw 3;
-            }
-            std::cout << trimmed.substr(start + 1) << '\n';
+            Vector3 v{ no_init };
+            ins >> v;
         }
     }
+    return IntermediateSceneRepresentation::PerspectiveCamera{};
 }
 
 enum class State
@@ -76,7 +103,7 @@ enum class State
 
 IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 {
-    State state{State::read_version};
+    State state{ State::read_version };
 
     // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
     // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
@@ -94,24 +121,28 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     }
 
     std::istringstream cleaned_ins(file_contents);
-    const auto version = parse_version(cleaned_ins);
+    const auto         version = parse_version(cleaned_ins);
     if (version != 1) {
         throw 4;
     }
 
     for (std::string word; cleaned_ins;) {
         cleaned_ins >> word;
-        const auto trimmed = sp::trim_end(word, ':');
 
-        if (trimmed.starts_with("perspective_camera")) {
-            //parse_perspective_camera(body);
-            //std::cout << body << '\n';
-        } else if (trimmed.starts_with("material_transmissive_dielectric")) {
-        } else if (trimmed.starts_with("material_lambertian")) {
-        } else if (trimmed.starts_with("material_layered")) {
-        } else if (trimmed.starts_with("mesh")) {
-        } else if (trimmed.starts_with("sphere")) {
-        } else if (trimmed.starts_with("primitive")) {
+        // Read opening '{'
+        char c;
+        cleaned_ins >> c;
+        if (c != '{') {
+            throw 8;
+        }
+        if (word.starts_with("perspective_camera")) {
+            parse_perspective_camera(cleaned_ins);
+        } else if (word.starts_with("material_transmissive_dielectric")) {
+        } else if (word.starts_with("material_lambertian")) {
+        } else if (word.starts_with("material_layered")) {
+        } else if (word.starts_with("mesh")) {
+        } else if (word.starts_with("sphere")) {
+        } else if (word.starts_with("primitive")) {
         }
     }
 

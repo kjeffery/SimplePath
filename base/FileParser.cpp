@@ -133,8 +133,17 @@ public:
     FileParser()
     {
         m_parse_function_lookup.emplace("environment_light", &FileParser::parse_environment_light);
-        //"instance", "material_lambertian", "material_layered", "material_transmissive_dielectric",
-        //"mesh", "perspective_camera", "plane", "primitive", "sphere", "sphere_light"
+        m_parse_function_lookup.emplace("instance", &FileParser::parse_instance);
+        m_parse_function_lookup.emplace("material_lambertian", &FileParser::parse_material_lambertian);
+        m_parse_function_lookup.emplace("material_layered", &FileParser::parse_material_layered);
+        m_parse_function_lookup.emplace("material_transmissive_dielectric",
+                                        &FileParser::parse_material_transmissive_dielectric);
+        m_parse_function_lookup.emplace("mesh", &FileParser::parse_mesh);
+        m_parse_function_lookup.emplace("perspective_camera", &FileParser::parse_perspective_camera);
+        m_parse_function_lookup.emplace("plane", &FileParser::parse_plane);
+        m_parse_function_lookup.emplace("primitive", &FileParser::parse_primitive);
+        m_parse_function_lookup.emplace("sphere", &FileParser::parse_sphere);
+        m_parse_function_lookup.emplace("sphere_light", &FileParser::parse_sphere_light);
     }
 
     Scene parse(std::istream& ins);
@@ -145,19 +154,19 @@ private:
 
     IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins);
 
-    // clang-format off
-    void parse_perspective_camera(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_environment_light(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_material_lambertian(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_material_layered(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_material_transmissive_dielectric(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_mesh(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_plane(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_primitive(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_sphere(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    void parse_sphere_light(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
-    // clang-format on
+    void parse_environment_light(const std::string&, const LineNumberContainer&, int);
+    void parse_instance(const std::string&, const LineNumberContainer&, int);
+    void parse_material_lambertian(const std::string&, const LineNumberContainer&, int);
+    void parse_material_layered(const std::string&, const LineNumberContainer&, int);
+    void parse_material_transmissive_dielectric(const std::string&, const LineNumberContainer&, int);
+    void parse_mesh(const std::string&, const LineNumberContainer&, int);
+    void parse_perspective_camera(const std::string&, const LineNumberContainer&, int);
+    void parse_plane(const std::string&, const LineNumberContainer&, int);
+    void parse_primitive(const std::string&, const LineNumberContainer&, int);
+    void parse_sphere(const std::string&, const LineNumberContainer&, int);
+    void parse_sphere_light(const std::string&, const LineNumberContainer&, int);
 
+    // TODO: This could be static
     std::map<const char* const, ParseFunction> m_parse_function_lookup;
 };
 
@@ -177,6 +186,42 @@ Scene FileParser::parse(std::istream& ins)
     }
 
     return Scene{};
+}
+
+void FileParser::parse_environment_light(const std::string&         body,
+                                         const LineNumberContainer& line_numbers,
+                                         int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_instance(const std::string&         body,
+                                const LineNumberContainer& line_numbers,
+                                int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_material_lambertian(const std::string&         body,
+                                           const LineNumberContainer& line_numbers,
+                                           int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_material_layered(const std::string&         body,
+                                        const LineNumberContainer& line_numbers,
+                                        int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_material_transmissive_dielectric(const std::string&         body,
+                                                        const LineNumberContainer& line_numbers,
+                                                        int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_mesh(const std::string&         body,
+                            const LineNumberContainer& line_numbers,
+                            int                        line_number_character_offset)
+{
 }
 
 void FileParser::parse_perspective_camera(const std::string&         body,
@@ -210,36 +255,6 @@ void FileParser::parse_perspective_camera(const std::string&         body,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
         }
     }
-}
-
-void FileParser::parse_environment_light(const std::string&         body,
-                                         const LineNumberContainer& line_numbers,
-                                         int                        line_number_character_offset)
-{
-}
-
-void FileParser::parse_material_lambertian(const std::string&         body,
-                                           const LineNumberContainer& line_numbers,
-                                           int                        line_number_character_offset)
-{
-}
-
-void FileParser::parse_material_layered(const std::string&         body,
-                                        const LineNumberContainer& line_numbers,
-                                        int                        line_number_character_offset)
-{
-}
-
-void FileParser::parse_material_transmissive_dielectric(const std::string&         body,
-                                                        const LineNumberContainer& line_numbers,
-                                                        int                        line_number_character_offset)
-{
-}
-
-void FileParser::parse_mesh(const std::string&         body,
-                            const LineNumberContainer& line_numbers,
-                            int                        line_number_character_offset)
-{
 }
 
 void FileParser::parse_plane(const std::string&         body,

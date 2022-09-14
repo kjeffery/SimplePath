@@ -12,9 +12,7 @@
 #include <limits>
 #include <ostream>
 
-#include <emmintrin.h>
 #include <immintrin.h>
-#include <xmmintrin.h>
 
 namespace sp {
 
@@ -265,11 +263,11 @@ inline Vector3 rsqrt(const Vector3& a)
     return r;
 #else
 
-#    if defined(__AVX512VL__)
+#if defined(__AVX512VL__) && !defined(_MSC_VER) // I can't find this function in Visual Studio
     __m128 r = _mm_rsqrt14_ps(a.m128);
-#    else
+#else
     __m128 r = _mm_rsqrt_ps(a.m128);
-#    endif
+#endif
     return _mm_add_ps(_mm_mul_ps(_mm_set1_ps(1.5f), r),
                       _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(a.m128, _mm_set1_ps(-0.5f)), r), _mm_mul_ps(r, r)));
 #endif
@@ -463,7 +461,7 @@ inline float dot(const Vector3& a, const Vector3& b)
     return _mm_cvtss_f32(_mm_dp_ps(a.m128, b.m128, 0x7F));
 }
 #else
-#    error Add reduce add
+#error Add reduce add
 #endif
 
 inline Vector3 cross(const Vector3& a, const Vector3& b)

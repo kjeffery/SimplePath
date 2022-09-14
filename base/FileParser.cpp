@@ -7,6 +7,7 @@
 
 #include "../math/Vector3.h"
 
+#include <algorithm>
 #include <iostream> // TODO: temp
 #include <istream>
 #include <sstream>
@@ -201,6 +202,46 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
         throw ParsingException("Unable to parse version " + std::to_string(version));
     }
 
+    const auto post_version_offset = cleaned_ins.tellg();
+
+    // Sort these for binary search.
+    // clang-format off
+    constexpr const char* const valid_top_level_types[] = {
+        "instance",
+        "material_lambertian",
+        "material_layered",
+        "material_transmissive_dielectric",
+        "mesh",
+        "perspective_camera",
+        "primitive",
+        "sphere"
+    };
+    // clang-format on
+
+    static constexpr bool types_are_sorted =
+        std::is_sorted(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types));
+    static_assert(types_are_sorted);
+
+    // First pass to check for invalid types.
+    for (Token token; cleaned_ins;) {
+        cleaned_ins >> token;
+        if (cleaned_ins.eof()) {
+            break;
+        }
+
+        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
+
+        const std::string& word = token;
+        if (!std::binary_search(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types), word)) {
+            throw ParsingException("Unknown type '" + word + "'", line_numbers[cleaned_ins.tellg()]);
+        }
+
+        std::string body_unused;
+        std::getline(cleaned_ins, body_unused, '}');
+    }
+
+    // First parse materials and cameras.
+    cleaned_ins.seekg(post_version_offset);
     for (Token token; cleaned_ins;) {
         cleaned_ins >> token;
         if (cleaned_ins.eof()) {
@@ -212,24 +253,56 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
         // We are going to look at a subsection of the stream data. We have to remember of character offset for line
         // lookups before we read our subsection and convey this to the called functions.
         const std::string& word = token;
-        if (std::string body; word.starts_with("perspective_camera")) {
+        if (std::string body; word == "perspective_camera") {
             const auto offset = cleaned_ins.tellg();
             std::getline(cleaned_ins, body, '}');
             parse_perspective_camera(body, line_numbers, offset);
-        } else if (word.starts_with("material_transmissive_dielectric")) {
+        } else if (word == "material_transmissive_dielectric") {
             std::getline(cleaned_ins, body, '}');
-        } else if (word.starts_with("material_lambertian")) {
+        } else if (word == "material_lambertian") {
             std::getline(cleaned_ins, body, '}');
-        } else if (word.starts_with("material_layered")) {
+        }
+    }
+
+    // Parse layered materials (after "basic" materials have been parsed).
+    cleaned_ins.seekg(post_version_offset);
+    for (Token token; cleaned_ins;) {
+        cleaned_ins >> token;
+        if (cleaned_ins.eof()) {
+            break;
+        }
+
+        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
+
+        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
+        // lookups before we read our subsection and convey this to the called functions.
+        const std::string& word = token;
+        if (std::string body; word == "material_layered") {
             std::getline(cleaned_ins, body, '}');
-        } else if (word.starts_with("mesh")) {
+        }
+    }
+
+    // Parse geometry
+    cleaned_ins.seekg(post_version_offset);
+    for (Token token; cleaned_ins;) {
+        cleaned_ins >> token;
+        if (cleaned_ins.eof()) {
+            break;
+        }
+
+        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
+
+        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
+        // lookups before we read our subsection and convey this to the called functions.
+        const std::string& word = token;
+        if (std::string body; word == "mesh") {
             std::getline(cleaned_ins, body, '}');
-        } else if (word.starts_with("sphere")) {
+        } else if (word == "sphere") {
             std::getline(cleaned_ins, body, '}');
-        } else if (word.starts_with("primitive")) {
+        } else if (word == "primitive") {
             std::getline(cleaned_ins, body, '}');
-        } else {
-            throw ParsingException("Unknown type '" + word + "'", line_numbers[cleaned_ins.tellg()]);
+        } else if (word == "instance") {
+            std::getline(cleaned_ins, body, '}');
         }
     }
 

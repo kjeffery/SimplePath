@@ -1,5 +1,7 @@
 ///@author Keith Jeffery
 
+#include "FileParser.h"
+
 #include "Scene.h"
 #include "Util.h"
 
@@ -8,31 +10,26 @@
 #include <iostream> // TODO: temp
 #include <istream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace sp {
 
-class ParsingException : public std::runtime_error
+std::string ParsingException::parse_message(const std::string& what_arg, int line_number)
 {
-    static std::string parse_message(const std::string& what_arg, int line_number)
-    {
-        return what_arg + " on line " + std::to_string(line_number);
-    }
+    return what_arg + " on line " + std::to_string(line_number);
+}
 
-public:
-    ParsingException(const std::string& what_arg)
-    : std::runtime_error(what_arg)
-    {
-    }
+ParsingException::ParsingException(const std::string& what_arg)
+: std::runtime_error(what_arg)
+{
+}
 
-    ParsingException(const std::string& what_arg, int line_number)
-    : std::runtime_error(parse_message(what_arg, line_number))
-    {
-    }
-};
+ParsingException::ParsingException(const std::string& what_arg, int line_number)
+: std::runtime_error(parse_message(what_arg, line_number))
+{
+}
 
 namespace {
 
@@ -211,6 +208,9 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 
     for (Token token; cleaned_ins;) {
         cleaned_ins >> token;
+        if (cleaned_ins.eof()) {
+            break;
+        }
 
         consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
 
@@ -219,11 +219,19 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
             std::getline(cleaned_ins, body, '}');
             parse_perspective_camera(body);
         } else if (word.starts_with("material_transmissive_dielectric")) {
+            std::getline(cleaned_ins, body, '}');
         } else if (word.starts_with("material_lambertian")) {
+            std::getline(cleaned_ins, body, '}');
         } else if (word.starts_with("material_layered")) {
+            std::getline(cleaned_ins, body, '}');
         } else if (word.starts_with("mesh")) {
+            std::getline(cleaned_ins, body, '}');
         } else if (word.starts_with("sphere")) {
+            std::getline(cleaned_ins, body, '}');
         } else if (word.starts_with("primitive")) {
+            std::getline(cleaned_ins, body, '}');
+        } else {
+            throw ParsingException("Unknown type '" + word + "'", line_numbers[cleaned_ins.tellg()]);
         }
     }
 

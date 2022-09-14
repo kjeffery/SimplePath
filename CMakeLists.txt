@@ -7,7 +7,14 @@ project(SimplePath)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp base/FileParser.h)
+if (MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfma")
+endif(MSVC)
+
+add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp base/FileParser.h base/Scene.h math/Vector3.h base/Constants.h math/Math.h)
 
 if (UNIX)
     set(THREADS_PREFER_PTHREAD_FLAG ON)

@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <iostream> // TODO: temp
 #include <istream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -126,9 +127,61 @@ int parse_version(std::istream& ins, int line_number)
     return version;
 }
 
-IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string&      body,
-                                                                            const std::vector<int>& line_numbers,
-                                                                            int line_number_character_offset)
+class FileParser
+{
+public:
+    FileParser()
+    {
+        m_parse_function_lookup.emplace("environment_light", &FileParser::parse_environment_light);
+        //"instance", "material_lambertian", "material_layered", "material_transmissive_dielectric",
+        //"mesh", "perspective_camera", "plane", "primitive", "sphere", "sphere_light"
+    }
+
+    Scene parse(std::istream& ins);
+
+private:
+    using LineNumberContainer = std::vector<int>;
+    using ParseFunction       = void (FileParser::*)(const std::string&, const LineNumberContainer& line_numbers, int);
+
+    IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins);
+
+    // clang-format off
+    void parse_perspective_camera(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_environment_light(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_material_lambertian(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_material_layered(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_material_transmissive_dielectric(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_mesh(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_plane(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_primitive(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_sphere(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    void parse_sphere_light(const std::string& body, const LineNumberContainer& line_numbers,int line_number_character_offset);
+    // clang-format on
+
+    std::map<const char* const, ParseFunction> m_parse_function_lookup;
+};
+
+Scene FileParser::parse(std::istream& ins)
+{
+    using namespace std::literals;
+
+    try {
+        ins.exceptions(std::ios::badbit);
+        const auto intermediate = parse_intermediate_scene(ins);
+    } catch (const ParsingException& e) {
+        throw;
+    } catch (const std::exception& e) {
+        throw ParsingException("Unexpected file parsing error: "s + e.what());
+    } catch (...) {
+        throw ParsingException("Unexpected file parsing error");
+    }
+
+    return Scene{};
+}
+
+void FileParser::parse_perspective_camera(const std::string&         body,
+                                          const LineNumberContainer& line_numbers,
+                                          int                        line_number_character_offset)
 {
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
@@ -157,7 +210,61 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
                                    line_numbers[line_number_character_offset + ins.tellg()]);
         }
     }
-    return IntermediateSceneRepresentation::PerspectiveCamera{};
+}
+
+void FileParser::parse_environment_light(const std::string&         body,
+                                         const LineNumberContainer& line_numbers,
+                                         int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_material_lambertian(const std::string&         body,
+                                           const LineNumberContainer& line_numbers,
+                                           int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_material_layered(const std::string&         body,
+                                        const LineNumberContainer& line_numbers,
+                                        int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_material_transmissive_dielectric(const std::string&         body,
+                                                        const LineNumberContainer& line_numbers,
+                                                        int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_mesh(const std::string&         body,
+                            const LineNumberContainer& line_numbers,
+                            int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_plane(const std::string&         body,
+                             const LineNumberContainer& line_numbers,
+                             int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_primitive(const std::string&         body,
+                                 const LineNumberContainer& line_numbers,
+                                 int                        line_number_character_offset)
+{
+}
+
+void FileParser::parse_sphere(const std::string&         body,
+                              const LineNumberContainer& line_numbers,
+                              int                        line_number_character_offset)
+
+{
+}
+
+void FileParser::parse_sphere_light(const std::string&         body,
+                                    const LineNumberContainer& line_numbers,
+                                    int                        line_number_character_offset)
+{
 }
 
 // Returns the contents of the file with blank lines and comments stripped as well as an array which tells us which line
@@ -185,7 +292,7 @@ auto file_to_string(std::istream& ins)
     return std::make_pair(file_contents, line_numbers);
 }
 
-IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
+IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istream& ins)
 {
     // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
     // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
@@ -207,14 +314,17 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     // Sort these for binary search.
     // clang-format off
     constexpr const char* const valid_top_level_types[] = {
+        "environment_light",
         "instance",
         "material_lambertian",
         "material_layered",
         "material_transmissive_dielectric",
         "mesh",
         "perspective_camera",
+        "plane",
         "primitive",
-        "sphere"
+        "sphere",
+        "sphere_light"
     };
     // clang-format on
 
@@ -313,19 +423,8 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 
 Scene parse_file(std::istream& ins)
 {
-    using namespace std::literals;
-
-    try {
-        ins.exceptions(std::ios::badbit);
-        const auto intermediate = parse_intermediate_scene(ins);
-        return Scene{};
-    } catch (const ParsingException& e) {
-        throw;
-    } catch (const std::exception& e) {
-        throw ParsingException("Unexpected file parsing error: "s + e.what());
-    } catch (...) {
-        throw ParsingException("Unexpected file parsing error");
-    }
+    FileParser parser;
+    return parser.parse(ins);
 }
 
 } // namespace sp

@@ -31,6 +31,12 @@ ParsingException::ParsingException(const std::string& what_arg, int line_number)
 {
 }
 
+class InternalParsingException : public ParsingException
+{
+public:
+    using ParsingException::ParsingException;
+};
+
 namespace {
 
 bool is_whitespace(char c) noexcept
@@ -109,7 +115,7 @@ int parse_version(std::istream& ins, int line_number)
     ins >> token;
     const std::string& word = token;
     if (word != "version") {
-        throw ParsingException("Expecting version directive", line_number);
+        throw InternalParsingException("Expecting version directive");
     }
 
     consume_character(ins, ':', line_number);
@@ -185,18 +191,12 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     const auto [file_contents, line_numbers] = file_to_string(ins);
     std::istringstream cleaned_ins(file_contents);
 
-    Token version_token;
-    cleaned_ins >> version_token;
-    const std::string& version_word = version_token;
-
-    if (version_word != "version") {
+    int version = -1;
+    try {
+        version = parse_version(cleaned_ins, line_numbers[cleaned_ins.tellg()]);
+    } catch (const InternalParsingException&) {
         throw ParsingException("Expects version as first directive");
     }
-    consume_character(cleaned_ins, ':', line_numbers[cleaned_ins.tellg()]);
-
-    int version;
-    cleaned_ins >> version;
-
     if (version != 1) {
         throw ParsingException("Unable to parse version " + std::to_string(version));
     }

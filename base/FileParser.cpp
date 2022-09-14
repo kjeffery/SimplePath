@@ -43,13 +43,13 @@ class Token
     static bool is_valid_character(char c) noexcept
     {
         // This depends on the current locale, and I'm assuming something ASCII-like.
-        return c == '_' || std::isalnum(c) != 0;
+        return c == '_' || std::isalnum(static_cast<unsigned char>(c)) != 0;
     }
 
     static bool is_space(char c) noexcept
     {
         // This depends on the current locale, and I'm assuming something ASCII-like.
-        return std::isspace(c) != 0;
+        return std::isspace(static_cast<unsigned char>(c)) != 0;
     }
 
 public:
@@ -150,6 +150,15 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
         if (word == "origin") {
             Vector3 v{ no_init };
             ins >> v;
+        } else if (word == "lookat") {
+            Vector3 v{ no_init };
+            ins >> v;
+        } else if (word == "fov") {
+            float fov;
+            ins >> fov;
+        } else if (word == "focal_distance") {
+            float fd;
+            ins >> fd;
         }
     }
     return IntermediateSceneRepresentation::PerspectiveCamera{};
@@ -195,7 +204,7 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
         if (version != 1) {
             throw ParsingException("Unable to parse version " + std::to_string(version));
         }
-    } catch (const ParsingException& e) {
+    } catch (const ParsingException&) {
         throw ParsingException("Expects version as first directive");
     }
 

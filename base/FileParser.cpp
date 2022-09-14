@@ -46,9 +46,19 @@ class Token
         return c == '_' || std::isalnum(c) != 0;
     }
 
+    static bool is_space(char c) noexcept
+    {
+        // This depends on the current locale, and I'm assuming something ASCII-like.
+        return std::isspace(c) != 0;
+    }
+
 public:
     friend std::istream& operator>>(std::istream& ins, Token& token)
     {
+        while (is_space(ins.peek())) {
+            char c;
+            ins.get(c);
+        }
         while (is_valid_character(ins.peek())) {
             char c;
             ins.get(c);
@@ -176,6 +186,7 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
         assert(!trimmed.empty());
         assert(trimmed.find_first_of('#') == std::string_view::npos);
         file_contents.append(trimmed);
+        file_contents.push_back(' '); // We read and discard the '\n', so we need a deliminator.
     }
 
     std::istringstream cleaned_ins(file_contents);

@@ -8,6 +8,7 @@
 
 #include "../base/Constants.h"
 
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <ostream>
@@ -281,17 +282,17 @@ inline Vector3 rsqrt(const Vector3& a) noexcept
 
 inline Vector3 operator+(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_add_ps(a.m128, b.m128)};
+    return Vector3{ _mm_add_ps(a.m128, b.m128) };
 }
 
 inline Vector3 operator-(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_sub_ps(a.m128, b.m128)};
+    return Vector3{ _mm_sub_ps(a.m128, b.m128) };
 }
 
 inline Vector3 operator*(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_mul_ps(a.m128, b.m128)};
+    return Vector3{ _mm_mul_ps(a.m128, b.m128) };
 }
 
 inline Vector3 operator*(const Vector3& a, const float b) noexcept
@@ -306,27 +307,27 @@ inline Vector3 operator*(const float a, const Vector3& b) noexcept
 
 inline Vector3 operator/(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_div_ps(a.m128, b.m128)};
+    return Vector3{ _mm_div_ps(a.m128, b.m128) };
 }
 
 inline Vector3 operator/(const Vector3& a, const float b) noexcept
 {
-    return Vector3{_mm_div_ps(a.m128, _mm_set1_ps(b))};
+    return Vector3{ _mm_div_ps(a.m128, _mm_set1_ps(b)) };
 }
 
 inline Vector3 operator/(const float a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_div_ps(_mm_set1_ps(a), b.m128)};
+    return Vector3{ _mm_div_ps(_mm_set1_ps(a), b.m128) };
 }
 
 inline Vector3 min(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_min_ps(a.m128, b.m128)};
+    return Vector3{ _mm_min_ps(a.m128, b.m128) };
 }
 
 inline Vector3 max(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{_mm_max_ps(a.m128, b.m128)};
+    return Vector3{ _mm_max_ps(a.m128, b.m128) };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -336,22 +337,22 @@ inline Vector3 max(const Vector3& a, const Vector3& b) noexcept
 #if defined(__AVX2__) || defined(__ARM_NEON)
 inline Vector3 madd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
 {
-    return Vector3{_mm_fmadd_ps(a.m128, b.m128, c.m128)};
+    return Vector3{ _mm_fmadd_ps(a.m128, b.m128, c.m128) };
 }
 
 inline Vector3 msub(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
 {
-    return Vector3{_mm_fmsub_ps(a.m128, b.m128, c.m128)};
+    return Vector3{ _mm_fmsub_ps(a.m128, b.m128, c.m128) };
 }
 
 inline Vector3 nmadd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
 {
-    return Vector3{_mm_fnmadd_ps(a.m128, b.m128, c.m128)};
+    return Vector3{ _mm_fnmadd_ps(a.m128, b.m128, c.m128) };
 }
 
 inline Vector3 nmsub(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
 {
-    return Vector3{_mm_fnmsub_ps(a.m128, b.m128, c.m128)};
+    return Vector3{ _mm_fnmsub_ps(a.m128, b.m128, c.m128) };
 }
 #else
 inline Vector3 madd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
@@ -440,6 +441,60 @@ inline Vector3& operator/=(Vector3& a, const float b) noexcept
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// Reductions
+////////////////////////////////////////////////////////////////////////////////
+#if defined(__aarch64__)
+inline float reduce_add(const Vector3& v) noexcept
+{
+    float32x4_t t = v.m128;
+    t[3]          = 0.0f;
+    return vaddvq_f32(t);
+}
+
+inline float reduce_mul(const Vector3& v) noexcept
+{
+    return v.x * v.y * v.z;
+}
+
+inline float reduce_min(const Vector3& v) noexcept
+{
+    float32x4_t t = v.m128;
+    t[3]          = t[2];
+    return vminvq_f32(t);
+}
+
+inline float reduce_max(const Vector3& v) noexcept
+{
+    float32x4_t t = v.m128;
+    t[3]          = t[2];
+    return vmaxvq_f32(t);
+}
+#else
+inline float reduce_add(const Vector3& v) noexcept
+{
+    const Vector3 a(v.m128);
+    const Vector3 b = shuffle<1>(a);
+    const Vector3 c = shuffle<2>(a);
+    return _mm_cvtss_f32((a + b + c).m128);
+}
+
+inline float reduce_mul(const Vector3& v) noexcept
+{
+    return v.x * v.y * v.z;
+}
+
+inline float reduce_min(const Vector3& v) noexcept
+{
+    return std::ranges::min({v.x, v.y, v.z});
+}
+
+inline float reduce_max(const Vector3& v) noexcept
+{
+    return std::ranges::min({v.x, v.y, v.z});
+}
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
 /// Comparison Operators
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -463,7 +518,10 @@ inline float dot(const Vector3& a, const Vector3& b) noexcept
     return _mm_cvtss_f32(_mm_dp_ps(a.m128, b.m128, 0x7F));
 }
 #else
-#error Add reduce add
+inline float dot(const Vector3& a, const Vector3& b) noexcept
+{
+    return reduce_add(a * b);
+}
 #endif
 
 inline Vector3 cross(const Vector3& a, const Vector3& b) noexcept

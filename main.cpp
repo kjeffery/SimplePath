@@ -20,6 +20,8 @@ int main(const int argc, const char* const argv[])
     const auto c = cross(a, b);
                 //(1556.0276, -1257.5153, -75.1656)
 
+    const auto d = reduce_min(a);
+
     if (argc == 2) {
         if (std::string_view file_name{ argv[1] }; file_name == "-"sv) {
             sp::parse_file(std::cin);

@@ -8,11 +8,31 @@
 #include <iostream> // TODO: temp
 #include <istream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace sp {
+
+class ParsingException : public std::runtime_error
+{
+    static std::string parse_message(const std::string& what_arg, int line_number)
+    {
+        return what_arg + " on line " + std::to_string(line_number);
+    }
+
+public:
+    ParsingException(const std::string& what_arg)
+    : std::runtime_error(what_arg)
+    {
+    }
+
+    ParsingException(const std::string& what_arg, int line_number)
+    : std::runtime_error(parse_message(what_arg, line_number))
+    {
+    }
+};
 
 namespace {
 
@@ -29,11 +49,12 @@ class Token
 public:
     friend std::istream& operator>>(std::istream& ins, Token& token)
     {
-        if (is_valid_character(ins.peek())) {
+        while (is_valid_character(ins.peek())) {
             char c;
             ins.get(c);
             token.m_data.push_back(c);
         }
+        return ins;
     }
 
     operator const std::string&() const
@@ -46,6 +67,22 @@ public:
         return std::move(m_data);
     }
 };
+
+char consume_character(std::istream& ins, char expected, int line = -1)
+{
+    using namespace std::literals;
+
+    char c;
+    ins >> c;
+    if (c != expected) {
+        if (line >= 0) {
+            throw ParsingException("Expected '"s + expected + "' character"s, line);
+        } else {
+            throw ParsingException("Expected '"s + expected + "' character"s);
+        }
+    }
+    return c;
+}
 
 void parse_type(std::string_view type_id, std::istream& ins)
 {
@@ -64,17 +101,21 @@ struct IntermediateSceneRepresentation
 
 int parse_version(std::istream& ins)
 {
-    std::string word;
-    ins >> word;
-    if (word != "version:") {
-        throw 3;
+    Token token;
+    ins >> token;
+    const std::string& word = token;
+    if (word != "version") {
+        throw ParsingException("Expecting version directive");
     }
+
+    consume_character(ins, ':');
 
     int version;
     ins >> version;
     return version;
 }
 
+#if 0
 IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(std::istream& ins)
 {
     for (std::string word; ins;) {
@@ -87,6 +128,23 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(std:
     }
     return IntermediateSceneRepresentation::PerspectiveCamera{};
 }
+#else
+IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string& body)
+{
+    std::istringstream ins(body);
+    for (Token token; ins;) {
+        ins >> token;
+        consume_character(ins, ':');
+
+        const std::string& word = token;
+        if (word == "origin") {
+            Vector3 v{ no_init };
+            ins >> v;
+        }
+    }
+    return IntermediateSceneRepresentation::PerspectiveCamera{};
+}
+#endif
 
 enum class State
 {
@@ -121,22 +179,24 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     }
 
     std::istringstream cleaned_ins(file_contents);
-    const auto         version = parse_version(cleaned_ins);
-    if (version != 1) {
-        throw 4;
+    try {
+        const auto version = parse_version(cleaned_ins);
+        if (version != 1) {
+            throw ParsingException("Unable to parse version " + std::to_string(version));
+        }
+    } catch (const ParsingException& e) {
+        throw ParsingException("Expects version as first directive");
     }
 
-    for (std::string word; cleaned_ins;) {
-        cleaned_ins >> word;
+    for (Token token; cleaned_ins;) {
+        cleaned_ins >> token;
 
-        // Read opening '{'
-        char c;
-        cleaned_ins >> c;
-        if (c != '{') {
-            throw 8;
-        }
-        if (word.starts_with("perspective_camera")) {
-            parse_perspective_camera(cleaned_ins);
+        consume_character(cleaned_ins, '{');
+
+        const std::string& word = token;
+        if (std::string body; word.starts_with("perspective_camera")) {
+            std::getline(cleaned_ins, body, '}');
+            parse_perspective_camera(body);
         } else if (word.starts_with("material_transmissive_dielectric")) {
         } else if (word.starts_with("material_lambertian")) {
         } else if (word.starts_with("material_layered")) {
@@ -153,9 +213,19 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 
 Scene parse_file(std::istream& ins)
 {
-    ins.exceptions(std::ios::badbit);
-    const auto intermediate = parse_intermediate_scene(ins);
-    return Scene{};
+    using namespace std::literals;
+
+    try {
+        ins.exceptions(std::ios::badbit);
+        const auto intermediate = parse_intermediate_scene(ins);
+        return Scene{};
+    } catch (const ParsingException& e) {
+        throw;
+    } catch (const std::exception& e) {
+        throw ParsingException("Unexpected file parsing error: "s + e.what());
+    } catch (...) {
+        throw ParsingException("Unexpected file parsing error");
+    }
 }
 
 } // namespace sp

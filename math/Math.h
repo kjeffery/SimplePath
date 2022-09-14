@@ -24,7 +24,7 @@ inline float madd(float x, float y, float z) noexcept
 
 // Based on Matt Pharr's DifferenceOfProducts:
 // https://pharr.org/matt/blog/2019/11/03/difference-of-floats
-inline float difference_of_products(float a, float b, float c, float d)
+inline float difference_of_products(float a, float b, float c, float d) noexcept
 {
     const float cd  = c * d;
     const float err = sp::madd(-c, d, cd);
@@ -33,7 +33,7 @@ inline float difference_of_products(float a, float b, float c, float d)
 }
 
 // Intel's Embree library
-inline float rcp(const float x)
+inline float rcp(const float x) noexcept
 {
 #if defined(__aarch64__)
     // Move scalar to vector register and do rcp.
@@ -63,7 +63,7 @@ inline float rcp(const float x)
 }
 
 // Intel's Embree library
-inline float rsqrt(const float x)
+inline float rsqrt(const float x) noexcept
 {
 #if defined(__aarch64__)
     // FP and Neon shares same vector register in arm64

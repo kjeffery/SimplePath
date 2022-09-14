@@ -61,7 +61,6 @@ DisableFormat: false
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
 FixNamespaceComments: true
-IfMacros: [ 'IF_CONSTEXPR' ]
 IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^<.*/Platform\..*>'
@@ -117,7 +116,7 @@ IndentCaseBlocks: true
 IndentCaseLabels: false
 IndentExternBlock: Indent
 IndentGotoLabels: false
-IndentPPDirectives: AfterHash
+IndentPPDirectives: None
 #IndentRequiresClause: false
 IndentWrappedFunctionNames: false
 #InsertBraces: true
@@ -157,7 +156,7 @@ SpacesInLineCommentPrefix:
   Minimum: 1
   Maximum: -1
 SpacesInParentheses: false
-Standard: c++14
+Standard: c++20
 TabWidth: 4
 UseCRLF: false
 UseTab: Never

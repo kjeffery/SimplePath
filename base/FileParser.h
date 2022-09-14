@@ -2,8 +2,10 @@
 
 ///@author Keith Jeffery
 
+#include "Scene.h"
+
 #include <iosfwd>
 
 namespace sp {
-void parse_file(std::istream& ins);
+Scene parse_file(std::istream& ins);
 } // namespace sp

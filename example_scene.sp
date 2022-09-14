@@ -2,7 +2,7 @@ version: 1
 
 perspective_camera {
     origin: 0.0 10.0 -10.0
-    lookat: 0.0 0.0 0.0
+    look_at: 0.0 0.0 0.0
     fov: 45
     focal_distance: 10
 }

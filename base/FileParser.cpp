@@ -150,7 +150,7 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
         if (word == "origin") {
             Vector3 v{ no_init };
             ins >> v;
-        } else if (word == "lookat") {
+        } else if (word == "look_at") {
             Vector3 v{ no_init };
             ins >> v;
         } else if (word == "fov") {
@@ -159,34 +159,19 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
         } else if (word == "focal_distance") {
             float fd;
             ins >> fd;
+        } else {
+            throw ParsingException("Unknown perspective_camera attribute: " + word);
         }
     }
     return IntermediateSceneRepresentation::PerspectiveCamera{};
 }
 #endif
 
-enum class State
+std::string file_to_string(std::istream& ins)
 {
-    default_state,
-    read_version,
-    read_perspective_camera,
-    read_material_transmissive_dielectric,
-    read_material_lambertian,
-    read_material_layered,
-    read_mesh,
-    read_sphere,
-    read_primitive
-};
-
-IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
-{
-    State state{ State::read_version };
-
-    // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
-    // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
     std::string file_contents;
     for (std::string line; std::getline(ins, line);) {
-        auto trimmed = sp::trim(line);
+        auto trimmed = trim(line);
         if (trimmed.empty() || trimmed.starts_with('#')) {
             continue;
         }
@@ -197,7 +182,14 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
         file_contents.append(trimmed);
         file_contents.push_back(' '); // We read and discard the '\n', so we need a deliminator.
     }
+    return file_contents;
+}
 
+IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
+{
+    // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
+    // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
+    std::string file_contents = file_to_string(ins);
     std::istringstream cleaned_ins(file_contents);
     try {
         const auto version = parse_version(cleaned_ins);

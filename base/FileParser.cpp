@@ -107,16 +107,16 @@ struct IntermediateSceneRepresentation
     };
 };
 
-int parse_version(std::istream& ins)
+int parse_version(std::istream& ins, int line_number)
 {
     Token token;
     ins >> token;
     const std::string& word = token;
     if (word != "version") {
-        throw ParsingException("Expecting version directive");
+        throw ParsingException("Expecting version directive", line_number);
     }
 
-    consume_character(ins, ':');
+    consume_character(ins, ':', line_number);
 
     int version;
     ins >> version;
@@ -137,7 +137,9 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(std:
     return IntermediateSceneRepresentation::PerspectiveCamera{};
 }
 #else
-IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string& body)
+IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string&      body,
+                                                                            const std::vector<int>& line_numbers,
+                                                                            int line_number_character_offset)
 {
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
@@ -146,7 +148,7 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
         if (ins.eof()) {
             break;
         }
-        consume_character(ins, ':');
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
 
         const std::string& word = token;
         if (word == "origin") {
@@ -162,17 +164,21 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
             float fd;
             ins >> fd;
         } else {
-            throw ParsingException("Unknown perspective_camera attribute: " + word);
+            throw ParsingException("Unknown perspective_camera attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
         }
     }
     return IntermediateSceneRepresentation::PerspectiveCamera{};
 }
 #endif
 
+// Returns the contents of the file with blank lines and comments stripped as well as an array which tells us which line
+// each character came from within the file. This structure is monotonic, and could definitely be compressed if we
+// cared.
 auto file_to_string(std::istream& ins)
 {
     std::string      file_contents;
-    std::vector<int> line_numbers;
+    std::vector<int> line_numbers; // Has an entry for each character in file_contents
     int              line_number = 0;
     for (std::string line; std::getline(ins, line);) {
         ++line_number;
@@ -197,13 +203,15 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
     const auto [file_contents, line_numbers] = file_to_string(ins);
     std::istringstream cleaned_ins(file_contents);
+
+    int version = -1;
     try {
-        const auto version = parse_version(cleaned_ins);
-        if (version != 1) {
-            throw ParsingException("Unable to parse version " + std::to_string(version));
-        }
+        version = parse_version(cleaned_ins, line_numbers[cleaned_ins.tellg()]);
     } catch (const ParsingException&) {
         throw ParsingException("Expects version as first directive");
+    }
+    if (version != 1) {
+        throw ParsingException("Unable to parse version " + std::to_string(version));
     }
 
     for (Token token; cleaned_ins;) {
@@ -214,10 +222,13 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 
         consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
 
+        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
+        // lookups before we read our subsection and convey this to the called functions.
         const std::string& word = token;
         if (std::string body; word.starts_with("perspective_camera")) {
+            const auto offset = cleaned_ins.tellg();
             std::getline(cleaned_ins, body, '}');
-            parse_perspective_camera(body);
+            parse_perspective_camera(body, line_numbers, offset);
         } else if (word.starts_with("material_transmissive_dielectric")) {
             std::getline(cleaned_ins, body, '}');
         } else if (word.starts_with("material_lambertian")) {

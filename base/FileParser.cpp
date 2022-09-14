@@ -33,6 +33,12 @@ ParsingException::ParsingException(const std::string& what_arg, int line_number)
 
 namespace {
 
+bool is_whitespace(char c) noexcept
+{
+    // This depends on the current locale, and I'm assuming something ASCII-like.
+    return std::isspace(static_cast<unsigned char>(c)) != 0;
+}
+
 class Token
 {
     std::string m_data;
@@ -43,17 +49,11 @@ class Token
         return c == '_' || std::isalnum(static_cast<unsigned char>(c)) != 0;
     }
 
-    static bool is_space(char c) noexcept
-    {
-        // This depends on the current locale, and I'm assuming something ASCII-like.
-        return std::isspace(static_cast<unsigned char>(c)) != 0;
-    }
-
 public:
     friend std::istream& operator>>(std::istream& ins, Token& token)
     {
         token.m_data.clear();
-        while (is_space(ins.peek())) {
+        while (is_whitespace(ins.peek())) {
             char c;
             ins.get(c);
         }
@@ -92,10 +92,6 @@ char consume_character(std::istream& ins, char expected, int line = -1)
     return c;
 }
 
-void parse_type(std::string_view type_id, std::istream& ins)
-{
-}
-
 struct IntermediateSceneRepresentation
 {
     struct PerspectiveCamera
@@ -123,20 +119,6 @@ int parse_version(std::istream& ins, int line_number)
     return version;
 }
 
-#if 0
-IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(std::istream& ins)
-{
-    for (std::string word; ins;) {
-        ins >> word;
-        const auto trimmed = sp::trim_end(word, ':');
-        if (trimmed.starts_with("origin")) {
-            Vector3 v{ no_init };
-            ins >> v;
-        }
-    }
-    return IntermediateSceneRepresentation::PerspectiveCamera{};
-}
-#else
 IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string&      body,
                                                                             const std::vector<int>& line_numbers,
                                                                             int line_number_character_offset)
@@ -170,7 +152,6 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
     }
     return IntermediateSceneRepresentation::PerspectiveCamera{};
 }
-#endif
 
 // Returns the contents of the file with blank lines and comments stripped as well as an array which tells us which line
 // each character came from within the file. This structure is monotonic, and could definitely be compressed if we
@@ -204,12 +185,18 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
     const auto [file_contents, line_numbers] = file_to_string(ins);
     std::istringstream cleaned_ins(file_contents);
 
-    int version = -1;
-    try {
-        version = parse_version(cleaned_ins, line_numbers[cleaned_ins.tellg()]);
-    } catch (const ParsingException&) {
+    Token version_token;
+    cleaned_ins >> version_token;
+    const std::string& version_word = version_token;
+
+    if (version_word != "version") {
         throw ParsingException("Expects version as first directive");
     }
+    consume_character(cleaned_ins, ':', line_numbers[cleaned_ins.tellg()]);
+
+    int version;
+    cleaned_ins >> version;
+
     if (version != 1) {
         throw ParsingException("Unable to parse version " + std::to_string(version));
     }

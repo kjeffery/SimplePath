@@ -11,9 +11,17 @@
 
 namespace fs = std::filesystem;
 
+void enable_pretty_printing(std::ostream& outs)
+{
+    // Enable pretty-printing of our types.
+    outs.iword(sp::k_pretty_print_key) = 1;
+}
+
 int main(const int argc, const char* const argv[])
 {
     using namespace std::literals;
+
+    enable_pretty_printing(std::cout);
 
     sp::Vector3 a{33962.035f, 41563.4f, 7706.415f};
     sp::Vector3 b{-24871.969f, -30438.8f, -5643.727f};

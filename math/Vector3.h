@@ -7,6 +7,7 @@
 #include "Math.h"
 
 #include "../base/Constants.h"
+#include "../base/Util.h"
 
 #include <algorithm>
 #include <cassert>
@@ -611,12 +612,26 @@ inline int max_dim(const Vector3& a) noexcept
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Output Operators
+/// Input/Output Operators
 ////////////////////////////////////////////////////////////////////////////////
 
 inline std::ostream& operator<<(std::ostream& outs, const Vector3& a)
 {
-    return outs << "(" << a.x << ", " << a.y << ", " << a.z << ")";
+    if (outs.iword(sp::k_pretty_print_key)) {
+        return outs << '(' << a.x << ", " << a.y << ", " << a.z << ')';
+    } else {
+        // This version is compatible with the input operator.
+        return outs << a.x << ' ' << a.y << ' ' << a.z;
+    }
+}
+
+inline std::istream& operator>>(std::istream& ins, Vector3& a)
+{
+    float x;
+    float y;
+    float z;
+    a = Vector3{x, y, z};
+    return ins;
 }
 
 } // namespace sp

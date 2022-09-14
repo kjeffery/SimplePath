@@ -1,3 +1,5 @@
+version: 1
+
 perspective_camera {
     origin: 0.0 10.0 -10.0
     lookat: 0.0 0.0 0.0
@@ -32,7 +34,7 @@ sphere {
 }
 
 primitive {
-    transform4x4: 1.0 0.0 0.0 0.0
+    transform4x4: 1.0 0.0 0.0 0.0 # We need 16 values
                   0.0 1.0 0.0 0.0
                   0.0 0.0 1.0 0.0
                   0.0 0.0 0.0 1.0

@@ -9,6 +9,7 @@
 #include <istream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace sp {
 
@@ -21,12 +22,25 @@ struct IntermediateSceneRepresentation
 {
     struct PerspectiveCamera
     {
-        //Point3  origin;
+        // Point3  origin;
         Vector3 lookat;
         float   fov;
         float   focal_distance;
     };
 };
+
+int parse_version(std::istream& ins)
+{
+    std::string word;
+    ins >> word;
+    if (word != "version:") {
+        throw 3;
+    }
+
+    int version;
+    ins >> version;
+    return version;
+}
 
 IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(const std::string& body)
 {
@@ -43,23 +57,54 @@ IntermediateSceneRepresentation::PerspectiveCamera parse_perspective_camera(cons
                 throw 3;
             }
             std::cout << trimmed.substr(start + 1) << '\n';
-
         }
     }
-
 }
+
+enum class State
+{
+    default_state,
+    read_version,
+    read_perspective_camera,
+    read_material_transmissive_dielectric,
+    read_material_lambertian,
+    read_material_layered,
+    read_mesh,
+    read_sphere,
+    read_primitive
+};
 
 IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
 {
+    State state{State::read_version};
+
+    // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
+    // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
+    std::string file_contents;
     for (std::string line; std::getline(ins, line);) {
-        const auto trimmed = sp::trim(line);
+        auto trimmed = sp::trim(line);
         if (trimmed.empty() || trimmed.starts_with('#')) {
             continue;
         }
 
-        if (std::string body; trimmed.starts_with("perspective_camera")) {
-            std::getline(ins, body, '}');
-            parse_perspective_camera(body);
+        trimmed = trim_end(trimmed, '#'); // This shouldn't create an empty string: it should have been caught before.
+        assert(!trimmed.empty());
+        assert(trimmed.find_first_of('#') == std::string_view::npos);
+        file_contents.append(trimmed);
+    }
+
+    std::istringstream cleaned_ins(file_contents);
+    const auto version = parse_version(cleaned_ins);
+    if (version != 1) {
+        throw 4;
+    }
+
+    for (std::string word; cleaned_ins;) {
+        cleaned_ins >> word;
+        const auto trimmed = sp::trim_end(word, ':');
+
+        if (trimmed.starts_with("perspective_camera")) {
+            //parse_perspective_camera(body);
             //std::cout << body << '\n';
         } else if (trimmed.starts_with("material_transmissive_dielectric")) {
         } else if (trimmed.starts_with("material_lambertian")) {
@@ -68,8 +113,6 @@ IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins)
         } else if (trimmed.starts_with("sphere")) {
         } else if (trimmed.starts_with("primitive")) {
         }
-
-        //std::cout << trimmed << '\n';
     }
 
     return IntermediateSceneRepresentation{};

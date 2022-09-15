@@ -11,6 +11,7 @@
 #include <iostream> // TODO: temp
 #include <istream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -150,9 +151,10 @@ public:
 
 private:
     using LineNumberContainer = std::vector<int>;
-    using ParseFunction       = void (FileParser::*)(const std::string&, const LineNumberContainer& line_numbers, int);
+    using ParseFunction       = void (FileParser::*)(const std::string&, const LineNumberContainer&, int);
 
     IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins);
+    void                            parse_pass(const std::set<std::string>&, std::istream&, const LineNumberContainer&);
 
     void parse_environment_light(const std::string&, const LineNumberContainer&, int);
     void parse_instance(const std::string&, const LineNumberContainer&, int);
@@ -167,7 +169,7 @@ private:
     void parse_sphere_light(const std::string&, const LineNumberContainer&, int);
 
     // TODO: This could be static
-    std::map<const char* const, ParseFunction> m_parse_function_lookup;
+    std::map<std::string, ParseFunction> m_parse_function_lookup;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -186,6 +188,31 @@ Scene FileParser::parse(std::istream& ins)
     }
 
     return Scene{};
+}
+
+void FileParser::parse_pass(const std::set<std::string>& active_types,
+                            std::istream&                ins,
+                            const LineNumberContainer&   line_numbers)
+{
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+
+        consume_character(ins, '{', line_numbers[ins.tellg()]);
+
+        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
+        // lookups before we read our subsection and convey this to the called functions.
+        const std::string& word = token;
+        if (std::string body; active_types.contains(word)) {
+            const auto offset = ins.tellg();
+            std::getline(ins, body, '}');
+            assert(m_parse_function_lookup.contains(word));
+            auto fn = m_parse_function_lookup[word];
+            (this->*fn)(body, line_numbers, offset);
+        }
+    }
 }
 
 void FileParser::parse_environment_light(const std::string&         body,
@@ -345,7 +372,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
 
     static constexpr bool types_are_sorted =
         std::is_sorted(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types));
-    static_assert(types_are_sorted);
+    static_assert(types_are_sorted, "We binary search this data: it needs to be sorted");
 
     // First pass to check for invalid types.
     for (Token token; cleaned_ins;) {
@@ -365,71 +392,40 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
         std::getline(cleaned_ins, body_unused, '}');
     }
 
-    // First parse materials and cameras.
+    // First parse non-layered materials, lights, and cameras.
     cleaned_ins.seekg(post_version_offset);
-    for (Token token; cleaned_ins;) {
-        cleaned_ins >> token;
-        if (cleaned_ins.eof()) {
-            break;
-        }
-
-        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
-
-        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
-        // lookups before we read our subsection and convey this to the called functions.
-        const std::string& word = token;
-        if (std::string body; word == "perspective_camera") {
-            const auto offset = cleaned_ins.tellg();
-            std::getline(cleaned_ins, body, '}');
-            parse_perspective_camera(body, line_numbers, offset);
-        } else if (word == "material_transmissive_dielectric") {
-            std::getline(cleaned_ins, body, '}');
-        } else if (word == "material_lambertian") {
-            std::getline(cleaned_ins, body, '}');
-        }
-    }
+    // clang-format off
+    const std::set<std::string> pass_types0 = {
+        "environment_light",
+        "material_lambertian",
+        "material_transmissive_dielectric",
+        "mesh",
+        "perspective_camera",
+        "plane",
+        "sphere",
+        "sphere_light"
+    };
+    // clang-format on
+    parse_pass(pass_types0, cleaned_ins, line_numbers);
 
     // Parse layered materials (after "basic" materials have been parsed).
     cleaned_ins.seekg(post_version_offset);
-    for (Token token; cleaned_ins;) {
-        cleaned_ins >> token;
-        if (cleaned_ins.eof()) {
-            break;
-        }
+    // clang-format off
+    const std::set<std::string> pass_types1 = {
+        "material_layered"
+    };
+    // clang-format on
+    parse_pass(pass_types1, cleaned_ins, line_numbers);
 
-        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
-
-        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
-        // lookups before we read our subsection and convey this to the called functions.
-        const std::string& word = token;
-        if (std::string body; word == "material_layered") {
-            std::getline(cleaned_ins, body, '}');
-        }
-    }
-
-    // Parse geometry
+    // Parse primitives and instances (after geometry has already been parsed).
     cleaned_ins.seekg(post_version_offset);
-    for (Token token; cleaned_ins;) {
-        cleaned_ins >> token;
-        if (cleaned_ins.eof()) {
-            break;
-        }
-
-        consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
-
-        // We are going to look at a subsection of the stream data. We have to remember of character offset for line
-        // lookups before we read our subsection and convey this to the called functions.
-        const std::string& word = token;
-        if (std::string body; word == "mesh") {
-            std::getline(cleaned_ins, body, '}');
-        } else if (word == "sphere") {
-            std::getline(cleaned_ins, body, '}');
-        } else if (word == "primitive") {
-            std::getline(cleaned_ins, body, '}');
-        } else if (word == "instance") {
-            std::getline(cleaned_ins, body, '}');
-        }
-    }
+    // clang-format off
+    const std::set<std::string> pass_types2 = {
+        "instance",
+        "primitive"
+    };
+    // clang-format on
+    parse_pass(pass_types2, cleaned_ins, line_numbers);
 
     return IntermediateSceneRepresentation{};
 }

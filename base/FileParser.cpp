@@ -135,20 +135,20 @@ class FileParser
 public:
     FileParser()
     {
-        m_parse_function_lookup.emplace("environment_light", &FileParser::parse_environment_light);
-        m_parse_function_lookup.emplace("instance", &FileParser::parse_instance);
-        m_parse_function_lookup.emplace("material_lambertian", &FileParser::parse_material_lambertian);
-        m_parse_function_lookup.emplace("material_layered", &FileParser::parse_material_layered);
-        m_parse_function_lookup.emplace("material_transmissive_dielectric",
-                                        &FileParser::parse_material_transmissive_dielectric);
-        m_parse_function_lookup.emplace("mesh", &FileParser::parse_mesh);
-        m_parse_function_lookup.emplace("perspective_camera", &FileParser::parse_perspective_camera);
-        m_parse_function_lookup.emplace("plane", &FileParser::parse_plane);
-        m_parse_function_lookup.emplace("primitive", &FileParser::parse_primitive);
-        m_parse_function_lookup.emplace("sphere", &FileParser::parse_sphere);
-        m_parse_function_lookup.emplace("sphere_light", &FileParser::parse_sphere_light);
+        m_parse_function_lookup.try_emplace("environment_light", &FileParser::parse_environment_light);
+        m_parse_function_lookup.try_emplace("instance", &FileParser::parse_instance);
+        m_parse_function_lookup.try_emplace("material_lambertian", &FileParser::parse_material_lambertian);
+        m_parse_function_lookup.try_emplace("material_layered", &FileParser::parse_material_layered);
+        m_parse_function_lookup.try_emplace("material_transmissive_dielectric",
+                                            &FileParser::parse_material_transmissive_dielectric);
+        m_parse_function_lookup.try_emplace("mesh", &FileParser::parse_mesh);
+        m_parse_function_lookup.try_emplace("perspective_camera", &FileParser::parse_perspective_camera);
+        m_parse_function_lookup.try_emplace("plane", &FileParser::parse_plane);
+        m_parse_function_lookup.try_emplace("primitive", &FileParser::parse_primitive);
+        m_parse_function_lookup.try_emplace("sphere", &FileParser::parse_sphere);
+        m_parse_function_lookup.try_emplace("sphere_light", &FileParser::parse_sphere_light);
 
-        for (const auto& s: valid_top_level_types) {
+        for (const auto& s : valid_top_level_types) {
             assert(m_parse_function_lookup.contains(std::string(s)));
         }
     }
@@ -157,10 +157,11 @@ public:
 
 private:
     using LineNumberContainer = std::vector<int>;
+    using StringSet           = std::set<std::string, std::less<>>;
     using ParseFunction       = void (FileParser::*)(const std::string&, const LineNumberContainer&, int);
 
     IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins);
-    void                            parse_pass(const std::set<std::string>&, std::istream&, const LineNumberContainer&);
+    void                            parse_pass(const StringSet&, std::istream&, const LineNumberContainer&);
 
     void parse_environment_light(const std::string&, const LineNumberContainer&, int);
     void parse_instance(const std::string&, const LineNumberContainer&, int);
@@ -175,7 +176,7 @@ private:
     void parse_sphere_light(const std::string&, const LineNumberContainer&, int);
 
     // TODO: This could be static
-    std::map<std::string, ParseFunction> m_parse_function_lookup;
+    std::map<std::string, ParseFunction, std::less<>> m_parse_function_lookup;
 
     // Sort these for binary search.
     // clang-format off
@@ -219,9 +220,7 @@ Scene FileParser::parse(std::istream& ins)
     return Scene{};
 }
 
-void FileParser::parse_pass(const std::set<std::string>& active_types,
-                            std::istream&                ins,
-                            const LineNumberContainer&   line_numbers)
+void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, const LineNumberContainer& line_numbers)
 {
     for (Token token; ins;) {
         ins >> token;
@@ -237,9 +236,9 @@ void FileParser::parse_pass(const std::set<std::string>& active_types,
 
         // We are going to look at a subsection of the stream data. We have to remember of character offset for line
         // lookups before we read our subsection and convey this to the called functions.
-        const std::string& word = token;
-        const auto offset = ins.tellg();
-        std::string body;
+        const std::string& word   = token;
+        const auto         offset = ins.tellg();
+        std::string        body;
         std::getline(ins, body, '}');
         if (active_types.contains(word)) {
             assert(m_parse_function_lookup.contains(word));
@@ -396,8 +395,8 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
 
         consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
 
-        const std::string& word = token;
-        if (!std::binary_search(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types), word)) {
+        if (const std::string& word = token;
+            !std::binary_search(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types), word)) {
             throw ParsingException("Unknown type '" + word + "'", line_numbers[cleaned_ins.tellg()]);
         }
 
@@ -409,7 +408,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
-    const std::set<std::string> pass_types0 = {
+    const StringSet pass_types0 = {
         "environment_light",
         "material_lambertian",
         "material_transmissive_dielectric",
@@ -426,7 +425,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
-    const std::set<std::string> pass_types1 = {
+    const StringSet pass_types1 = {
         "material_layered"
     };
     // clang-format on
@@ -436,7 +435,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
-    const std::set<std::string> pass_types2 = {
+    const StringSet pass_types2 = {
         "instance",
         "primitive"
     };

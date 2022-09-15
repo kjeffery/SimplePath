@@ -22,6 +22,29 @@ inline std::string_view trim(std::string_view s) noexcept
     return s.substr(first, (last - first + 1));
 }
 
+inline std::string_view trim_end(std::string_view s, const char character) noexcept
+{
+    if (s.empty()) {
+        return s;
+    }
+
+    const auto pos{s.find_first_of(character)};
+    if (pos == std::string_view::npos) {
+        return s;
+    }
+    return s.substr(0, pos);
+}
+
+template <typename T>
+struct Uninitialized
+{
+    operator T() &&
+    {
+        T t;
+        return t;
+    }
+};
+
 // An iword index for determining if we're doing pretty printing.
 const int k_pretty_print_key = std::ios_base::xalloc();
 }

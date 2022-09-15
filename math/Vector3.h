@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <istream>
 #include <limits>
 #include <ostream>
 
@@ -486,12 +487,12 @@ inline float reduce_mul(const Vector3& v) noexcept
 
 inline float reduce_min(const Vector3& v) noexcept
 {
-    return std::ranges::min({v.x, v.y, v.z});
+    return std::ranges::min({ v.x, v.y, v.z });
 }
 
 inline float reduce_max(const Vector3& v) noexcept
 {
-    return std::ranges::min({v.x, v.y, v.z});
+    return std::ranges::min({ v.x, v.y, v.z });
 }
 #endif
 
@@ -630,8 +631,22 @@ inline std::istream& operator>>(std::istream& ins, Vector3& a)
     float x;
     float y;
     float z;
-    a = Vector3{x, y, z};
+    ins >> x >> y >> z;
+    a = Vector3{ x, y, z };
     return ins;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+/// Creation Operators
+////////////////////////////////////////////////////////////////////////////////
+
+template <>
+struct Uninitialized<Vector3>
+{
+    operator Vector3() &&
+    {
+        return Vector3{ no_init };
+    }
+};
 
 } // namespace sp

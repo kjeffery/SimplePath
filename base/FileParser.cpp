@@ -197,8 +197,7 @@ private:
     // clang-format on
 
 #if __cpp_lib_constexpr_algorithms >= 201806L
-    static_assert(std::is_sorted(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types)),
-                  "We binary search this data: it needs to be sorted");
+    static_assert(std::ranges::is_sorted(valid_top_level_types), "We binary search this data: it needs to be sorted");
 #endif
 };
 
@@ -395,8 +394,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
 
         consume_character(cleaned_ins, '{', line_numbers[cleaned_ins.tellg()]);
 
-        if (const std::string& word = token;
-            !std::binary_search(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types), word)) {
+        if (const std::string& word = token; !std::ranges::binary_search(valid_top_level_types, word)) {
             throw ParsingException("Unknown type '" + word + "'", line_numbers[cleaned_ins.tellg()]);
         }
 

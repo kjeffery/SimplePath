@@ -29,8 +29,27 @@ mesh {
     file: "bunny.ply"
 }
 
+mesh {
+    name: "lucy mesh"
+    file: "lucy.ply"
+}
+
 sphere {
     name: "my sphere"
+}
+
+plane {
+    name: "my plane"
+}
+
+sphere_light {
+    translate: 10.0 15.0 0.0
+    radiance: 10.0 10.0 15.0
+}
+
+environment_light {
+    rotate: 0.0 1.0 0.0 45.0
+    radiance: 1.0 1.0 1.3
 }
 
 primitive {
@@ -51,3 +70,26 @@ primitive {
     material: "base"
 }
 
+primitive {
+    # Transformations are applied in order listed in the file
+    geometry: "my plane"
+    material: "base"
+}
+
+instance {
+    # Transformations are applied in order listed in the file
+    translate: 10.0 -10.5 0.0
+    rotate: 0.0 1.0 0.0 45.0
+    scale: 10.0 10.0 10.0
+    geometry: "lucy mesh"
+    material: "base"
+}
+
+instance {
+    # Transformations are applied in order listed in the file
+    translate: 10.0 10.5 0.0
+    rotate: 0.0 1.0 0.0 -45.0
+    scale: 10.0 10.0 10.0
+    geometry: "lucy mesh"
+    material: "base"
+}

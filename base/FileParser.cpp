@@ -401,6 +401,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     }
 
     // First parse non-layered materials, lights, and cameras.
+    cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
     const std::set<std::string> pass_types0 = {
@@ -417,6 +418,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     parse_pass(pass_types0, cleaned_ins, line_numbers);
 
     // Parse layered materials (after "basic" materials have been parsed).
+    cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
     const std::set<std::string> pass_types1 = {
@@ -426,6 +428,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     parse_pass(pass_types1, cleaned_ins, line_numbers);
 
     // Parse primitives and instances (after geometry has already been parsed).
+    cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
     const std::set<std::string> pass_types2 = {

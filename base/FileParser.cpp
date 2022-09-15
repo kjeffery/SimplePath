@@ -118,8 +118,7 @@ int parse_version(std::istream& ins, int line_number)
 {
     Token token;
     ins >> token;
-    const std::string& word = token;
-    if (word != "version") {
+    if (const std::string& word = token; word != "version") {
         throw InternalParsingException("Expecting version directive");
     }
 

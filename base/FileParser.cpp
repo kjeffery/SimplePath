@@ -21,7 +21,7 @@ using namespace std::literals;
 
 namespace sp {
 
-std::string ParsingException::parse_message(const std::string& what_arg, int line_number)
+std::string ParsingException::create_parse_message(const std::string& what_arg, int line_number)
 {
     return what_arg + " on line " + std::to_string(line_number);
 }
@@ -32,7 +32,7 @@ ParsingException::ParsingException(const std::string& what_arg)
 }
 
 ParsingException::ParsingException(const std::string& what_arg, int line_number)
-: std::runtime_error(parse_message(what_arg, line_number))
+: std::runtime_error(create_parse_message(what_arg, line_number))
 {
 }
 
@@ -147,9 +147,11 @@ public:
         m_parse_function_lookup.try_emplace("sphere", &FileParser::parse_sphere);
         m_parse_function_lookup.try_emplace("sphere_light", &FileParser::parse_sphere_light);
 
+#if !defined(NDEBUG)
         for (const auto& s : valid_top_level_types) {
-            assert(m_parse_function_lookup.contains(std::string(s)));
+            assert(m_parse_function_lookup.contains(s));
         }
+#endif
     }
 
     Scene parse(std::istream& ins);

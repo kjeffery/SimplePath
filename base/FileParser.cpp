@@ -231,12 +231,17 @@ void FileParser::parse_pass(const std::set<std::string>& active_types,
 
         consume_character(ins, '{', line_numbers[ins.tellg()]);
 
+        // Every top-level type in the scene description has a "{}" delineated body except for "version". We have to
+        // eat this body regardless of whether we parse it in this pass or not in order to set up for the next top-level
+        // type.
+
         // We are going to look at a subsection of the stream data. We have to remember of character offset for line
         // lookups before we read our subsection and convey this to the called functions.
         const std::string& word = token;
-        if (std::string body; active_types.contains(word)) {
-            const auto offset = ins.tellg();
-            std::getline(ins, body, '}');
+        const auto offset = ins.tellg();
+        std::string body;
+        std::getline(ins, body, '}');
+        if (active_types.contains(word)) {
             assert(m_parse_function_lookup.contains(word));
             auto fn = m_parse_function_lookup[word];
             (this->*fn)(body, line_numbers, offset);

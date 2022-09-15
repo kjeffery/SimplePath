@@ -190,7 +190,7 @@ inline Vector3 shuffle(const Vector3& v) noexcept
 template <int i0, int i1, int i2, int i3>
 inline Vector3 shuffle(const Vector3& a, const Vector3& b) noexcept
 {
-    return Vector3{ _mm_shuffle_ps(a, b, _MM_SHUFFLE(i3, i2, i1, i0)) };
+    return Vector3{ _mm_shuffle_ps(a.m128, b.m128, _MM_SHUFFLE(i3, i2, i1, i0)) };
 }
 #endif
 

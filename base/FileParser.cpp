@@ -17,6 +17,8 @@
 #include <utility>
 #include <vector>
 
+using namespace std::literals;
+
 namespace sp {
 
 std::string ParsingException::parse_message(const std::string& what_arg, int line_number)
@@ -145,6 +147,10 @@ public:
         m_parse_function_lookup.emplace("primitive", &FileParser::parse_primitive);
         m_parse_function_lookup.emplace("sphere", &FileParser::parse_sphere);
         m_parse_function_lookup.emplace("sphere_light", &FileParser::parse_sphere_light);
+
+        for (const auto& s: valid_top_level_types) {
+            assert(m_parse_function_lookup.contains(std::string(s)));
+        }
     }
 
     Scene parse(std::istream& ins);
@@ -170,6 +176,29 @@ private:
 
     // TODO: This could be static
     std::map<std::string, ParseFunction> m_parse_function_lookup;
+
+    // Sort these for binary search.
+    // clang-format off
+    //static constexpr std::string valid_top_level_types[] = {
+    static constexpr std::string_view valid_top_level_types[] = {
+        "environment_light"sv,
+        "instance"sv,
+        "material_lambertian"sv,
+        "material_layered"sv,
+        "material_transmissive_dielectric"sv,
+        "mesh"sv,
+        "perspective_camera"sv,
+        "plane"sv,
+        "primitive"sv,
+        "sphere"sv,
+        "sphere_light"sv
+    };
+    // clang-format on
+
+#if __cpp_lib_constexpr_algorithms >= 201806L
+    static_assert(std::is_sorted(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types)),
+                  "We binary search this data: it needs to be sorted");
+#endif
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -352,27 +381,6 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     }
 
     const auto post_version_offset = cleaned_ins.tellg();
-
-    // Sort these for binary search.
-    // clang-format off
-    constexpr const char* const valid_top_level_types[] = {
-        "environment_light",
-        "instance",
-        "material_lambertian",
-        "material_layered",
-        "material_transmissive_dielectric",
-        "mesh",
-        "perspective_camera",
-        "plane",
-        "primitive",
-        "sphere",
-        "sphere_light"
-    };
-    // clang-format on
-
-    static constexpr bool types_are_sorted =
-        std::is_sorted(std::cbegin(valid_top_level_types), std::cend(valid_top_level_types));
-    static_assert(types_are_sorted, "We binary search this data: it needs to be sorted");
 
     // First pass to check for invalid types.
     for (Token token; cleaned_ins;) {

@@ -658,6 +658,16 @@ using Point3  = BaseVector3<VectorType::point>;
 /// Binary Operators
 ////////////////////////////////////////////////////////////////////////////////
 
+inline Point3 operator+(const Point3& a, const Vector3& b) noexcept
+{
+    return Point3{ _mm_add_ps(a.m128, b.m128) };
+}
+
+inline Point3 operator+(const Vector3& a, const Point3& b) noexcept
+{
+    return b + a;
+}
+
 inline Vector3 operator-(const Point3& a, const Point3& b) noexcept
 {
     return Vector3{ _mm_sub_ps(a.m128, b.m128) };

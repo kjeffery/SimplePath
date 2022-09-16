@@ -2,7 +2,7 @@
 
 ///@author Keith Jeffery
 
-// Based on Intel's Embree Vec3fa
+// Based on Intel Embree's Vec3fa
 
 #include "Math.h"
 
@@ -19,7 +19,15 @@
 
 namespace sp {
 
-struct alignas(16) Vector3
+enum class VectorType
+{
+    vector,
+    point,
+    normal
+};
+
+template <VectorType>
+struct alignas(16) BaseVector3
 {
     static constexpr int N = 3;
 
@@ -39,42 +47,42 @@ struct alignas(16) Vector3
     /// Constructors, Assignment & Cast Operators
     ////////////////////////////////////////////////////////////////////////////////
 
-    Vector3() noexcept
+    BaseVector3() noexcept
     : m128(_mm_setzero_ps())
     {
     }
 
-    explicit Vector3(NoInitType) noexcept
+    explicit BaseVector3(NoInitType) noexcept
     {
     }
 
-    explicit Vector3(const __m128 a) noexcept
+    explicit BaseVector3(const __m128 a) noexcept
     : m128(a)
     {
     }
 
-    Vector3(const Vector3& other) noexcept
+    BaseVector3(const BaseVector3& other) noexcept
     : m128(other.m128)
     {
     }
 
-    Vector3& operator=(const Vector3& other) noexcept
+    BaseVector3& operator=(const BaseVector3& other) noexcept
     {
         m128 = other.m128;
         return *this;
     }
 
-    explicit Vector3(const float a) noexcept
+    explicit BaseVector3(const float a) noexcept
     : m128(_mm_set1_ps(a))
     {
     }
 
-    Vector3(const float x, const float y, const float z) noexcept
+    BaseVector3(const float x, const float y, const float z) noexcept
     : m128(_mm_set_ps(0, z, y, x))
     {
     }
 
-    explicit Vector3(const __m128i a) noexcept
+    explicit BaseVector3(const __m128i a) noexcept
     : m128(_mm_cvtepi32_ps(a))
     {
     }
@@ -83,23 +91,23 @@ struct alignas(16) Vector3
     /// Loads and Stores
     ////////////////////////////////////////////////////////////////////////////////
 
-    static Vector3 load(const void* const a) noexcept
+    static BaseVector3 load(const void* const a) noexcept
     {
 #if defined(__aarch64__)
         __m128 t = _mm_load_ps((float*)a);
         t[3]     = 0.0f;
-        return Vector3(t);
+        return BaseVector3(t);
 #else
-        return Vector3(_mm_and_ps(_mm_load_ps((float*)a), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))));
+        return BaseVector3(_mm_and_ps(_mm_load_ps((float*)a), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))));
 #endif
     }
 
-    static Vector3 loadu(const void* const a) noexcept
+    static BaseVector3 loadu(const void* const a) noexcept
     {
-        return Vector3(_mm_loadu_ps((float*)a));
+        return BaseVector3(_mm_loadu_ps((float*)a));
     }
 
-    static void storeu(void* ptr, const Vector3& v) noexcept
+    static void storeu(void* ptr, const BaseVector3& v) noexcept
     {
         _mm_storeu_ps((float*)ptr, v.m128);
     }
@@ -108,24 +116,24 @@ struct alignas(16) Vector3
     /// Constants
     ////////////////////////////////////////////////////////////////////////////////
 
-    static Vector3 zero() noexcept
+    static BaseVector3 zero() noexcept
     {
-        return Vector3{};
+        return BaseVector3{};
     }
 
-    static Vector3 one() noexcept
+    static BaseVector3 one() noexcept
     {
-        return Vector3{ _mm_set1_ps(1.0f) };
+        return BaseVector3{ _mm_set1_ps(1.0f) };
     }
 
-    static Vector3 positive_infinity() noexcept
+    static BaseVector3 positive_infinity() noexcept
     {
-        return Vector3{ _mm_set1_ps(std::numeric_limits<float>::infinity()) };
+        return BaseVector3{ _mm_set1_ps(std::numeric_limits<float>::infinity()) };
     }
 
-    static Vector3 negative_infinity() noexcept
+    static BaseVector3 negative_infinity() noexcept
     {
-        return Vector3{ _mm_set1_ps(-std::numeric_limits<float>::infinity()) };
+        return BaseVector3{ _mm_set1_ps(-std::numeric_limits<float>::infinity()) };
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -168,98 +176,116 @@ struct alignas(16) Vector3
 ////////////////////////////////////////////////////////////////////////////////
 
 #if defined(__aarch64__)
-template <int i0, int i1, int i2, int i3>
-inline Vector3 shuffle(const Vector3& v) noexcept
+template <type, int i0, int i1, int i2, int i3>
+inline __m128 shuffle(const __m128& v) noexcept
 {
     return vreinterpretq_f32_u8(vqtbl1q_u8((uint8x16_t)v.m128, _MN_SHUFFLE(i0, i1, i2, i3)));
 }
 
 template <int i0, int i1, int i2, int i3>
-inline Vector3 shuffle(const Vector3& a, const Vector3& b) noexcept
+inline __m128 shuffle(const __m128& a, const __m128& b) noexcept
 {
     return vreinterpretq_f32_u8(
         vqtbl2q_u8((uint8x16x2_t){ (uint8x16_t)a.m128, (uint8x16_t)b.m128 }, _MF_SHUFFLE(i0, i1, i2, i3)));
 }
 #else
 template <int i0, int i1, int i2, int i3>
-inline Vector3 shuffle(const Vector3& v) noexcept
+__m128 shuffle(const __m128& v) noexcept
 {
-    return Vector3{ _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(v.m128), _MM_SHUFFLE(i3, i2, i1, i0))) };
+    return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(v), _MM_SHUFFLE(i3, i2, i1, i0)));
 }
 
 template <int i0, int i1, int i2, int i3>
-inline Vector3 shuffle(const Vector3& a, const Vector3& b) noexcept
+inline __m128 shuffle(const __m128& a, const __m128& b) noexcept
 {
-    return Vector3{ _mm_shuffle_ps(a.m128, b.m128, _MM_SHUFFLE(i3, i2, i1, i0)) };
+    return _mm_shuffle_ps(a, b, _MM_SHUFFLE(i3, i2, i1, i0));
 }
 #endif
 
 #if defined(__SSE3__) && !defined(__aarch64__)
 template <>
-inline Vector3 shuffle<0, 0, 2, 2>(const Vector3& v) noexcept
+inline __m128 shuffle<0, 0, 2, 2>(const __m128& v) noexcept
 {
-    return Vector3{ _mm_moveldup_ps(v.m128) };
+    return _mm_moveldup_ps(v);
 }
 
 template <>
-inline Vector3 shuffle<1, 1, 3, 3>(const Vector3& v) noexcept
+inline __m128 shuffle<1, 1, 3, 3>(const __m128& v) noexcept
 {
-    return Vector3{ _mm_movehdup_ps(v.m128) };
+    return _mm_movehdup_ps(v);
 }
 
 template <>
-inline Vector3 shuffle<0, 1, 0, 1>(const Vector3& v) noexcept
+inline __m128 shuffle<0, 1, 0, 1>(const __m128& v) noexcept
 {
-    return Vector3{ _mm_castpd_ps(_mm_movedup_pd(_mm_castps_pd(v.m128))) };
+    return _mm_castpd_ps(_mm_movedup_pd(_mm_castps_pd(v)));
 }
 #endif
 
-template <int i>
-inline Vector3 shuffle(const Vector3& v) noexcept
+template <VectorType type, int i0, int i1, int i2, int i3>
+inline BaseVector3<type> shuffle(const BaseVector3<type>& v) noexcept
 {
-    return shuffle<i, i, i, i>(v);
+    return BaseVector3<type>{ shuffle<i0, i1, i2, i3>(v.m128) };
+}
+
+template <VectorType type, int i0, int i1, int i2, int i3>
+inline BaseVector3<type> shuffle(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
+{
+    return BaseVector3<type>{ shuffle<i0, i1, i2, i3>(a.m128, b.m128) };
+}
+
+template <VectorType type, int i>
+inline BaseVector3<type> shuffle(const BaseVector3<type>& v) noexcept
+{
+    return shuffle<type, i, i, i, i>(v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Unary Operators
 ////////////////////////////////////////////////////////////////////////////////
 
-inline Vector3 operator+(const Vector3& a) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator+(const BaseVector3<type>& a) noexcept
 {
     return a;
 }
 
-inline Vector3 operator-(const Vector3& a) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator-(const BaseVector3<type>& a) noexcept
 {
 #if defined(__aarch64__)
     return vnegq_f32(a.m128);
 #else
     const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
-    return Vector3{ _mm_xor_ps(a.m128, mask) };
+    return BaseVector3<type>{ _mm_xor_ps(a.m128, mask) };
 #endif
 }
 
-inline Vector3 abs(const Vector3& a) noexcept
+template <VectorType type>
+inline BaseVector3<type> abs(const BaseVector3<type>& a) noexcept
 {
 #if defined(__aarch64__)
     return _mm_abs_ps(a.m128);
 #else
     const __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
-    return Vector3{ _mm_and_ps(a.m128, mask) };
+    return BaseVector3<type>{ _mm_and_ps(a.m128, mask) };
 #endif
 }
 
-inline Vector3 sqrt(const Vector3& a) noexcept
+template <VectorType type>
+inline BaseVector3<type> sqrt(const BaseVector3<type>& a) noexcept
 {
-    return Vector3{ _mm_sqrt_ps(a.m128) };
+    return BaseVector3<type>{ _mm_sqrt_ps(a.m128) };
 }
 
-inline Vector3 sqr(const Vector3& a) noexcept
+template <VectorType type>
+inline BaseVector3<type> sqr(const BaseVector3<type>& a) noexcept
 {
-    return Vector3{ _mm_mul_ps(a.m128, a.m128) };
+    return BaseVector3<type>{ _mm_mul_ps(a.m128, a.m128) };
 }
 
-inline Vector3 rsqrt(const Vector3& a) noexcept
+template <VectorType type>
+inline BaseVector3<type> rsqrt(const BaseVector3<type>& a) noexcept
 {
 #if defined(__aarch64__)
     __m128 r = _mm_rsqrt_ps(a.m128);
@@ -273,8 +299,9 @@ inline Vector3 rsqrt(const Vector3& a) noexcept
 #else
     __m128 r = _mm_rsqrt_ps(a.m128);
 #endif
-    return Vector3{ _mm_add_ps(_mm_mul_ps(_mm_set1_ps(1.5f), r),
-                               _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(a.m128, _mm_set1_ps(-0.5f)), r), _mm_mul_ps(r, r))) };
+    return BaseVector3<type>{ _mm_add_ps(
+        _mm_mul_ps(_mm_set1_ps(1.5f), r),
+        _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(a.m128, _mm_set1_ps(-0.5f)), r), _mm_mul_ps(r, r))) };
 #endif
 }
 
@@ -282,54 +309,64 @@ inline Vector3 rsqrt(const Vector3& a) noexcept
 /// Binary Operators
 ////////////////////////////////////////////////////////////////////////////////
 
-inline Vector3 operator+(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator+(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_add_ps(a.m128, b.m128) };
+    return BaseVector3<type>{ _mm_add_ps(a.m128, b.m128) };
 }
 
-inline Vector3 operator-(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator-(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_sub_ps(a.m128, b.m128) };
+    return BaseVector3<type>{ _mm_sub_ps(a.m128, b.m128) };
 }
 
-inline Vector3 operator*(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator*(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_mul_ps(a.m128, b.m128) };
+    return BaseVector3<type>{ _mm_mul_ps(a.m128, b.m128) };
 }
 
-inline Vector3 operator*(const Vector3& a, const float b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator*(const BaseVector3<type>& a, const float b) noexcept
 {
-    return a * Vector3(b);
+    return a * BaseVector3<type>(b);
 }
 
-inline Vector3 operator*(const float a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator*(const float a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3(a) * b;
+    return BaseVector3<type>(a) * b;
 }
 
-inline Vector3 operator/(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator/(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_div_ps(a.m128, b.m128) };
+    return BaseVector3<type>{ _mm_div_ps(a.m128, b.m128) };
 }
 
-inline Vector3 operator/(const Vector3& a, const float b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator/(const BaseVector3<type>& a, const float b) noexcept
 {
-    return Vector3{ _mm_div_ps(a.m128, _mm_set1_ps(b)) };
+    return BaseVector3<type>{ _mm_div_ps(a.m128, _mm_set1_ps(b)) };
 }
 
-inline Vector3 operator/(const float a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> operator/(const float a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_div_ps(_mm_set1_ps(a), b.m128) };
+    return BaseVector3<type>{ _mm_div_ps(_mm_set1_ps(a), b.m128) };
 }
 
-inline Vector3 min(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> min(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_min_ps(a.m128, b.m128) };
+    return BaseVector3<type>{ _mm_min_ps(a.m128, b.m128) };
 }
 
-inline Vector3 max(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type> max(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
-    return Vector3{ _mm_max_ps(a.m128, b.m128) };
+    return BaseVector3<type>{ _mm_max_ps(a.m128, b.m128) };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -337,70 +374,93 @@ inline Vector3 max(const Vector3& a, const Vector3& b) noexcept
 ////////////////////////////////////////////////////////////////////////////////
 
 #if defined(__AVX2__) || defined(__ARM_NEON)
-inline Vector3 madd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+madd(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return Vector3{ _mm_fmadd_ps(a.m128, b.m128, c.m128) };
+    return BaseVector3<type>{ _mm_fmadd_ps(a.m128, b.m128, c.m128) };
 }
 
-inline Vector3 msub(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+msub(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return Vector3{ _mm_fmsub_ps(a.m128, b.m128, c.m128) };
+    return BaseVector3<type>{ _mm_fmsub_ps(a.m128, b.m128, c.m128) };
 }
 
-inline Vector3 nmadd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+nmadd(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return Vector3{ _mm_fnmadd_ps(a.m128, b.m128, c.m128) };
+    return BaseVector3<type>{ _mm_fnmadd_ps(a.m128, b.m128, c.m128) };
 }
 
-inline Vector3 nmsub(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+nmsub(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return Vector3{ _mm_fnmsub_ps(a.m128, b.m128, c.m128) };
+    return BaseVector3<type>{ _mm_fnmsub_ps(a.m128, b.m128, c.m128) };
 }
 #else
-inline Vector3 madd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+inline BaseVector3<type>
+madd(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
     return a * b + c;
 }
 
-inline Vector3 nmadd(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+nmadd(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
     return -a * b + c;
 }
 
-inline Vector3 nmsub(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+nmsub(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
     return -a * b - c;
 }
 
-inline Vector3 msub(const Vector3& a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type>
+msub(const BaseVector3<type>& a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
     return a * b - c;
 }
 #endif
 
-inline Vector3 madd(const float a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type> madd(const float a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return madd(Vector3(a), b, c);
+    return madd(BaseVector3<type>(a), b, c);
 }
 
-inline Vector3 msub(const float a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type> msub(const float a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return msub(Vector3(a), b, c);
+    return msub(BaseVector3<type>(a), b, c);
 }
 
-inline Vector3 nmadd(const float a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type> nmadd(const float a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return nmadd(Vector3(a), b, c);
+    return nmadd(BaseVector3<type>(a), b, c);
 }
 
-inline Vector3 nmsub(const float a, const Vector3& b, const Vector3& c) noexcept
+template <VectorType type>
+inline BaseVector3<type> nmsub(const float a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
-    return nmsub(Vector3(a), b, c);
+    return nmsub(BaseVector3<type>(a), b, c);
 }
 
 // Based on Matt Pharr's DifferenceOfProducts:
 // https://pharr.org/matt/blog/2019/11/03/difference-of-floats
-inline Vector3 difference_of_products(const Vector3& a, const Vector3& b, const Vector3& c, const Vector3& d) noexcept
+template <VectorType type>
+inline BaseVector3<type> difference_of_products(const BaseVector3<type>& a,
+                                                const BaseVector3<type>& b,
+                                                const BaseVector3<type>& c,
+                                                const BaseVector3<type>& d) noexcept
 {
     const auto cd  = c * d;
     const auto err = nmadd(c, d, cd);
@@ -412,32 +472,38 @@ inline Vector3 difference_of_products(const Vector3& a, const Vector3& b, const 
 /// Assignment Operators
 ////////////////////////////////////////////////////////////////////////////////
 
-inline Vector3& operator+=(Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type>& operator+=(BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return a = a + b;
 }
 
-inline Vector3& operator-=(Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type>& operator-=(BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return a = a - b;
 }
 
-inline Vector3& operator*=(Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type>& operator*=(BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return a = a * b;
 }
 
-inline Vector3& operator*=(Vector3& a, const float b) noexcept
+template <VectorType type>
+inline BaseVector3<type>& operator*=(BaseVector3<type>& a, const float b) noexcept
 {
     return a = a * b;
 }
 
-inline Vector3& operator/=(Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline BaseVector3<type>& operator/=(BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return a = a / b;
 }
 
-inline Vector3& operator/=(Vector3& a, const float b) noexcept
+template <VectorType type>
+inline BaseVector3<type>& operator/=(BaseVector3<type>& a, const float b) noexcept
 {
     return a = a / b;
 }
@@ -446,51 +512,59 @@ inline Vector3& operator/=(Vector3& a, const float b) noexcept
 /// Reductions
 ////////////////////////////////////////////////////////////////////////////////
 #if defined(__aarch64__)
-inline float reduce_add(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_add(const BaseVector3<type>& v) noexcept
 {
     float32x4_t t = v.m128;
     t[3]          = 0.0f;
     return vaddvq_f32(t);
 }
 
-inline float reduce_mul(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_mul(const BaseVector3<type>& v) noexcept
 {
     return v.x * v.y * v.z;
 }
 
-inline float reduce_min(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_min(const BaseVector3<type>& v) noexcept
 {
     float32x4_t t = v.m128;
     t[3]          = t[2];
     return vminvq_f32(t);
 }
 
-inline float reduce_max(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_max(const BaseVector3<type>& v) noexcept
 {
     float32x4_t t = v.m128;
     t[3]          = t[2];
     return vmaxvq_f32(t);
 }
 #else
-inline float reduce_add(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_add(const BaseVector3<type>& v) noexcept
 {
-    const Vector3 a(v.m128);
-    const Vector3 b = shuffle<1>(a);
-    const Vector3 c = shuffle<2>(a);
+    const BaseVector3<type> a(v.m128);
+    const BaseVector3<type> b = shuffle<1>(a);
+    const BaseVector3<type> c = shuffle<2>(a);
     return _mm_cvtss_f32((a + b + c).m128);
 }
 
-inline float reduce_mul(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_mul(const BaseVector3<type>& v) noexcept
 {
     return v.x * v.y * v.z;
 }
 
-inline float reduce_min(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_min(const BaseVector3<type>& v) noexcept
 {
     return std::ranges::min({ v.x, v.y, v.z });
 }
 
-inline float reduce_max(const Vector3& v) noexcept
+template <VectorType type>
+inline float reduce_max(const BaseVector3<type>& v) noexcept
 {
     return std::ranges::min({ v.x, v.y, v.z });
 }
@@ -500,14 +574,93 @@ inline float reduce_max(const Vector3& v) noexcept
 /// Comparison Operators
 ////////////////////////////////////////////////////////////////////////////////
 
-inline bool operator==(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline bool operator==(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return (_mm_movemask_ps(_mm_cmpeq_ps(a.m128, b.m128)) & 7) == 7;
 }
 
-inline bool operator!=(const Vector3& a, const Vector3& b) noexcept
+template <VectorType type>
+inline bool operator!=(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return (_mm_movemask_ps(_mm_cmpneq_ps(a.m128, b.m128)) & 7) != 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Euclidean Space Operators
+////////////////////////////////////////////////////////////////////////////////
+
+template <VectorType type>
+inline int max_dim(const BaseVector3<type>& a) noexcept
+{
+    const BaseVector3<type> b = abs(a);
+    if (b.x > b.y) {
+        if (b.x > b.z)
+            return 0;
+        else
+            return 2;
+    } else {
+        if (b.y > b.z)
+            return 1;
+        else
+            return 2;
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Input/Output Operators
+////////////////////////////////////////////////////////////////////////////////
+
+template <VectorType type>
+inline std::ostream& operator<<(std::ostream& outs, const BaseVector3<type>& a)
+{
+    if (outs.iword(sp::k_pretty_print_key)) {
+        return outs << '(' << a.x << ", " << a.y << ", " << a.z << ')';
+    } else {
+        // This version is compatible with the input operator.
+        return outs << a.x << ' ' << a.y << ' ' << a.z;
+    }
+}
+
+template <VectorType type>
+inline std::istream& operator>>(std::istream& ins, BaseVector3<type>& a)
+{
+    float x;
+    float y;
+    float z;
+    ins >> x >> y >> z;
+    a = BaseVector3<type>{ x, y, z };
+    return ins;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Creation Operators
+////////////////////////////////////////////////////////////////////////////////
+
+template <VectorType type>
+struct Uninitialized<BaseVector3<type>>
+{
+    operator BaseVector3<type>() &&
+    {
+        return BaseVector3<type>{ no_init };
+    }
+};
+
+using Vector3 = BaseVector3<VectorType::vector>;
+using Normal  = BaseVector3<VectorType::normal>;
+using Point3  = BaseVector3<VectorType::point>;
+
+////////////////////////////////////////////////////////////////////////////////
+/// Type-Specialized Operators
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+/// Binary Operators
+////////////////////////////////////////////////////////////////////////////////
+
+inline Vector3 operator-(const Point3& a, const Point3& b) noexcept
+{
+    return Vector3{ _mm_sub_ps(a.m128, b.m128) };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -528,10 +681,10 @@ inline float dot(const Vector3& a, const Vector3& b) noexcept
 
 inline Vector3 cross(const Vector3& a, const Vector3& b) noexcept
 {
-    return difference_of_products(shuffle<1, 2, 0, 3>(a),
-                                  shuffle<2, 0, 1, 3>(b),
-                                  shuffle<2, 0, 1, 3>(a),
-                                  shuffle<1, 2, 0, 3>(b));
+    return difference_of_products(shuffle<VectorType::vector, 1, 2, 0, 3>(a),
+                                  shuffle<VectorType::vector, 2, 0, 1, 3>(b),
+                                  shuffle<VectorType::vector, 2, 0, 1, 3>(a),
+                                  shuffle<VectorType::vector, 1, 2, 0, 3>(b));
 }
 
 inline float sqr_length(const Vector3& a) noexcept
@@ -559,7 +712,7 @@ inline Vector3 normalize(const Vector3& a) noexcept
     return a * rsqrt(dot(a, a));
 }
 
-inline float distance(const Vector3& a, const Vector3& b) noexcept
+inline float distance(const Point3& a, const Point3& b) noexcept
 {
     return length(a - b);
 }
@@ -596,57 +749,4 @@ inline Vector3 lerp(const Vector3& v0, const Vector3& v1, const float t) noexcep
     return madd(1.0f - t, v0, t * v1);
 }
 
-inline int max_dim(const Vector3& a) noexcept
-{
-    const Vector3 b = abs(a);
-    if (b.x > b.y) {
-        if (b.x > b.z)
-            return 0;
-        else
-            return 2;
-    } else {
-        if (b.y > b.z)
-            return 1;
-        else
-            return 2;
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// Input/Output Operators
-////////////////////////////////////////////////////////////////////////////////
-
-inline std::ostream& operator<<(std::ostream& outs, const Vector3& a)
-{
-    if (outs.iword(sp::k_pretty_print_key)) {
-        return outs << '(' << a.x << ", " << a.y << ", " << a.z << ')';
-    } else {
-        // This version is compatible with the input operator.
-        return outs << a.x << ' ' << a.y << ' ' << a.z;
-    }
-}
-
-inline std::istream& operator>>(std::istream& ins, Vector3& a)
-{
-    float x;
-    float y;
-    float z;
-    ins >> x >> y >> z;
-    a = Vector3{ x, y, z };
-    return ins;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// Creation Operators
-////////////////////////////////////////////////////////////////////////////////
-
-template <>
-struct Uninitialized<Vector3>
-{
-    operator Vector3() &&
-    {
-        return Vector3{ no_init };
-    }
-};
-
-} // namespace sp
+}; // namespace sp

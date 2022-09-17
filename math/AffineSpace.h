@@ -103,6 +103,12 @@ public:
         return get_linear()(n);
     }
 
+    Ray operator()(const Ray& r) const noexcept
+    {
+        const auto& m = *this;
+        return Ray{m(r.get_origin()), m(r.get_direction())};
+    }
+
     inline BBox3 operator()(const BBox3& b) const noexcept
     {
         const auto& m = *this;

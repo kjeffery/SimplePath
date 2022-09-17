@@ -37,6 +37,15 @@ public:
     {
     }
 
+    static LinearSpace3x3 identity() noexcept
+    {
+        // clang-format off
+        return LinearSpace3x3(1.0f, 0.0f, 0.0f,
+                              0.0f, 1.0f, 0.0f,
+                              0.0f, 0.0f, 1.0f);
+        // clang-format on
+    }
+
     explicit LinearSpace3x3(const Quaternion& q) noexcept
     : m_vx((q.r * q.r + q.i * q.i - q.j * q.j - q.k * q.k),
            2.0f * (q.i * q.j + q.r * q.k),

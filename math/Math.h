@@ -11,16 +11,31 @@
 namespace sp {
 
 #if defined(__AVX2__) || defined(__ARM_NEON)
-inline float madd(float x, float y, float z) noexcept
+inline float madd(float a, float b, float c) noexcept
 {
-    return std::fma(x, y, z);
+    return std::fma(a, b, c);
 }
 #else
-inline float madd(float x, float y, float z) noexcept
+inline float madd(float a, float b, float c) noexcept
 {
-    return x * y + z;
+    return a * b + c;
 }
 #endif
+
+inline float msub(float a, float b, float c) noexcept
+{
+    return madd(a, b, -c);
+}
+
+inline float nmadd(float a, float b, float c) noexcept
+{
+    return madd(-a, b, c);
+}
+
+inline float nmsub(float a, float b, float c) noexcept
+{
+    return -madd(a, b, c);
+}
 
 // Based on Matt Pharr's DifferenceOfProducts:
 // https://pharr.org/matt/blog/2019/11/03/difference-of-floats

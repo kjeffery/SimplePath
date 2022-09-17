@@ -20,6 +20,22 @@ public:
     {
     }
 
+    const Point3& get_lower() const noexcept
+    {
+        return m_min;
+    }
+
+    const Point3& get_upper() const noexcept
+    {
+        return m_max;
+    }
+
+    void extend(const Point3& p) noexcept
+    {
+        m_min = min(p, m_min);
+        m_max = max(p, m_max);
+    }
+
 private:
     Point3 m_min;
     Point3 m_max;

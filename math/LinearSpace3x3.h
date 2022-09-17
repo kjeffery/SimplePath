@@ -5,6 +5,7 @@
 // Based off of Intel Embree's LinearSpace3
 
 #include "Quaternion.h"
+#include "Ray.h"
 #include "Vector3.h"
 
 namespace sp {
@@ -150,20 +151,26 @@ public:
         // clang-format on
     }
 
-    inline Point3 operator()(const Point3& a) const noexcept
+    Point3 operator()(const Point3& a) const noexcept
     {
         return Point3{ madd(Vector3{ a.x }, m_vx, madd(Vector3{ a.y }, m_vy, Vector3{ a.z } * m_vz)) };
     }
 
-    inline Vector3 operator()(const Vector3& a) const noexcept
+    Vector3 operator()(const Vector3& a) const noexcept
     {
         return Point3{ madd(Vector3{ a.x }, m_vx, madd(Vector3{ a.y }, m_vy, Vector3{ a.z } * m_vz)) };
     }
 
-    inline Normal3 operator()(const Normal3& a) const noexcept
+    Normal3 operator()(const Normal3& a) const noexcept
     {
         const auto ls = this->inverse().transposed();
         return Normal3{ madd(Vector3{ a.x }, m_vx, madd(Vector3{ a.y }, m_vy, Vector3{ a.z } * m_vz)) };
+    }
+
+    Ray operator()(const Ray& r) const noexcept
+    {
+        const auto& m = *this;
+        return Ray{m(r.get_origin()), m(r.get_direction())};
     }
 
 private:

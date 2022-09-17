@@ -47,6 +47,8 @@ struct alignas(16) BaseVector3
     /// Constructors, Assignment & Cast Operators
     ////////////////////////////////////////////////////////////////////////////////
 
+    ~BaseVector3() = default;
+
     BaseVector3() noexcept
     : m128(_mm_setzero_ps())
     {
@@ -58,6 +60,12 @@ struct alignas(16) BaseVector3
 
     explicit BaseVector3(const __m128 a) noexcept
     : m128(a)
+    {
+    }
+
+    template <VectorType OtherType>
+    BaseVector3(const BaseVector3<OtherType>& other) noexcept
+    : m128(other.m128)
     {
     }
 
@@ -98,18 +106,19 @@ struct alignas(16) BaseVector3
         t[3]     = 0.0f;
         return BaseVector3(t);
 #else
-        return BaseVector3(_mm_and_ps(_mm_load_ps((float*)a), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))));
+        return BaseVector3{
+            _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))))};
 #endif
     }
 
     static BaseVector3 loadu(const void* const a) noexcept
     {
-        return BaseVector3(_mm_loadu_ps((float*)a));
+        return BaseVector3{_mm_loadu_ps(reinterpret_cast<const float*>(a))};
     }
 
     static void storeu(void* ptr, const BaseVector3& v) noexcept
     {
-        _mm_storeu_ps((float*)ptr, v.m128);
+        _mm_storeu_ps(reinterpret_cast<float*>(ptr), v.m128);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -647,7 +656,7 @@ struct Uninitialized<BaseVector3<type>>
 };
 
 using Vector3 = BaseVector3<VectorType::vector>;
-using Normal  = BaseVector3<VectorType::normal>;
+using Normal3  = BaseVector3<VectorType::normal>;
 using Point3  = BaseVector3<VectorType::point>;
 
 ////////////////////////////////////////////////////////////////////////////////

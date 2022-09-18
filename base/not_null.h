@@ -3,6 +3,7 @@
 /// @author Keith Jeffery
 
 #include <cassert>
+#include <type_traits>
 #include <utility>
 
 // Based off of Microsoft's GSL not_null
@@ -33,7 +34,7 @@ public:
     }
 
     template <typename U>
-    requires std::is_convertible_v<U, T>
+    requires std::convertible_to<U, T>
     constexpr not_null(const not_null<U>& other)
     : not_null(other.get())
     {

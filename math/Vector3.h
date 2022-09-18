@@ -731,6 +731,11 @@ inline Vector3 normalize(const Vector3& a) noexcept
     return a * rsqrt(dot(a, a));
 }
 
+inline bool is_normalized(const Vector3& a) noexcept
+{
+    return std::abs(1.0f - sqr_length(a)) < std::numeric_limits<float>::epsilon();
+}
+
 inline float distance(const Point3& a, const Point3& b) noexcept
 {
     return length(a - b);

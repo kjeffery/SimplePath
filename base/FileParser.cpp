@@ -217,7 +217,9 @@ Scene FileParser::parse(std::istream& ins)
         throw ParsingException("Unexpected file parsing error");
     }
 
-    return Scene{};
+    std::unique_ptr<Aggregate> geometry;
+    std::unique_ptr<Aggregate> lights;
+    return Scene{std::move(geometry), std::move(lights)};
 }
 
 void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, const LineNumberContainer& line_numbers)

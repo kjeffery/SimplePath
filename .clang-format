@@ -117,7 +117,7 @@ IndentCaseLabels: false
 IndentExternBlock: Indent
 IndentGotoLabels: false
 IndentPPDirectives: None
-#IndentRequiresClause: false
+IndentRequiresClause: false
 IndentWrappedFunctionNames: false
 #InsertBraces: true
 KeepEmptyLinesAtTheStartOfBlocks: false

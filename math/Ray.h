@@ -5,8 +5,17 @@
 #include "Vector3.h"
 
 #include <cassert>
+#include <limits>
 
 namespace sp {
+constexpr float k_ray_epsilon = 0.001f;
+
+struct RayLimits
+{
+    float m_t_min = k_ray_epsilon;
+    float m_t_max = std::numeric_limits<float>::max();
+};
+
 class Ray
 {
 public:
@@ -32,20 +41,8 @@ public:
         return m_direction;
     }
 
-    float get_t_min() const noexcept
-    {
-        return m_t_min;
-    }
-
-    float get_t_max() const noexcept
-    {
-        return m_t_max;
-    }
-
 private:
     Point3  m_origin;
     Vector3 m_direction;
-    float   m_t_min;
-    float   m_t_max;
 };
 } // namespace sp

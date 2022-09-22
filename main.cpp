@@ -1,7 +1,9 @@
 ///@author Keith Jeffery
 
 #include "base/FileParser.h"
+#include "base/not_null.h"
 #include "base/Util.h"
+#include "math/LinearSpace3x3.h"
 #include "math/Vector3.h"
 
 #include <filesystem>
@@ -17,35 +19,43 @@ void enable_pretty_printing(std::ostream& outs)
     outs.iword(sp::k_pretty_print_key) = 1;
 }
 
-int main(const int argc, const char* const argv[])
+void print_usage(std::string_view exe_name)
+{
+    std::cout << "Usage: " << exe_name << " <filename>\n";
+}
+
+sp::Scene parse_scene_file(std::string_view file_name)
 {
     using namespace std::literals;
 
+    if (file_name == "-"sv) {
+        return sp::parse_file(std::cin);
+    } else {
+        fs::path      file_path{ file_name };
+        std::ifstream ins(file_path);
+        if (!ins) {
+            throw sp::ParsingException{"Unable to open file " + file_path.native()};
+        }
+        return sp::parse_file(ins);
+    }
+}
+
+int main(const int argc, const char* const argv[])
+{
     enable_pretty_printing(std::cout);
 
-    sp::Vector3 a{33962.035f, 41563.4f, 7706.415f};
-    sp::Vector3 b{-24871.969f, -30438.8f, -5643.727f};
-    const auto c = cross(a, b);
-                //(1556.0276, -1257.5153, -75.1656)
+    if (argc == 1) {
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
+    }
 
-    const auto d = reduce_min(a);
-
-    if (argc == 2) {
-        try {
-            if (std::string_view file_name{ argv[1] }; file_name == "-"sv) {
-                sp::parse_file(std::cin);
-            } else {
-                fs::path      file_path{ file_name };
-                std::ifstream ins(file_path);
-                if (!ins) {
-                    std::cerr << "Unable to open file " << file_name << '\n';
-                    return EXIT_FAILURE;
-                }
-                sp::parse_file(ins);
-            }
-        } catch (const sp::ParsingException& e) {
-            std::cerr << e.what() << '\n';
-            return EXIT_FAILURE;
-        }
+    try {
+        const sp::Scene scene = parse_scene_file(argv[1]);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return EXIT_FAILURE;
+    } catch (...) {
+        std::cerr << "Unknown error\n";
+        return EXIT_FAILURE;
     }
 }

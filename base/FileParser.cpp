@@ -24,7 +24,7 @@ using namespace std::literals;
 
 namespace sp {
 
-std::string ParsingException::create_parse_message(const std::string& what_arg, int line_number)
+[[nodiscard]] std::string ParsingException::create_parse_message(const std::string& what_arg, int line_number)
 {
     return what_arg + " on line " + std::to_string(line_number);
 }
@@ -47,7 +47,7 @@ public:
 
 namespace {
 
-bool is_whitespace(char c) noexcept
+[[nodiscard]] bool is_whitespace(char c) noexcept
 {
     // This depends on the current locale, and I'm assuming something ASCII-like.
     return std::isspace(static_cast<unsigned char>(c)) != 0;
@@ -117,7 +117,7 @@ struct IntermediateSceneRepresentation
     };
 };
 
-int parse_version(std::istream& ins, int line_number)
+[[nodiscard]] int parse_version(std::istream& ins, int line_number)
 {
     Token token;
     ins >> token;
@@ -157,7 +157,7 @@ public:
 #endif
     }
 
-    Scene parse(std::istream& ins);
+    [[nodiscard]] Scene parse(std::istream& ins);
 
 private:
     using LineNumberContainer = std::vector<int>;

@@ -25,16 +25,31 @@ public:
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
     {
-        return false;
+        bool hit = false;
+        for (const auto& p : m_primitives) {
+            // limits should be automatically updated so that the max value is the closest hit so far.
+            hit = p->intersect(ray, limits, isect) || hit;
+        }
+        return hit;
     }
 
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
-        return false;
+        bool hit = false;
+        for (const auto& p : m_primitives) {
+            // limits should be automatically updated so that the max value is the closest hit so far.
+            hit = p->intersect(ray, limits, isect) || hit;
+        }
+        return hit;
     }
 
     bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
+        for (const auto& p : m_primitives) {
+            if (p->intersect_p(ray, limits)) {
+                return true;
+            }
+        }
         return false;
     }
 

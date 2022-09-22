@@ -16,7 +16,7 @@ class ListAccelerator : public Aggregate
 {
 public:
     template <typename Iterator>
-    requires std::forward_iterator<Iterator>
+    requires std::input_iterator<Iterator>
     ListAccelerator(Iterator first, Iterator last)
     : m_primitives{ first, last }
     {
@@ -45,6 +45,6 @@ private:
 
     // To be extra safe, these should be shared_ptrs (or unique_ptrs assuming this is the only owner), but we will defer
     // sole ownership to the Scene class and avoid the overhead of shared_ptrs.
-    std::vector<not_null<Hitable*>> m_primitives;
+    std::vector<not_null<const Hitable*>> m_primitives;
 };
 } // namespace sp

@@ -45,27 +45,12 @@ public:
     {
     }
 
-    static AffineSpace scale(const Vector3& s) noexcept
-    {
-        return AffineSpace{ LinearSpace3x3::scale(s) };
-    }
-
-    static AffineSpace translate(Vector3 p) noexcept
-    {
-        return AffineSpace{ LinearSpace3x3::identity(), p };
-    }
-
+    static AffineSpace scale(const Vector3& s) noexcept;
+    static AffineSpace translate(Vector3 p) noexcept;
     // Rotation about an arbitrary axis
-    static AffineSpace rotate(const Vector3& u, const float r) noexcept
-    {
-        return AffineSpace{ LinearSpace3x3::rotate(u, r) };
-    }
-
+    static AffineSpace rotate(const Vector3& u, const float r) noexcept;
     // Rotation about an arbitrary axis and point
-    static AffineSpace rotate(const Point3& p, const Vector3& u, const float r) noexcept
-    {
-        return translate(Vector3{ +p }) * rotate(u, r) * translate(Vector3{ -p });
-    }
+    static AffineSpace rotate(const Point3& p, const Vector3& u, const float r) noexcept;
 
     static AffineSpace look_at(const Point3& eye, const Point3& point, const Vector3& up) noexcept
     {
@@ -88,9 +73,10 @@ public:
     inline Point3 operator()(const Point3& p) const noexcept
     {
         const auto& m = *this;
-        return madd(Point3(p.x),
-                    m.get_linear().vx,
-                    madd(Point3(p.y), m.get_linear().vy, madd(Point3(p.z), m.get_linear().vz, m.get_affine())));
+        return madd(
+            Vector3(p.x),
+            m.get_linear().col0(),
+            madd(Vector3(p.y), m.get_linear().col1(), madd(Vector3(p.z), m.get_linear().col2(), m.get_affine())));
     }
 
     inline Vector3 operator()(const Vector3& v) const noexcept
@@ -106,7 +92,7 @@ public:
     Ray operator()(const Ray& r) const noexcept
     {
         const auto& m = *this;
-        return Ray{m(r.get_origin()), m(r.get_direction())};
+        return Ray{ m(r.get_origin()), m(r.get_direction()) };
     }
 
     inline BBox3 operator()(const BBox3& b) const noexcept
@@ -170,7 +156,7 @@ inline AffineSpace operator-(const AffineSpace& a, const AffineSpace& b) noexcep
     return AffineSpace{ a.get_linear() - b.get_linear(), a.get_affine() - b.get_affine() };
 }
 
-inline AffineSpace operator*(const ScalarT& a, const AffineSpace& b) noexcept
+inline AffineSpace operator*(const float a, const AffineSpace& b) noexcept
 {
     return AffineSpace{ a * b.get_linear(), a * b.get_affine() };
 }
@@ -185,29 +171,61 @@ inline AffineSpace operator/(const AffineSpace& a, const AffineSpace& b) noexcep
     return a * rcp(b);
 }
 
-inline AffineSpace operator/(const AffineSpace& a, const ScalarT& b) noexcept
+#if 0
+inline AffineSpace operator/(const AffineSpace& a, const float b) noexcept
 {
     return a * rcp(b);
 }
+#endif
 
 inline AffineSpace& operator*=(AffineSpace& a, const AffineSpace& b) noexcept
 {
     return a = a * b;
 }
 
-inline AffineSpace& operator*=(AffineSpace& a, const ScalarT& b) noexcept
+#if 0
+inline AffineSpace& operator*=(AffineSpace& a, const float b) noexcept
 {
     return a = a * b;
 }
+#endif
 
 inline AffineSpace& operator/=(AffineSpace& a, const AffineSpace& b) noexcept
 {
     return a = a / b;
 }
 
-inline AffineSpace& operator/=(AffineSpace& a, const ScalarT& b) noexcept
+#if 0
+inline AffineSpace& operator/=(AffineSpace& a, const float b) noexcept
 {
     return a = a / b;
+}
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
+// Creation functions
+////////////////////////////////////////////////////////////////////////////////
+
+AffineSpace AffineSpace::scale(const Vector3& s) noexcept
+{
+    return AffineSpace{ LinearSpace3x3::scale(s) };
+}
+
+AffineSpace AffineSpace::translate(Vector3 p) noexcept
+{
+    return AffineSpace{ LinearSpace3x3::identity(), p };
+}
+
+// Rotation about an arbitrary axis
+AffineSpace AffineSpace::rotate(const Vector3& u, const float r) noexcept
+{
+    return AffineSpace{ LinearSpace3x3::rotate(u, r) };
+}
+
+// Rotation about an arbitrary axis and point
+AffineSpace AffineSpace::rotate(const Point3& p, const Vector3& u, const float r) noexcept
+{
+    return translate(Vector3{ +p }) * rotate(u, r) * translate(Vector3{ -p });
 }
 
 ////////////////////////////////////////////////////////////////////////////////

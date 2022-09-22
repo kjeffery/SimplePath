@@ -34,7 +34,7 @@ sp::Scene parse_scene_file(std::string_view file_name)
         fs::path      file_path{ file_name };
         std::ifstream ins(file_path);
         if (!ins) {
-            throw sp::ParsingException{"Unable to open file " + file_path.native()};
+            throw sp::ParsingException{"Unable to open file "s + file_path.string()};
         }
         return sp::parse_file(ins);
     }

@@ -6,11 +6,14 @@
 #include "Util.h"
 
 #include "../math/Vector3.h"
+#include "../shapes/Primitive.h"
+#include "../shapes/Sphere.h"
 
 #include <algorithm>
 #include <iostream> // TODO: temp
 #include <istream>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
@@ -217,9 +220,15 @@ Scene FileParser::parse(std::istream& ins)
         throw ParsingException("Unexpected file parsing error");
     }
 
-    std::unique_ptr<Aggregate> geometry;
-    std::unique_ptr<Aggregate> lights;
-    return Scene{std::move(geometry), std::move(lights)};
+    // TODO: temp
+    auto sphere_shape     = std::make_unique<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 0.5f, 0.0f }),
+                                                 AffineSpace::translate(Vector3{ 0.0f, -0.5f, 0.0f }));
+    auto sphere_material  = std::make_unique<Material>();
+    auto sphere_primitive = std::make_unique<GeometricPrimitive>(*sphere_shape, *sphere_material);
+
+    Scene::HitableContainer geometry;
+    Scene::HitableContainer lights;
+    return Scene{ std::move(geometry), std::move(lights) };
 }
 
 void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, const LineNumberContainer& line_numbers)

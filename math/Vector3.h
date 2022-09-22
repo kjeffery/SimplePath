@@ -5,6 +5,7 @@
 // Based on Intel Embree's Vec3fa
 
 #include "Math.h"
+#include "VectorType.h"
 
 #include "../base/Constants.h"
 #include "../base/Util.h"
@@ -18,13 +19,6 @@
 #include <immintrin.h>
 
 namespace sp {
-
-enum class VectorType
-{
-    vector,
-    point,
-    normal
-};
 
 template <VectorType>
 struct alignas(16) BaseVector3
@@ -106,14 +100,14 @@ struct alignas(16) BaseVector3
         t[3]     = 0.0f;
         return BaseVector3(t);
 #else
-        return BaseVector3{
-            _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a)), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)))};
+        return BaseVector3{ _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a)),
+                                       _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))) };
 #endif
     }
 
     static BaseVector3 loadu(const void* const a) noexcept
     {
-        return BaseVector3{_mm_loadu_ps(reinterpret_cast<const float*>(a))};
+        return BaseVector3{ _mm_loadu_ps(reinterpret_cast<const float*>(a)) };
     }
 
     static void storeu(void* ptr, const BaseVector3& v) noexcept
@@ -656,7 +650,7 @@ struct Uninitialized<BaseVector3<type>>
 };
 
 using Vector3 = BaseVector3<VectorType::vector>;
-using Normal3  = BaseVector3<VectorType::normal>;
+using Normal3 = BaseVector3<VectorType::normal>;
 using Point3  = BaseVector3<VectorType::point>;
 
 ////////////////////////////////////////////////////////////////////////////////

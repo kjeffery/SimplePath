@@ -18,7 +18,7 @@ public:
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
-        const Ray local_ray = m_world_to_object(ray);
+        const Ray local_ray = get_world_to_object()(ray);
 
         const Vector3& d = local_ray.get_direction();
         const Point3&  o = local_ray.get_origin();
@@ -40,9 +40,9 @@ private:
             }
 
             const Normal3 n{ (o + t * d) / k_radius };
-            isect.normal = get_object_to_world()(n);
-            isect.point  = world_ray(t);
-            t_hit        = t;
+            isect.m_normal = get_object_to_world()(n);
+            isect.m_point  = ray(t);
+            limits.m_t_max = t;
             return true;
         }
 
@@ -84,7 +84,6 @@ private:
     }
 
     static constexpr float k_radius = 1.0f;
-
 };
 
 } // namespace sp

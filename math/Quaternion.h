@@ -250,17 +250,17 @@ inline Quaternion& operator/=(Quaternion& a, const Quaternion& b)
     return a = a * rcp(b);
 }
 
-Point3 Quaternion::operator()(const Point3& v) const noexcept
+inline Point3 Quaternion::operator()(const Point3& v) const noexcept
 {
     return *this * Vector3{ v };
 }
 
-Vector3 Quaternion::operator()(const Vector3& v) const noexcept
+inline Vector3 Quaternion::operator()(const Vector3& v) const noexcept
 {
     return *this * v;
 }
 
-Normal3 Quaternion::operator()(const Normal3& v) const noexcept
+inline Normal3 Quaternion::operator()(const Normal3& v) const noexcept
 {
     return *this * Vector3{ v };
 }
@@ -280,7 +280,7 @@ inline float dot(const Quaternion& a, const Quaternion& b)
 /// Orientation Functions
 ////////////////////////////////////////////////////////////////////////////////
 
-Quaternion::Quaternion(const Vector3& vx, const Vector3& vy, const Vector3& vz) noexcept
+inline Quaternion::Quaternion(const Vector3& vx, const Vector3& vy, const Vector3& vz) noexcept
 {
     if (vx.x + vy.y + vz.z >= 0.0f) {
         const float t = 1.0f + (vx.x + vy.y + vz.z);
@@ -313,7 +313,7 @@ Quaternion::Quaternion(const Vector3& vx, const Vector3& vy, const Vector3& vz) 
     }
 }
 
-Quaternion Quaternion::yaw_pitch_roll(const float yaw, const float pitch, const float roll) noexcept
+inline Quaternion Quaternion::yaw_pitch_roll(const float yaw, const float pitch, const float roll) noexcept
 {
     const float cya = std::cos(yaw * 0.5f);
     const float cpi = std::cos(pitch * 0.5f);

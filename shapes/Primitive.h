@@ -10,13 +10,31 @@
 #include "Shape.h"
 
 #include "../base/not_null.h"
+#include "../materials/Material.h"
 
 namespace sp {
 
 class GeometricPrimitive : public Hitable
 {
 public:
+    GeometricPrimitive(Shape& shape, Material& material) noexcept
+    : m_shape(std::addressof(shape))
+    , m_material(std::addressof(material))
+    {
+    }
+
 private:
+    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    {
+        assert(!"Should not get here");
+        return false;
+    }
+
+    BBox3 get_world_bounds_impl() const noexcept override
+    {
+        return m_shape->get_world_bounds();
+    }
+
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
         if (m_shape->intersect(ray, limits, isect)) {

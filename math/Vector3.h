@@ -107,7 +107,7 @@ struct alignas(16) BaseVector3
         return BaseVector3(t);
 #else
         return BaseVector3{
-            _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))))};
+            _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a)), _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)))};
 #endif
     }
 

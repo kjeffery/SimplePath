@@ -58,6 +58,36 @@ inline BBox<T> intersect(const BBox<T>& a, const BBox<T>& b) noexcept
     return { max(a.get_lower(), b.get_lower()), min(a.get_upper(), b.get_upper()) };
 }
 
+// Check to see if point is in box, allowing for right-hand equality (closed-closed) [a, b]
+template <typename T>
+inline bool contains_closed(const BBox<T>& box, const T& p) noexcept
+{
+    for (std::size_t i = 0; i < T::N; ++i) {
+        if (p[i] < box.get_lower()[i]) {
+            return false;
+        }
+        if (p[i] > box.get_upper()[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Check to see if point is in box, disallowing right-hand equality (closed-open) [a, b)
+template <typename T>
+inline bool contains_open(const BBox<T>& box, const T& p) noexcept
+{
+    for (std::size_t i = 0; i < T::N; ++i) {
+        if (p[i] < box.get_lower()[i]) {
+            return false;
+        }
+        if (p[i] >= box.get_upper()[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 template <std::size_t dim, typename T>
 typename T::scalar extents(const BBox<T>& box) noexcept
 {

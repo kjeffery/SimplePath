@@ -22,6 +22,7 @@ namespace sp {
 
 struct Point2i
 {
+    using scalar = int;
     static constexpr int N = 2;
 
     int x;
@@ -97,6 +98,7 @@ struct Point2i
         default:
             assert(!"Should not get here");
         }
+        return x;
     }
 
     int& operator[](const size_t index) noexcept
@@ -110,6 +112,7 @@ struct Point2i
         default:
             assert(!"Should not get here");
         }
+        return x;
     }
 
     friend bool operator==(const Point2i& a, const Point2i& b) noexcept = default;

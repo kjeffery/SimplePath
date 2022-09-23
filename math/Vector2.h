@@ -23,6 +23,8 @@ namespace sp {
 template <VectorType>
 struct alignas(16) BaseVector2
 {
+    using scalar = float;
+    
     static constexpr int N = 2;
 
     union

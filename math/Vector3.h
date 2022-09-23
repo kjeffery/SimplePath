@@ -23,6 +23,8 @@ namespace sp {
 template <VectorType>
 struct alignas(16) BaseVector3
 {
+    using scalar = float;
+
     static constexpr int N = 3;
 
     union

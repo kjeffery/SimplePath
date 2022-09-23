@@ -10,6 +10,13 @@
 
 namespace sp {
 
+template <typename T>
+requires std::is_integral_v<T>
+constexpr bool is_power_of_two(T v) noexcept
+{
+    return v > 0 && !(v & (v - T{1}));
+}
+
 #if defined(__AVX2__) || defined(__ARM_NEON)
 inline float madd(float a, float b, float c) noexcept
 {

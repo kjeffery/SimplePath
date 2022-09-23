@@ -113,7 +113,7 @@ struct alignas(16) BaseVector2
     static BaseVector2 loadu(const void* const a) noexcept
     {
         return BaseVector2{ _mm_and_ps(_mm_loadu_ps(reinterpret_cast<const float*>(a)),
-                                       __mm_castsi128_ps(_mm_set_epi32(0, 0, -1, -1))) };
+                                       _mm_castsi128_ps(_mm_set_epi32(0, 0, -1, -1))) };
     }
 
     static void storeu(void* ptr, const BaseVector2& v) noexcept

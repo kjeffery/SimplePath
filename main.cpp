@@ -13,6 +13,7 @@
 #include <iostream>
 #include <ranges>
 #include <string>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -48,6 +49,8 @@ void render()
     sp::ColumnMajorTileScheduler scheduler{ 9, 16, 0 };
     while (auto scheduled_tile = scheduler.get_next_tile()) {
         const auto& tile = scheduled_tile->tile;
+        // The tile iterators iterate over the entire collection of pixels for a full tile, regardless of clipping. We
+        // use a filter to skip the pixels we're not interested in.
         auto in_tile = [&tile](const sp::Point2i& p) noexcept { return contains(tile, p); };
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
             std::cout << p << '\n';
@@ -55,30 +58,60 @@ void render()
     }
 }
 
+//template <typename... Args>
+//std::tuple<Args...> parse_args(const char* const argv[]);
+
+template <typename First, typename... Rest>
+std::tuple<First, Rest...> parse_args(const char* const argv[])
+{
+    return std::tuple_cat(parse_args<First>(argv), parse_args<Rest...>(argv + 1));
+}
+
+template <>
+std::tuple<int> parse_args<int>(const char* const argv[])
+{
+    const unsigned int a = std::stoi(argv[0]);
+    return std::make_tuple(a);
+}
+
+template <>
+std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
+{
+    const unsigned int a = std::stoul(argv[0]);
+    return std::make_tuple(a);
+}
+
 int main(const int argc, const char* const argv[])
 {
+    using namespace std::literals;
     enable_pretty_printing(std::cout);
+
+    unsigned int num_threads = std::thread::hardware_concurrency();
 
     if (argc == 1) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
 
-#if 0
-    sp::ColumnMajorTileScheduler scheduler{9, 16, 1};
-    while (auto tile = scheduler.get_next_tile()) {
-        std::cout << tile->tile.get_lower() << ' ' << tile->tile.get_upper() << '\n';
-        std::cout << tile->pass << '\n';
+    std::string file_path;
+    for (int i = 1; i < argc; ++i) {
+        std::string_view arg(argv[i]);
+        if (!arg.starts_with("--")) {
+            file_path = arg;
+        }
+        if (arg == "--threads"sv) {
+            constexpr int num_args = 1;
+            if (i + num_args >= argc) {
+                std::cerr << "Expected additional argument to '--threads'";
+                return EXIT_FAILURE;
+            }
+            std::tie(num_threads) = parse_args<unsigned>(argv + i + 1);
+            i += num_args;
+        }
     }
-
-    sp::Tile tile{ sp::Point2i{ 8, 16 } };
-    for (auto p : tile) {
-        std::cout << p << '\n';
-    }
-#endif
 
     try {
-        const sp::Scene scene = parse_scene_file(argv[1]);
+        const sp::Scene scene = parse_scene_file(file_path);
         render();
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

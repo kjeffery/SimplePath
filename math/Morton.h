@@ -6,6 +6,8 @@
 
 #include <cstdint>
 
+namespace sp {
+
 inline std::uint64_t morton_encode(std::uint32_t x, std::uint32_t y) noexcept
 {
     std::uint64_t a(x);
@@ -87,3 +89,5 @@ inline std::pair<std::uint16_t, std::uint16_t> morton_decode(std::uint32_t d) no
     const std::int16_t y = morton_decode_y(d);
     return { x, y };
 }
+
+} // namespace sp

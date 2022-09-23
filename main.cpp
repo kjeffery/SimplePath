@@ -14,6 +14,7 @@
 #include <ranges>
 #include <string>
 #include <thread>
+#include <tuple>
 
 namespace fs = std::filesystem;
 
@@ -25,7 +26,7 @@ void enable_pretty_printing(std::ostream& outs)
 
 void print_usage(std::string_view exe_name)
 {
-    std::cout << "Usage: " << exe_name << " <filename>\n";
+    std::cout << "Usage: " << exe_name << "[--threads <n>] <filename>\n";
 }
 
 sp::Scene parse_scene_file(std::string_view file_name)
@@ -44,9 +45,8 @@ sp::Scene parse_scene_file(std::string_view file_name)
     }
 }
 
-void render()
+void render_thread(const sp::Scene& scene, sp::ColumnMajorTileScheduler& scheduler)
 {
-    sp::ColumnMajorTileScheduler scheduler{ 9, 16, 0 };
     while (auto scheduled_tile = scheduler.get_next_tile()) {
         const auto& tile = scheduled_tile->tile;
         // The tile iterators iterate over the entire collection of pixels for a full tile, regardless of clipping. We
@@ -58,8 +58,22 @@ void render()
     }
 }
 
-//template <typename... Args>
-//std::tuple<Args...> parse_args(const char* const argv[]);
+void render(unsigned num_threads, const sp::Scene& scene)
+{
+    constexpr int                num_passes = 1;
+    sp::ColumnMajorTileScheduler scheduler{ 800, 600, num_passes };
+    std::vector<std::jthread>    threads;
+    threads.reserve(num_threads);
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back(&render_thread, std::cref(scene), std::ref(scheduler));
+    }
+
+    for (auto& t : threads) {
+        assert(t.joinable());
+        t.join();
+    }
+}
 
 template <typename First, typename... Rest>
 std::tuple<First, Rest...> parse_args(const char* const argv[])
@@ -94,25 +108,36 @@ int main(const int argc, const char* const argv[])
     }
 
     std::string file_path;
-    for (int i = 1; i < argc; ++i) {
-        std::string_view arg(argv[i]);
-        if (!arg.starts_with("--")) {
-            file_path = arg;
-        }
-        if (arg == "--threads"sv) {
-            constexpr int num_args = 1;
-            if (i + num_args >= argc) {
-                std::cerr << "Expected additional argument to '--threads'";
-                return EXIT_FAILURE;
+
+    try {
+        for (int i = 1; i < argc; ++i) {
+            std::string_view arg(argv[i]);
+            if (!arg.starts_with("--")) {
+                file_path = arg;
             }
-            std::tie(num_threads) = parse_args<unsigned>(argv + i + 1);
-            i += num_args;
+            if (arg == "--threads"sv) {
+                constexpr int num_args = 1;
+                if (i + num_args >= argc) {
+                    std::cerr << "Expected additional argument to '--threads'";
+                    return EXIT_FAILURE;
+                }
+                std::tie(num_threads) = parse_args<unsigned>(argv + i + 1);
+                i += num_args;
+            }
         }
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
+    } catch (...) {
+        std::cerr << "Unknown error\n";
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
     }
 
     try {
         const sp::Scene scene = parse_scene_file(file_path);
-        render();
+        render(num_threads, scene);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return EXIT_FAILURE;

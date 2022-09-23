@@ -5,9 +5,12 @@ if (${CMAKE_VERSION} VERSION_LESS 3.12)
 endif()
 project(SimplePath)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 if (MSVC)
+    # We need the latest to get things like ranges::views
+    set(CMAKE_CXX_STANDARD 23)
+
     # Windows doesn't define these: it only sets the expected definitions for __AVX__ and up.
     # https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros
     add_definitions(/D__SSE4_1__)
@@ -17,6 +20,8 @@ if (MSVC)
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
 else()
+    set(CMAKE_CXX_STANDARD 20)
+
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfma") # Only set this for axv2 or above
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")

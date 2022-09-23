@@ -58,6 +58,18 @@ inline BBox<T> intersect(const BBox<T>& a, const BBox<T>& b) noexcept
     return { max(a.get_lower(), b.get_lower()), min(a.get_upper(), b.get_upper()) };
 }
 
+template <std::size_t dim, typename T>
+typename T::scalar extents(const BBox<T>& box) noexcept
+{
+    return box.get_upper()[dim] - box.get_lower()[dim];
+}
+
+template <typename T>
+typename T::scalar extents(const BBox<T>& box, std::size_t dim) noexcept
+{
+    return box.get_upper()[dim] - box.get_lower()[dim];
+}
+
 using BBox2i = BBox<Point2i>;
 using BBox2  = BBox<Point2>;
 using BBox3  = BBox<Point3>;

@@ -24,7 +24,7 @@ else()
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
 endif(MSVC)
 
-add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp base/FileParser.h base/Scene.h math/Vector3.h base/Constants.h math/Math.h math/Matrix4x4.h math/BBox.h math/ONB.h math/LinearSpace3x3.h math/Quaternion.h math/AffineSpace.h shapes/Shape.h shapes/Intersection.h math/Ray.h shapes/Sphere.h shapes/ListAccelerator.h base/not_null.h shapes/Aggregate.h shapes/Primitive.h materials/Material.h base/SmartToRawPointerIterator.h base/Array2D.h math/RGB.h base/Endian.h Image/Image.h math/Sampler.h math/VectorType.h base/Tile.h)
+add_executable(SimplePath main.cpp base/Util.h base/FileParser.cpp base/FileParser.h base/Scene.h math/Vector3.h base/Constants.h math/Math.h math/Matrix4x4.h math/BBox.h math/ONB.h math/LinearSpace3x3.h math/Quaternion.h math/AffineSpace.h shapes/Shape.h shapes/Intersection.h math/Ray.h shapes/Sphere.h shapes/ListAccelerator.h base/not_null.h shapes/Aggregate.h shapes/Primitive.h materials/Material.h base/SmartToRawPointerIterator.h base/Array2D.h math/RGB.h base/Endian.h Image/Image.h math/Sampler.h math/VectorType.h base/Tile.h base/TileScheduler.h)
 
 if (UNIX)
     set(THREADS_PREFER_PTHREAD_FLAG ON)

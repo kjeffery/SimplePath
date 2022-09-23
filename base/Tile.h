@@ -27,7 +27,7 @@ public:
 
     friend inline Tile intersect(const BBox2i& a, const Tile& b) noexcept
     {
-        return Tile{intersect(a, static_cast<BBox2i>(a))};
+        return Tile{intersect(a, static_cast<BBox2i>(b))};
     }
 
     friend inline Tile intersect(const Tile& a, const BBox2i& b) noexcept

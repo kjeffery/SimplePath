@@ -2,6 +2,8 @@
 
 #include "base/FileParser.h"
 #include "base/not_null.h"
+#include "base/Tile.h"
+#include "base/TileScheduler.h"
 #include "base/Util.h"
 #include "math/LinearSpace3x3.h"
 #include "math/Vector3.h"
@@ -9,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <ranges>
 #include <string>
 
 namespace fs = std::filesystem;
@@ -34,9 +37,21 @@ sp::Scene parse_scene_file(std::string_view file_name)
         fs::path      file_path{ file_name };
         std::ifstream ins(file_path);
         if (!ins) {
-            throw sp::ParsingException{"Unable to open file "s + file_path.string()};
+            throw sp::ParsingException{ "Unable to open file "s + file_path.string() };
         }
         return sp::parse_file(ins);
+    }
+}
+
+void render()
+{
+    sp::ColumnMajorTileScheduler scheduler{ 9, 16, 0 };
+    while (auto scheduled_tile = scheduler.get_next_tile()) {
+        const auto& tile = scheduled_tile->tile;
+        auto in_tile = [&tile](const sp::Point2i& p) noexcept { return contains(tile, p); };
+        for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
+            std::cout << p << '\n';
+        }
     }
 }
 
@@ -49,8 +64,22 @@ int main(const int argc, const char* const argv[])
         return EXIT_FAILURE;
     }
 
+#if 0
+    sp::ColumnMajorTileScheduler scheduler{9, 16, 1};
+    while (auto tile = scheduler.get_next_tile()) {
+        std::cout << tile->tile.get_lower() << ' ' << tile->tile.get_upper() << '\n';
+        std::cout << tile->pass << '\n';
+    }
+
+    sp::Tile tile{ sp::Point2i{ 8, 16 } };
+    for (auto p : tile) {
+        std::cout << p << '\n';
+    }
+#endif
+
     try {
         const sp::Scene scene = parse_scene_file(argv[1]);
+        render();
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return EXIT_FAILURE;

@@ -4,9 +4,16 @@
 
 #include "Tile.h"
 
+#include <atomic>
 #include <optional>
 
 namespace sp {
+
+struct ScheduledTile
+{
+    Tile tile;
+    int  pass;
+};
 
 class TileScheduler
 {
@@ -19,29 +26,29 @@ public:
     virtual ~TileScheduler() = default;
 
     // This must be thread-safe.
-    [[nodiscard]] std::optional<Tile> get_next_tile()
+    [[nodiscard]] std::optional<ScheduledTile> get_next_tile()
     {
         auto t = get_next_tile_impl();
         if (t) {
-            *t = intersect(*t, m_extents);
+            t->tile = intersect(t->tile, m_extents);
         }
         return t;
     }
 
     template <std::size_t dim>
-    int num_tiles() noexcept
+    int get_num_tiles() noexcept
     {
         const int s = extents<dim>(m_extents);
         return (s + (k_tile_dimension - 1)) / k_tile_dimension;
     }
 
-    int num_tiles() noexcept
+    int get_num_tiles() noexcept
     {
-        return num_tiles<0>() * num_tiles<1>();
+        return get_num_tiles<0>() * get_num_tiles<1>();
     }
 
 private:
-    virtual std::optional<Tile> get_next_tile_impl() = 0;
+    virtual std::optional<ScheduledTile> get_next_tile_impl() = 0;
 
     BBox2i m_extents;
 };
@@ -49,35 +56,34 @@ private:
 class ColumnMajorTileScheduler : public TileScheduler
 {
 public:
-    ColumnMajorTileScheduler(int width, int height) noexcept
+    ColumnMajorTileScheduler(int width, int height, int pass_clamp) noexcept
     : TileScheduler{ width, height }
     , m_counter(0)
+    , m_pass_clamp(pass_clamp)
     {
     }
 
 private:
-    std::optional<Tile> get_next_tile_impl() override
+    std::optional<ScheduledTile> get_next_tile_impl() override
     {
-        const int index = m_counter++;
-        if (index >= num_tiles()) {
-            return std::optional<Tile>{};
+        const int counter   = m_counter++;
+        const int num_tiles = get_num_tiles();
+        assert(num_tiles > 0);
+        const int pass = counter / num_tiles;
+        if (pass > m_pass_clamp) {
+            return std::optional<ScheduledTile>{};
         }
-#if 0
-        const int width = extents<0>(m_extents);
-
-        const auto x = index % width;
-        const auto y = index / width;
-
-        return std::optional<Tile>{ std::in_place, Point2i{ x, y } };
-#else
-        const int  w = num_tiles<0>();
-        const auto x = index % w;
-        const auto y = index / w;
-        return std::optional<Tile>{ std::in_place, Point2i{ x * k_tile_dimension, y * k_tile_dimension } };
-#endif
+        const int  index = counter % num_tiles;
+        const int  w     = get_num_tiles<0>();
+        const auto x     = index % w;
+        const auto y     = index / w;
+        return std::optional<ScheduledTile>{ std::in_place,
+                                             Tile{ Point2i{ x * k_tile_dimension, y * k_tile_dimension } },
+                                             pass };
     }
 
     std::atomic<int> m_counter;
+    int              m_pass_clamp;
 };
 
 } // namespace sp

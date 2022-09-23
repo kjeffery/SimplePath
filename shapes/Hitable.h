@@ -4,7 +4,7 @@
 
 #include "Intersection.h"
 
-#include "../math/BBox3.h"
+#include "../math/BBox.h"
 #include "../math/Ray.h"
 
 namespace sp {

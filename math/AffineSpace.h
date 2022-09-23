@@ -4,7 +4,7 @@
 
 // Based on Intel Embree's AffineSpaceT
 
-#include "BBox3.h"
+#include "BBox.h"
 #include "LinearSpace3x3.h"
 #include "Vector3.h"
 

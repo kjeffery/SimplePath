@@ -17,6 +17,13 @@ struct RGB
     {
     }
 
+    constexpr RGB(float v) noexcept
+    : r(v)
+    , g(v)
+    , b(v)
+    {
+    }
+
     constexpr RGB(float ir, float ig, float ib) noexcept
     : r(ir)
     , g(ig)
@@ -54,12 +61,23 @@ struct RGB
         return r;
     }
 
+    static constexpr RGB black() noexcept
+    {
+        return RGB{ 0.0f };
+    }
+
+    // For some definition of white (We're HDR in these here woods).
+    static constexpr RGB white() noexcept
+    {
+        return RGB{ 1.0f };
+    }
+
     float r;
     float g;
     float b;
 };
 
-RGB& operator+=(RGB& a, const RGB& b) noexcept
+inline RGB& operator+=(RGB& a, const RGB& b) noexcept
 {
     a.r += b.r;
     a.g += b.g;
@@ -67,7 +85,7 @@ RGB& operator+=(RGB& a, const RGB& b) noexcept
     return a;
 }
 
-RGB& operator*=(RGB& a, float b) noexcept
+inline RGB& operator*=(RGB& a, float b) noexcept
 {
     a.r *= b;
     a.g *= b;
@@ -75,7 +93,7 @@ RGB& operator*=(RGB& a, float b) noexcept
     return a;
 }
 
-RGB& operator/=(RGB& a, float b) noexcept
+inline RGB& operator/=(RGB& a, float b) noexcept
 {
     a.r /= b;
     a.g /= b;
@@ -84,25 +102,25 @@ RGB& operator/=(RGB& a, float b) noexcept
 }
 
 // Pass-by-value on purpose
-RGB operator+(RGB a, const RGB& b) noexcept
+inline RGB operator+(RGB a, const RGB& b) noexcept
 {
     return a += b;
 }
 
 // Pass-by-value on purpose
-RGB operator*(RGB a, float b) noexcept
+inline RGB operator*(RGB a, float b) noexcept
 {
     return a *= b;
 }
 
 // Pass-by-value on purpose
-RGB operator*(float b, RGB a) noexcept
+inline RGB operator*(float b, RGB a) noexcept
 {
     return a *= b;
 }
 
 // Pass-by-value on purpose
-RGB operator/(RGB a, float b) noexcept
+inline RGB operator/(RGB a, float b) noexcept
 {
     return a /= b;
 }

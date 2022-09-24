@@ -2,6 +2,7 @@
 
 /// @author Keith Jeffery
 
+#include "../math/HSV.h"
 #include "../math/Ray.h"
 #include "../math/RGB.h"
 
@@ -51,7 +52,11 @@ private:
         const float y = y0 + py * dy;
 
         const float value = static_cast<float>(mandel(x, y))/s_max_iterations;
-        return RGB{value};
+
+        const float hue = std::fmod(std::pow(value * 360.0f, 1.5f), 360.0f) / 360.0f;
+        const float saturation = 1.0f;
+        const HSV hsv{hue, saturation, value};
+        return to_rgb(hsv);
     }
 
     static int mandel(const float c_re, const float c_im) noexcept

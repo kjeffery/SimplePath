@@ -50,7 +50,6 @@ void write_pfm(std::ostream& outs, const Image& img)
     for (int j = ny - 1; j >= 0; --j) {
         for (int i = 0; i < nx; ++i) {
             const auto& c = img(i, j);
-            // std::cout << c.r << " " << c.g << " " << c.b << '\n';
             outs.write(reinterpret_cast<const char*>(&c.r), sizeof(float));
             outs.write(reinterpret_cast<const char*>(&c.g), sizeof(float));
             outs.write(reinterpret_cast<const char*>(&c.b), sizeof(float));
@@ -69,7 +68,7 @@ void write_pfm(const std::filesystem::path& file, const Image& img)
 
 void write(const std::filesystem::path& file, const Image& img)
 {
-    const auto& ext = file.extension().native();
+    const auto& ext = file.extension().string();
     if (ext == ".pfm") {
         write_pfm(file, img);
     } else if (ext == ".ppm") {
@@ -133,7 +132,7 @@ Image read_pfm(const std::filesystem::path& file)
 
 Image read(const std::filesystem::path& file)
 {
-    const auto& ext = file.extension().native();
+    const auto& ext = file.extension().string();
     if (ext == ".pfm") {
         return read_pfm(file);
     } else {

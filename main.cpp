@@ -8,6 +8,7 @@
 #include "Image/Image.h"
 #include "Integrators/Integrator.h"
 #include "math/LinearSpace3x3.h"
+#include "math/Sampler.h"
 #include "math/Vector3.h"
 
 #include <filesystem>
@@ -47,7 +48,14 @@ sp::Scene parse_scene_file(std::string_view file_name)
     }
 }
 
+sp::Sampler get_pixel_sampler(std::uint32_t x, std::uint32_t y)
+{
+    // TODO: if num passes == 1, get set
+    return sp::Sampler::create_new_sequence((x << 16u) | y);
+}
+
 void render_thread(sp::Image&                    image,
+                   const unsigned                num_pixel_samples,
                    const sp::Scene&              scene,
                    const sp::Integrator&         integrator,
                    sp::ColumnMajorTileScheduler& scheduler)
@@ -58,14 +66,19 @@ void render_thread(sp::Image&                    image,
         // use a filter to skip the pixels we're not interested in.
         auto in_tile = [&tile](const sp::Point2i& p) noexcept { return contains(tile, p); };
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
-            const sp::Ray ray{ sp::Point3(p.x, p.y, 0.0f), sp::Vector3{ 0.0f, 0.0f, -1.0f } };
-            // TODO: super-sampling
-            image(p.x, p.y) = integrator.integrate(ray);
+            auto sampler = get_pixel_sampler(p.x, p.y);
+            for (unsigned i = 0; i < num_pixel_samples; ++i) {
+                const auto       sample = sampler.get_next_2D();
+                const sp::Point3 origin{ p.x + sample.x, p.y + sample.y, 0.0f };
+                const sp::Ray    ray{ origin, sp::Vector3{ 0.0f, 0.0f, -1.0f } };
+                image(p.x, p.y) += integrator.integrate(ray);
+            }
+            image(p.x, p.y) /= num_pixel_samples;
         }
     }
 }
 
-void render(unsigned num_threads, const sp::Scene& scene)
+void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& scene)
 {
     constexpr int num_passes   = 1;
     constexpr int image_width  = 800;
@@ -81,6 +94,7 @@ void render(unsigned num_threads, const sp::Scene& scene)
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back(&render_thread,
                              std::ref(image),
+                             num_pixel_samples,
                              std::cref(scene),
                              std::cref(integrator),
                              std::ref(scheduler));
@@ -119,7 +133,8 @@ int main(const int argc, const char* const argv[])
     using namespace std::literals;
     enable_pretty_printing(std::cout);
 
-    unsigned int num_threads = std::thread::hardware_concurrency();
+    unsigned int num_threads       = std::thread::hardware_concurrency();
+    unsigned int num_pixel_samples = 1u;
 
     if (argc == 1) {
         print_usage(argv[0]);
@@ -132,14 +147,21 @@ int main(const int argc, const char* const argv[])
             std::string_view arg(argv[i]);
             if (!arg.starts_with("--")) {
                 file_path = arg;
-            }
-            if (arg == "--threads"sv) {
+            } else if (arg == "--threads"sv) {
                 constexpr int num_args = 1;
                 if (i + num_args >= argc) {
                     std::cerr << "Expected additional argument to '--threads'";
                     return EXIT_FAILURE;
                 }
                 std::tie(num_threads) = parse_args<unsigned>(argv + i + 1);
+                i += num_args;
+            } else if (arg == "--samples"sv) {
+                constexpr int num_args = 1;
+                if (i + num_args >= argc) {
+                    std::cerr << "Expected additional argument to '--threads'";
+                    return EXIT_FAILURE;
+                }
+                std::tie(num_pixel_samples) = parse_args<unsigned>(argv + i + 1);
                 i += num_args;
             }
         }
@@ -153,9 +175,15 @@ int main(const int argc, const char* const argv[])
         return EXIT_FAILURE;
     }
 
+    if (num_threads <= 0) {
+        constexpr unsigned default_num_threads = 4u;
+        std::cout << "Unable to determine thread count. Arbitrary choosing " << default_num_threads << ".\n";
+        num_threads = default_num_threads;
+    }
+
     try {
         const sp::Scene scene = parse_scene_file(file_path);
-        render(num_threads, scene);
+        render(num_threads, num_pixel_samples, scene);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return EXIT_FAILURE;

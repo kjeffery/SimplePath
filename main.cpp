@@ -5,6 +5,8 @@
 #include "base/Tile.h"
 #include "base/TileScheduler.h"
 #include "base/Util.h"
+#include "Image/Image.h"
+#include "Integrators/Integrator.h"
 #include "math/LinearSpace3x3.h"
 #include "math/Vector3.h"
 
@@ -45,7 +47,10 @@ sp::Scene parse_scene_file(std::string_view file_name)
     }
 }
 
-void render_thread(const sp::Scene& scene, sp::ColumnMajorTileScheduler& scheduler)
+void render_thread(sp::Image&                    image,
+                   const sp::Scene&              scene,
+                   const sp::Integrator&         integrator,
+                   sp::ColumnMajorTileScheduler& scheduler)
 {
     while (auto scheduled_tile = scheduler.get_next_tile()) {
         const auto& tile = scheduled_tile->tile;
@@ -53,26 +58,40 @@ void render_thread(const sp::Scene& scene, sp::ColumnMajorTileScheduler& schedul
         // use a filter to skip the pixels we're not interested in.
         auto in_tile = [&tile](const sp::Point2i& p) noexcept { return contains(tile, p); };
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
-            std::cout << p << '\n';
+            const sp::Ray ray{ sp::Point3(p.x, p.y, 0.0f), sp::Vector3{ 0.0f, 0.0f, -1.0f } };
+            // TODO: super-sampling
+            image(p.x, p.y) = integrator.integrate(ray);
         }
     }
 }
 
 void render(unsigned num_threads, const sp::Scene& scene)
 {
-    constexpr int                num_passes = 1;
-    sp::ColumnMajorTileScheduler scheduler{ 800, 600, num_passes };
+    constexpr int num_passes   = 1;
+    constexpr int image_width  = 800;
+    constexpr int image_height = 600;
+
+    sp::Image image(image_width, image_height, sp::RGB::black());
+
+    sp::MandelbrotIntegrator     integrator(image_width, image_height);
+    sp::ColumnMajorTileScheduler scheduler{ image_width, image_height, num_passes };
     std::vector<std::jthread>    threads;
     threads.reserve(num_threads);
 
     for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back(&render_thread, std::cref(scene), std::ref(scheduler));
+        threads.emplace_back(&render_thread,
+                             std::ref(image),
+                             std::cref(scene),
+                             std::cref(integrator),
+                             std::ref(scheduler));
     }
 
     for (auto& t : threads) {
         assert(t.joinable());
         t.join();
     }
+
+    sp::write("image.pfm", image);
 }
 
 template <typename First, typename... Rest>
@@ -108,7 +127,6 @@ int main(const int argc, const char* const argv[])
     }
 
     std::string file_path;
-
     try {
         for (int i = 1; i < argc; ++i) {
             std::string_view arg(argv[i]);

@@ -70,7 +70,7 @@ private:
         const int num_tiles = get_num_tiles();
         assert(num_tiles > 0);
         const int pass = counter / num_tiles;
-        if (pass > m_pass_clamp) {
+        if (pass >= m_pass_clamp) {
             return std::optional<ScheduledTile>{};
         }
         const int  index = counter % num_tiles;

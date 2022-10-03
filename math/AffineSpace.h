@@ -45,12 +45,17 @@ public:
     {
     }
 
-    static AffineSpace scale(const Vector3& s) noexcept;
-    static AffineSpace translate(Vector3 p) noexcept;
+    static AffineSpace identity() noexcept
+    {
+        AffineSpace{ LinearSpace3x3::identity(), Vector3::zero() };
+    }
+
+    inline static AffineSpace scale(const Vector3& s) noexcept;
+    inline static AffineSpace translate(Vector3 p) noexcept;
     // Rotation about an arbitrary axis
-    static AffineSpace rotate(const Vector3& u, const float r) noexcept;
+    inline static AffineSpace rotate(const Vector3& u, const float r) noexcept;
     // Rotation about an arbitrary axis and point
-    static AffineSpace rotate(const Point3& p, const Vector3& u, const float r) noexcept;
+    inline static AffineSpace rotate(const Point3& p, const Vector3& u, const float r) noexcept;
 
     static AffineSpace look_at(const Point3& eye, const Point3& point, const Vector3& up) noexcept
     {
@@ -59,6 +64,8 @@ public:
         const auto v = normalize(cross(z, u));
         return AffineSpace{ LinearSpace3x3{ u, v, z }, eye };
     }
+
+    inline static AffineSpace orthographic(const float z_near, const float z_far) noexcept;
 
     const LinearSpace3x3& get_linear() const noexcept
     {
@@ -226,6 +233,11 @@ AffineSpace AffineSpace::rotate(const Vector3& u, const float r) noexcept
 AffineSpace AffineSpace::rotate(const Point3& p, const Vector3& u, const float r) noexcept
 {
     return translate(Vector3{ +p }) * rotate(u, r) * translate(Vector3{ -p });
+}
+
+AffineSpace AffineSpace::orthographic(const float z_near, const float z_far) noexcept
+{
+    return scale(Vector3{ 1.0f, 1.0f, 1.0f / (z_far - z_near) }) * translate(Vector3{ 0.0f, 0.0f, z_near });
 }
 
 ////////////////////////////////////////////////////////////////////////////////

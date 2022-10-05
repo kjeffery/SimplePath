@@ -4,6 +4,8 @@
 
 #include "Vector3.h"
 
+#include "../base/Constants.h"
+
 #include <cassert>
 #include <limits>
 
@@ -13,7 +15,7 @@ constexpr float k_ray_epsilon = 0.001f;
 struct RayLimits
 {
     float m_t_min = k_ray_epsilon;
-    float m_t_max = std::numeric_limits<float>::max();
+    float m_t_max = k_infinite_distance;
 };
 
 class Ray

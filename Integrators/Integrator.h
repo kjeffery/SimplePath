@@ -2,9 +2,13 @@
 
 /// @author Keith Jeffery
 
+#include "../base/Scene.h"
 #include "../math/HSV.h"
+#include "../math/ONB.h"
 #include "../math/Ray.h"
 #include "../math/RGB.h"
+#include "../math/Sampler.h"
+#include "../math/Sampling.h"
 
 #include <iostream> // TODO: temp
 
@@ -15,13 +19,13 @@ class Integrator
 public:
     virtual ~Integrator() = default;
 
-    [[nodiscard]] RGB integrate(const Ray& ray) const
+    [[nodiscard]] RGB integrate(const Ray& ray, const Scene& scene, Sampler& sampler) const
     {
-        return integrate_impl(ray);
+        return integrate_impl(ray, scene, sampler);
     }
 
 private:
-    virtual RGB integrate_impl(const Ray& ray) const = 0;
+    virtual RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler) const = 0;
 };
 
 // A simple test integrator that ignores the ray direction and simply uses the x and y values.
@@ -35,7 +39,7 @@ public:
     }
 
 private:
-    RGB integrate_impl(const Ray& ray) const override
+    RGB integrate_impl(const Ray& ray, const Scene&, Sampler&) const override
     {
         constexpr float x0 = -2.0f;
         constexpr float x1 = +1.0f;
@@ -45,17 +49,18 @@ private:
         const float dx = (x1 - x0) / m_image_width;
         const float dy = (y1 - y0) / m_image_height;
 
+        // TODO: intersect with plane in front of camera (transform to local space?)
         const float& px = ray.get_origin().x;
         const float& py = ray.get_origin().y;
 
         const float x = x0 + px * dx;
         const float y = y0 + py * dy;
 
-        const float value = static_cast<float>(mandel(x, y))/s_max_iterations;
+        const float value = static_cast<float>(mandel(x, y)) / s_max_iterations;
 
-        const float hue = std::fmod(std::pow(value * 360.0f, 1.5f), 360.0f) / 360.0f;
+        const float hue        = std::fmod(std::pow(value * 360.0f, 1.5f), 360.0f) / 360.0f;
         const float saturation = 1.0f;
-        const HSV hsv{hue, saturation, value};
+        const HSV   hsv{ hue, saturation, value };
         return to_rgb(hsv);
     }
 
@@ -82,6 +87,51 @@ private:
 
     int m_image_width;
     int m_image_height;
+};
+
+class BruteForceIntegrator : public Integrator
+{
+public:
+private:
+    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler) const override
+    {
+        return do_integrate(ray, scene, RGB::white(), sampler, 0);
+    }
+
+    // TODO: throughput only for interative
+    RGB do_integrate(const Ray& ray, const Scene& scene, RGB throughput, Sampler& sampler, int depth) const
+    {
+        if (depth >= scene.max_depth) {
+            return RGB::black();
+        }
+
+        RayLimits         limits;
+        LightIntersection light_intersection;
+        const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+
+        Intersection geometry_intersection;
+        if (scene.intersect(ray, limits, geometry_intersection)) {
+            // Get material
+            // Get normal
+            const Vector3 w_o = -ray.get_direction();
+            const Vector3 normal_as_vector{ geometry_intersection.m_normal };
+            const auto    cosine = dot(w_o, normal_as_vector);
+
+            // Get next direction
+            const auto onb                = ONB::from_w(normal_as_vector);
+            const auto sp                 = sample_to_hemisphere(sampler.get_next_2D());
+            const auto outgoing_direction = onb.to_world(sp);
+            const auto outgoing_position  = ray(limits.m_t_max);
+            const Ray  outgoing_ray{ outgoing_position, outgoing_direction };
+
+            return do_integrate(outgoing_ray, scene, throughput, sampler, depth + 1) * cosine * RGB{ 0.2f, 0.2f, 1.0f };
+        } else if (hit_light) {
+            return light_intersection.L;
+        } else {
+            // TODO: black: this is temporary
+            return RGB::white();
+        }
+    }
 };
 
 } // namespace sp

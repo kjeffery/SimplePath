@@ -6,6 +6,7 @@
 #include "not_null.h"
 #include "SmartToRawPointerIterator.h"
 
+#include "../Cameras/Camera.h"
 #include "../shapes/Aggregate.h"
 #include "../shapes/ListAccelerator.h"
 
@@ -31,8 +32,7 @@ public:
     , m_lights(std::move(lights))
     , m_accelerator_geometry(SmartToRawPointerIterator{ m_hitables.cbegin() },
                              SmartToRawPointerIterator{ m_hitables.cend() })
-    , m_accelerator_lights(SmartToRawPointerIterator{ m_lights.cbegin() },
-                           SmartToRawPointerIterator{ m_lights.cend() })
+    , m_accelerator_lights(SmartToRawPointerIterator{ m_lights.cbegin() }, SmartToRawPointerIterator{ m_lights.cend() })
     {
     }
 
@@ -50,6 +50,13 @@ public:
     {
         return m_accelerator_geometry.intersect_p(ray, limits);
     }
+
+    // TODO: variables
+    static constexpr int image_width  = 10;
+    static constexpr int image_height = 10;
+
+    // TODO: private
+    std::unique_ptr<Camera> m_camera;
 
 private:
     // Scene owns the geometry + other hitables.

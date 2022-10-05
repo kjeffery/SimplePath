@@ -45,4 +45,10 @@ private:
     Point3  m_origin;
     Vector3 m_direction;
 };
+
+inline std::ostream& operator<<(std::ostream& outs, const Ray& ray)
+{
+    return outs << ray.get_origin() << ' ' << ray.get_direction();
+}
+
 } // namespace sp

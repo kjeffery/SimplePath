@@ -32,7 +32,8 @@ inline std::string_view trim_end(std::string_view s, const char character) noexc
     if (pos == std::string_view::npos) {
         return s;
     }
-    return s.substr(0, pos);
+    s.remove_suffix(s.size() - pos);
+    return s;
 }
 
 template <typename T>

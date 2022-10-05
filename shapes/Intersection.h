@@ -4,12 +4,13 @@
 /// @author Keith Jeffery
 
 #include "../materials/Material.h"
+#include "../math/RGB.h"
 #include "../math/Vector3.h"
 
 namespace sp {
 struct LightIntersection
 {
-    // color L;
+    RGB L;
 };
 
 struct Intersection

@@ -24,7 +24,7 @@ public:
     constexpr Radians as_radians() const noexcept;
     constexpr Degrees as_degrees() const noexcept;
 
-    friend Angle  normalize(const Angle& a) noexcept;
+    friend Angle            normalize(const Angle& a) noexcept;
     friend constexpr Angle& operator*=(Angle& a, const float b) noexcept;
     friend constexpr Angle& operator+=(Angle& a, const Angle& b) noexcept;
     friend constexpr Angle& operator-=(Angle& a, const Angle& b) noexcept;
@@ -51,7 +51,7 @@ public:
         return m_value;
     }
 
-    friend Radians  normalize(const Radians& a) noexcept;
+    friend Radians            normalize(const Radians& a) noexcept;
     friend constexpr Radians& operator*=(Radians& a, const float b) noexcept;
     friend constexpr Radians& operator+=(Radians& a, const Radians& b) noexcept;
     friend constexpr Radians& operator-=(Radians& a, const Radians& b) noexcept;
@@ -78,7 +78,7 @@ public:
         return m_value;
     }
 
-    friend Degrees  normalize(const Degrees& a) noexcept;
+    friend Degrees            normalize(const Degrees& a) noexcept;
     friend constexpr Degrees& operator*=(Degrees& a, const float b) noexcept;
     friend constexpr Degrees& operator+=(Degrees& a, const Degrees& b) noexcept;
     friend constexpr Degrees& operator-=(Degrees& a, const Degrees& b) noexcept;
@@ -87,6 +87,7 @@ private:
     float m_value;
 };
 
+inline namespace literals {
 inline Radians operator"" _radians(long double f)
 {
     return Radians{ static_cast<float>(f) };
@@ -96,6 +97,7 @@ inline Degrees operator"" _degrees(long double f)
 {
     return Degrees{ static_cast<float>(f) };
 }
+} // namespace literals
 
 inline constexpr Degrees to_degrees(Radians radians) noexcept
 {

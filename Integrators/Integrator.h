@@ -117,11 +117,9 @@ private:
                 return RGB::black();
             }
 
-            const Vector3 normal_as_vector{ n };
-
             // Get next direction
             const auto& wi                = shading_result.direction;
-            const auto  cosine            = dot(wi, normal_as_vector);
+            const auto  cosine            = dot(wi, n);
             const auto  outgoing_position = ray(limits.m_t_max);
             const Ray   outgoing_ray{ outgoing_position, wi };
 

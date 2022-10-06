@@ -17,9 +17,9 @@ namespace sp {
 class GeometricPrimitive : public Hitable
 {
 public:
-    GeometricPrimitive(Shape& shape, Material& material) noexcept
-    : m_shape(std::addressof(shape))
-    , m_material(std::addressof(material))
+    GeometricPrimitive(std::shared_ptr<Shape> shape, std::shared_ptr<Material> material) noexcept
+    : m_shape(shape)
+    , m_material(material)
     {
     }
 
@@ -38,7 +38,7 @@ private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
         if (m_shape->intersect(ray, limits, isect)) {
-            isect.m_material = m_material;
+            isect.m_material = m_material.get().get();
             return true;
         }
         return false;
@@ -49,8 +49,8 @@ private:
         return m_shape->intersect_p(ray, limits);
     }
 
-    not_null<Shape*>    m_shape;
-    not_null<Material*> m_material;
+    not_null<std::shared_ptr<Shape>>    m_shape;
+    not_null<std::shared_ptr<Material>> m_material;
 };
 
 } // namespace sp

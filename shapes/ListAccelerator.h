@@ -60,6 +60,6 @@ private:
 
     // To be extra safe, these should be shared_ptrs (or unique_ptrs assuming this is the only owner), but we will defer
     // sole ownership to the Scene class and avoid the overhead of shared_ptrs.
-    std::vector<not_null<const Hitable*>> m_primitives;
+    std::vector<not_null<std::shared_ptr<const Hitable>>> m_primitives;
 };
 } // namespace sp

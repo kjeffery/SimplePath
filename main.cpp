@@ -5,8 +5,10 @@
 #include "base/Tile.h"
 #include "base/TileScheduler.h"
 #include "base/Util.h"
+#include "Cameras/Camera.h"
 #include "Image/Image.h"
 #include "Integrators/Integrator.h"
+#include "math/Angles.h"
 #include "math/LinearSpace3x3.h"
 #include "math/Sampler.h"
 #include "math/Vector3.h"
@@ -16,6 +18,7 @@
 #include <iostream>
 #include <ranges>
 #include <string>
+#include <syncstream>
 #include <thread>
 #include <tuple>
 
@@ -54,6 +57,7 @@ sp::Sampler get_pixel_sampler(std::uint32_t x, std::uint32_t y)
     return sp::Sampler::create_new_sequence((x << 16u) | y);
 }
 
+// TODO: should this be a member of Scene?
 void render_thread(sp::Image&                    image,
                    const unsigned                num_pixel_samples,
                    const sp::Scene&              scene,
@@ -68,10 +72,10 @@ void render_thread(sp::Image&                    image,
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
             auto sampler = get_pixel_sampler(p.x, p.y);
             for (unsigned i = 0; i < num_pixel_samples; ++i) {
-                const auto       sample = sampler.get_next_2D();
-                const sp::Point3 origin{ p.x + sample.x, p.y + sample.y, 0.0f };
-                const sp::Ray    ray{ origin, sp::Vector3{ 0.0f, 0.0f, -1.0f } };
-                image(p.x, p.y) += integrator.integrate(ray);
+                const auto    sample = sampler.get_next_2D();
+                const sp::Ray ray    = scene.m_camera->generate_ray(p.x + sample.x, p.y + sample.y);
+                // std::osyncstream(std::cout) << ray << '\n';
+                image(p.x, p.y) += integrator.integrate(ray, scene, sampler);
             }
             image(p.x, p.y) /= num_pixel_samples;
         }
@@ -80,14 +84,13 @@ void render_thread(sp::Image&                    image,
 
 void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& scene)
 {
-    constexpr int num_passes   = 1;
-    constexpr int image_width  = 800;
-    constexpr int image_height = 600;
+    constexpr int num_passes = 1;
 
-    sp::Image image(image_width, image_height, sp::RGB::black());
+    sp::Image image(scene.image_width, scene.image_height, sp::RGB::black());
 
-    sp::MandelbrotIntegrator     integrator(image_width, image_height);
-    sp::ColumnMajorTileScheduler scheduler{ image_width, image_height, num_passes };
+    // sp::MandelbrotIntegrator     integrator(scene.image_width, scene.image_height);
+    sp::BruteForceIntegrator     integrator;
+    sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
     std::vector<std::jthread>    threads;
     threads.reserve(num_threads);
 
@@ -182,7 +185,21 @@ int main(const int argc, const char* const argv[])
     }
 
     try {
-        const sp::Scene scene = parse_scene_file(file_path);
+        // TODO: const
+        using namespace sp::literals;
+        /*const*/ sp::Scene scene = parse_scene_file(file_path);
+        scene.m_camera.reset(new sp::PerspectiveCamera{ sp::Point3{ 0.0f, 0.0f, 10.0f },
+                                                        sp::Point3{ 0.0f, 0.5f, 0.0f },
+                                                        sp::Vector3{ 0.0f, 1.0f, 0.0f },
+                                                        sp::Angle{ 45.0_degrees },
+                                                        scene.image_width,
+                                                        scene.image_height });
+
+        // sp::PerspectiveCamera camera{sp::Point3{0.0f, 0.0f, 10.0f}, sp::Point3{0.0f, 0.0f, 0.0f},
+        // sp::Vector3{0.0f, 1.0f, 0.0f}, sp::Degrees{45.0f}, 800, 600}; sp::OrthographicCamera camera(sp::AffineSpace)
+        // OrthographicCamera(AffineSpace camera_to_world, int film_width, int film_height, float focal_distance)
+        // noexcept
+
         render(num_threads, num_pixel_samples, scene);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

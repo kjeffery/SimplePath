@@ -694,6 +694,21 @@ inline float dot(const Vector3& a, const Vector3& b) noexcept
 }
 #endif
 
+inline float dot(const Vector3& a, const Normal3& b) noexcept
+{
+    return dot(a, Vector3{ b });
+}
+
+inline float dot(const Normal3& a, const Vector3& b) noexcept
+{
+    return dot(b, a);
+}
+
+inline float dot(const Normal3& a, const Normal3& b) noexcept
+{
+    return dot(Vector3{ a }, Vector3{ b });
+}
+
 inline Vector3 cross(const Vector3& a, const Vector3& b) noexcept
 {
     return difference_of_products(shuffle<VectorType::vector, 1, 2, 0, 3>(a),
@@ -729,7 +744,7 @@ inline Vector3 normalize(const Vector3& a) noexcept
 
 inline bool is_normalized(const Vector3& a) noexcept
 {
-    return std::abs(1.0f - sqr_length(a)) < std::numeric_limits<float>::epsilon();
+    return std::abs(1.0f - sqr_length(a)) < 0.0001f; // Arbitrary
 }
 
 inline float distance(const Point3& a, const Point3& b) noexcept

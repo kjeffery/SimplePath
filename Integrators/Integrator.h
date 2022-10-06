@@ -111,25 +111,25 @@ private:
 
         Intersection geometry_intersection;
         if (scene.intersect(ray, limits, geometry_intersection)) {
-            // Get material
-            // Get normal
-            const Vector3 w_o = -ray.get_direction();
+            const Vector3 wo = -ray.get_direction();
+
+            const auto shading_result =
+                geometry_intersection.m_material->sample(wo, geometry_intersection.m_normal, sampler);
+
             const Vector3 normal_as_vector{ geometry_intersection.m_normal };
-            const auto    cosine = dot(w_o, normal_as_vector);
 
             // Get next direction
-            const auto onb                = ONB::from_w(normal_as_vector);
-            const auto sp                 = sample_to_hemisphere(sampler.get_next_2D());
-            const auto outgoing_direction = onb.to_world(sp);
-            const auto outgoing_position  = ray(limits.m_t_max);
-            const Ray  outgoing_ray{ outgoing_position, outgoing_direction };
+            const auto& wi                = shading_result.direction;
+            const auto  cosine            = dot(wi, normal_as_vector);
+            const auto  outgoing_position = ray(limits.m_t_max);
+            const Ray   outgoing_ray{ outgoing_position, wi };
 
-            return do_integrate(outgoing_ray, scene, throughput, sampler, depth + 1) * cosine * RGB{ 0.2f, 0.2f, 1.0f };
+            return do_integrate(outgoing_ray, scene, throughput, sampler, depth + 1) * cosine * shading_result.color /
+                   shading_result.pdf;
         } else if (hit_light) {
             return light_intersection.L;
         } else {
-            // TODO: black: this is temporary
-            return RGB::white();
+            return RGB::black();
         }
     }
 };

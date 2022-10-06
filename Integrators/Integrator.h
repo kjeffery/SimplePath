@@ -108,15 +108,13 @@ private:
         RayLimits         limits;
         LightIntersection light_intersection;
         const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+        if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
+            const Vector3  wo = -ray.get_direction();
+            const Normal3& n  = geometry_intersection.m_normal;
 
-        Intersection geometry_intersection;
-        if (scene.intersect(ray, limits, geometry_intersection)) {
-            const Vector3 wo = -ray.get_direction();
+            const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
 
-            const auto shading_result =
-                geometry_intersection.m_material->sample(wo, geometry_intersection.m_normal, sampler);
-
-            const Vector3 normal_as_vector{ geometry_intersection.m_normal };
+            const Vector3 normal_as_vector{ n };
 
             // Get next direction
             const auto& wi                = shading_result.direction;

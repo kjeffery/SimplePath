@@ -36,15 +36,21 @@ public:
         return result;
     }
 
+    [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wi) const
+    {
+        return pdf_impl(wo, wi);
+    }
+
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& local_onb, Sampler& sampler) = 0;
+    virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                         = 0;
 };
 
 class LambertianMaterial : public Material
 {
 public:
     explicit LambertianMaterial(RGB albedo) noexcept
-    : m_albedo(albedo)
+    : m_albedo(albedo / std::numbers::pi_v<float>)
     {
     }
 
@@ -54,6 +60,11 @@ private:
         // TODO: cosine-weighted hemispherical sampling
         const auto sp = sample_to_hemisphere(sampler.get_next_2D());
         return { m_albedo, Vector3{ sp }, 1.0f };
+    }
+
+    float pdf_impl(const Vector3&, const Vector3&) const override
+    {
+        return 1.0f / (2.0f * std::numbers::pi_v<float>);
     }
 
     RGB m_albedo;

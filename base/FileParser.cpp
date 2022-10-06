@@ -221,14 +221,27 @@ Scene FileParser::parse(std::istream& ins)
     }
 
     // TODO: temp
-    auto sphere_shape     = std::make_unique<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 0.5f, 0.0f }),
-                                                 AffineSpace::translate(Vector3{ 0.0f, -0.5f, 0.0f }));
-    auto sphere_material  = std::make_unique<Material>();
-    auto sphere_primitive = std::make_unique<GeometricPrimitive>(*sphere_shape, *sphere_material);
+#if 1
+    auto sphere_shape0     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 0.5f, 0.0f }),
+                                                  AffineSpace::translate(Vector3{ 0.0f, -0.5f, 0.0f }));
+    auto sphere_shape1     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 2.0f, 0.5f, 0.0f }),
+                                                  AffineSpace::translate(Vector3{ -2.0f, -0.5f, 0.0f }));
+    auto sphere_material0  = std::make_shared<LambertianMaterial>(RGB{ 0.8f, 0.2f, 0.0f });
+    auto sphere_material1  = std::make_shared<LambertianMaterial>(RGB{ 0.1f, 0.2f, 1.0f });
+    auto sphere_primitive0 = std::make_shared<GeometricPrimitive>(sphere_shape0, sphere_material0);
+    auto sphere_primitive1 = std::make_shared<GeometricPrimitive>(sphere_shape1, sphere_material1);
 
-    Scene::HitableContainer geometry;
-    Scene::HitableContainer lights;
-    return Scene{ std::move(geometry), std::move(lights) };
+    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 0.8f, 0.8f, 1.0f });
+
+    Scene::PrimitiveContainer geometry;
+    geometry.push_back(sphere_primitive0);
+    geometry.push_back(sphere_primitive1);
+    Scene::LightContainer lights;
+    lights.push_back(env_light);
+    return Scene{ geometry.cbegin(), geometry.cend(), lights.cbegin(), lights.cend() };
+#else
+    return Scene{};
+#endif
 }
 
 void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, const LineNumberContainer& line_numbers)

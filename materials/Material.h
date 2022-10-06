@@ -59,10 +59,15 @@ private:
     {
         // TODO: cosine-weighted hemispherical sampling
         const auto sp = sample_to_hemisphere(sampler.get_next_2D());
-        return { m_albedo, Vector3{ sp }, 1.0f };
+        return { m_albedo, Vector3{ sp }, uniform_hemisphere_pdf() };
     }
 
     float pdf_impl(const Vector3&, const Vector3&) const override
+    {
+        return uniform_hemisphere_pdf();
+    }
+
+    static constexpr float uniform_hemisphere_pdf() noexcept
     {
         return 1.0f / (2.0f * std::numbers::pi_v<float>);
     }

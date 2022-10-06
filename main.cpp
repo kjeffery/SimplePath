@@ -188,7 +188,7 @@ int main(const int argc, const char* const argv[])
         // TODO: const
         using namespace sp::literals;
         /*const*/ sp::Scene scene = parse_scene_file(file_path);
-        scene.m_camera.reset(new sp::PerspectiveCamera{ sp::Point3{ 0.0f, 0.0f, 10.0f },
+        scene.m_camera.reset(new sp::PerspectiveCamera{ sp::Point3{ 0.0f, 5.0f, 10.0f },
                                                         sp::Point3{ 0.0f, 0.5f, 0.0f },
                                                         sp::Vector3{ 0.0f, 1.0f, 0.0f },
                                                         sp::Angle{ 45.0_degrees },

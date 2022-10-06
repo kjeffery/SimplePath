@@ -113,6 +113,9 @@ private:
             const Normal3& n  = geometry_intersection.m_normal;
 
             const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+            if (shading_result.pdf == 0.0f) {
+                return RGB::black();
+            }
 
             const Vector3 normal_as_vector{ n };
 

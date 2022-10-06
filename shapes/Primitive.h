@@ -49,6 +49,11 @@ private:
         return m_shape->intersect_p(ray, limits);
     }
 
+    bool is_bounded_impl() const noexcept override
+    {
+        return m_shape->is_bounded();
+    }
+
     not_null<std::shared_ptr<Shape>>    m_shape;
     not_null<std::shared_ptr<Material>> m_material;
 };

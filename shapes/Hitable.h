@@ -34,10 +34,16 @@ public:
         return get_world_bounds_impl();
     }
 
+    [[nodiscard]] bool is_bounded() const noexcept
+    {
+        return is_bounded_impl();
+    }
+
 private:
     virtual bool  intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept = 0;
     virtual bool  intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept      = 0;
     virtual bool  intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept                   = 0;
     virtual BBox3 get_world_bounds_impl() const noexcept                                                     = 0;
+    virtual bool  is_bounded_impl() const noexcept                                                           = 0;
 };
 } // namespace sp

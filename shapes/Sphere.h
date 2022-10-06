@@ -83,6 +83,11 @@ private:
         return { Point3{ -k_radius, -k_radius, -k_radius }, Point3{ k_radius, k_radius, k_radius } };
     }
 
+    bool is_bounded_impl() const noexcept override
+    {
+        return true;
+    }
+
     static constexpr float k_radius = 1.0f;
 };
 

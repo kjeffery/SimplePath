@@ -49,6 +49,11 @@ private:
         return sp::BBox3{};
     }
 
+    bool is_bounded_impl() const noexcept override
+    {
+        return false;
+    }
+
     RGB m_color;
 };
 

@@ -58,6 +58,11 @@ private:
         return BBox3();
     }
 
+    bool is_bounded_impl() const noexcept override
+    {
+        return std::ranges::all_of(m_primitives, [](const auto& p) { return p->is_bounded(); });
+    }
+
     // To be extra safe, these should be shared_ptrs (or unique_ptrs assuming this is the only owner), but we will defer
     // sole ownership to the Scene class and avoid the overhead of shared_ptrs.
     std::vector<not_null<std::shared_ptr<const Hitable>>> m_primitives;

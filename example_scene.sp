@@ -1,10 +1,15 @@
 version: 1
 
+scene_parameters {
+    output_file_name: "image.pfm"
+    width: 800
+    height: 600
+}
+
 perspective_camera {
-    origin: 0.0 10.0 -10.0
+    origin: 0.0 5.0 -5.0
     look_at: 0.0 0.0 0.0
     fov: 45
-    focal_distance: 10
 }
 
 material_transmissive_dielectric {

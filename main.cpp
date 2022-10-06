@@ -108,7 +108,7 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
         t.join();
     }
 
-    sp::write("image.pfm", image);
+    sp::write(scene.output_file_name, image);
 }
 
 template <typename First, typename... Rest>
@@ -185,21 +185,8 @@ int main(const int argc, const char* const argv[])
     }
 
     try {
-        // TODO: const
         using namespace sp::literals;
-        /*const*/ sp::Scene scene = parse_scene_file(file_path);
-        scene.m_camera.reset(new sp::PerspectiveCamera{ sp::Point3{ 0.0f, 5.0f, 10.0f },
-                                                        sp::Point3{ 0.0f, 0.5f, 0.0f },
-                                                        sp::Vector3{ 0.0f, 1.0f, 0.0f },
-                                                        sp::Angle{ 45.0_degrees },
-                                                        scene.image_width,
-                                                        scene.image_height });
-
-        // sp::PerspectiveCamera camera{sp::Point3{0.0f, 0.0f, 10.0f}, sp::Point3{0.0f, 0.0f, 0.0f},
-        // sp::Vector3{0.0f, 1.0f, 0.0f}, sp::Degrees{45.0f}, 800, 600}; sp::OrthographicCamera camera(sp::AffineSpace)
-        // OrthographicCamera(AffineSpace camera_to_world, int film_width, int film_height, float focal_distance)
-        // noexcept
-
+        const sp::Scene scene = parse_scene_file(file_path);
         render(num_threads, num_pixel_samples, scene);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

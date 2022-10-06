@@ -6,10 +6,12 @@
 #include "Util.h"
 
 #include "../math/Vector3.h"
+#include "../shapes/Plane.h"
 #include "../shapes/Primitive.h"
 #include "../shapes/Sphere.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <iostream> // TODO: temp
 #include <istream>
 #include <map>
@@ -147,6 +149,7 @@ public:
         m_parse_function_lookup.try_emplace("perspective_camera", &FileParser::parse_perspective_camera);
         m_parse_function_lookup.try_emplace("plane", &FileParser::parse_plane);
         m_parse_function_lookup.try_emplace("primitive", &FileParser::parse_primitive);
+        m_parse_function_lookup.try_emplace("scene_parameters", &FileParser::parse_scene_parameters);
         m_parse_function_lookup.try_emplace("sphere", &FileParser::parse_sphere);
         m_parse_function_lookup.try_emplace("sphere_light", &FileParser::parse_sphere_light);
 
@@ -176,6 +179,7 @@ private:
     void parse_perspective_camera(const std::string&, const LineNumberContainer&, int);
     void parse_plane(const std::string&, const LineNumberContainer&, int);
     void parse_primitive(const std::string&, const LineNumberContainer&, int);
+    void parse_scene_parameters(const std::string&, const LineNumberContainer&, int);
     void parse_sphere(const std::string&, const LineNumberContainer&, int);
     void parse_sphere_light(const std::string&, const LineNumberContainer&, int);
 
@@ -195,6 +199,7 @@ private:
         "perspective_camera"sv,
         "plane"sv,
         "primitive"sv,
+        "scene_parameters"sv,
         "sphere"sv,
         "sphere_light"sv
     };
@@ -203,6 +208,11 @@ private:
 #if __cpp_lib_constexpr_algorithms >= 201806L
     static_assert(std::ranges::is_sorted(valid_top_level_types), "We binary search this data: it needs to be sorted");
 #endif
+
+    int                     m_image_width  = 256;
+    int                     m_image_height = 256;
+    std::filesystem::path   m_output_file_name;
+    std::unique_ptr<Camera> m_camera;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -215,30 +225,44 @@ Scene FileParser::parse(std::istream& ins)
     } catch (const ParsingException& e) {
         throw;
     } catch (const std::exception& e) {
-        throw ParsingException("Unexpected file parsing error: "s + e.what());
+        std::throw_with_nested(ParsingException("Unexpected file parsing error: "s + e.what()));
     } catch (...) {
-        throw ParsingException("Unexpected file parsing error");
+        std::throw_with_nested(ParsingException("Unexpected file parsing error"));
     }
 
     // TODO: temp
 #if 1
-    auto sphere_shape0     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 0.5f, 0.0f }),
-                                                  AffineSpace::translate(Vector3{ 0.0f, -0.5f, 0.0f }));
-    auto sphere_shape1     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 2.0f, 0.5f, 0.0f }),
-                                                  AffineSpace::translate(Vector3{ -2.0f, -0.5f, 0.0f }));
+    auto sphere_shape0     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 1.0f, 0.0f }),
+                                                  AffineSpace::translate(Vector3{ 0.0f, -1.0f, 0.0f }));
+    auto sphere_shape1     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 2.0f, 1.0f, 0.0f }),
+                                                  AffineSpace::translate(Vector3{ -2.0f, -1.0f, 0.0f }));
+    auto plane_shape0      = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
+                                                AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
     auto sphere_material0  = std::make_shared<LambertianMaterial>(RGB{ 0.8f, 0.2f, 0.0f });
     auto sphere_material1  = std::make_shared<LambertianMaterial>(RGB{ 0.1f, 0.2f, 1.0f });
+    auto plane_material0   = std::make_shared<LambertianMaterial>(RGB{ 0.6f, 0.6f, 1.0f });
     auto sphere_primitive0 = std::make_shared<GeometricPrimitive>(sphere_shape0, sphere_material0);
     auto sphere_primitive1 = std::make_shared<GeometricPrimitive>(sphere_shape1, sphere_material1);
+    auto plane_primitive0  = std::make_shared<GeometricPrimitive>(plane_shape0, plane_material0);
 
-    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 0.8f, 0.8f, 1.0f });
+    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
 
     Scene::PrimitiveContainer geometry;
     geometry.push_back(sphere_primitive0);
     geometry.push_back(sphere_primitive1);
+    geometry.push_back(plane_primitive0);
     Scene::LightContainer lights;
     lights.push_back(env_light);
-    return Scene{ geometry.cbegin(), geometry.cend(), lights.cbegin(), lights.cend() };
+    Scene scene{ geometry.cbegin(), geometry.cend(), lights.cbegin(), lights.cend() };
+
+    if (!m_camera) {
+        throw ParsingException("No camera specified");
+    }
+    scene.m_camera         = std::move(m_camera);
+    scene.output_file_name = std::move(m_output_file_name);
+    scene.image_width      = m_image_width;
+    scene.image_height     = m_image_height;
+    return scene;
 #else
     return Scene{};
 #endif
@@ -314,6 +338,12 @@ void FileParser::parse_perspective_camera(const std::string&         body,
 {
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
+
+    Point3  origin{ no_init };
+    Point3  look_at{ no_init };
+    Vector3 up{ 0.0f, 1.0f, 0.0f };
+    float   fov = 45.0f;
+
     for (Token token; ins;) {
         ins >> token;
         if (ins.eof()) {
@@ -323,22 +353,21 @@ void FileParser::parse_perspective_camera(const std::string&         body,
 
         const std::string& word = token;
         if (word == "origin") {
-            Vector3 v{ no_init };
-            ins >> v;
+            ins >> origin;
         } else if (word == "look_at") {
-            Vector3 v{ no_init };
-            ins >> v;
+            ins >> look_at;
+        } else if (word == "up") {
+            ins >> up;
         } else if (word == "fov") {
-            float fov;
             ins >> fov;
-        } else if (word == "focal_distance") {
-            float fd;
-            ins >> fd;
         } else {
             throw ParsingException("Unknown perspective_camera attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
         }
     }
+
+    m_camera.reset(
+        new PerspectiveCamera{ origin, look_at, up, Angle{ Degrees{ fov } }, m_image_width, m_image_height });
 }
 
 void FileParser::parse_plane(const std::string&         body,
@@ -351,6 +380,35 @@ void FileParser::parse_primitive(const std::string&         body,
                                  const LineNumberContainer& line_numbers,
                                  int                        line_number_character_offset)
 {
+}
+
+void FileParser::parse_scene_parameters(const std::string&         body,
+                                        const LineNumberContainer& line_numbers,
+                                        int                        line_number_character_offset)
+{
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "output_file_name") {
+            std::string file_name;
+            ins >> file_name;
+            m_output_file_name = trim(file_name, '"');
+        } else if (word == "width") {
+            ins >> m_image_width;
+        } else if (word == "height") {
+            ins >> m_image_height;
+        } else {
+            throw ParsingException("Unknown scene_parameters attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
 }
 
 void FileParser::parse_sphere(const std::string&         body,
@@ -402,7 +460,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     try {
         version = parse_version(cleaned_ins, line_numbers[cleaned_ins.tellg()]);
     } catch (const InternalParsingException&) {
-        throw ParsingException("Expects version as first directive");
+        std::throw_with_nested(ParsingException("Expects version as first directive"));
     }
     if (version != 1) {
         throw ParsingException("Unable to parse version " + std::to_string(version));
@@ -426,12 +484,21 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
         std::string body_unused;
         std::getline(cleaned_ins, body_unused, '}');
     }
-
-    // First parse non-layered materials, lights, and cameras.
+    // First parse scene parameters
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
     const StringSet pass_types0 = {
+        "scene_parameters"
+    };
+    // clang-format on
+    parse_pass(pass_types0, cleaned_ins, line_numbers);
+
+    // Parse non-layered materials, lights, and cameras.
+    cleaned_ins.clear();
+    cleaned_ins.seekg(post_version_offset);
+    // clang-format off
+    const StringSet pass_types1 = {
         "environment_light",
         "material_lambertian",
         "material_transmissive_dielectric",
@@ -442,28 +509,28 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
         "sphere_light"
     };
     // clang-format on
-    parse_pass(pass_types0, cleaned_ins, line_numbers);
+    parse_pass(pass_types1, cleaned_ins, line_numbers);
 
     // Parse layered materials (after "basic" materials have been parsed).
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
-    const StringSet pass_types1 = {
+    const StringSet pass_types2 = {
         "material_layered"
     };
     // clang-format on
-    parse_pass(pass_types1, cleaned_ins, line_numbers);
+    parse_pass(pass_types2, cleaned_ins, line_numbers);
 
     // Parse primitives and instances (after geometry has already been parsed).
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
-    const StringSet pass_types2 = {
+    const StringSet pass_types3 = {
         "instance",
         "primitive"
     };
     // clang-format on
-    parse_pass(pass_types2, cleaned_ins, line_numbers);
+    parse_pass(pass_types3, cleaned_ins, line_numbers);
 
     return IntermediateSceneRepresentation{};
 }

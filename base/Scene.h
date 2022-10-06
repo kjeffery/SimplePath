@@ -13,6 +13,7 @@
 #include "../shapes/Primitive.h"
 #include "../shapes/Shape.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -71,10 +72,12 @@ public:
     }
 
     // TODO: variables
-    static constexpr int image_width  = 800;
-    static constexpr int image_height = 600;
+    int image_width  = 800;
+    int image_height = 600;
     static constexpr int min_depth    = 3;
     static constexpr int max_depth    = 10;
+
+    std::filesystem::path output_file_name;
 
     // TODO: private
     std::unique_ptr<Camera> m_camera;

@@ -238,9 +238,12 @@ Scene FileParser::parse(std::istream& ins)
                                                   AffineSpace::translate(Vector3{ -2.0f, -1.0f, 0.0f }));
     auto plane_shape0      = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
                                                 AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
-    auto sphere_material0  = std::make_shared<LambertianMaterial>(RGB{ 0.8f, 0.2f, 0.0f });
-    auto sphere_material1  = std::make_shared<LambertianMaterial>(RGB{ 0.1f, 0.2f, 1.0f });
-    auto plane_material0   = std::make_shared<LambertianMaterial>(RGB{ 0.6f, 0.6f, 1.0f });
+    //auto sphere_material0  = std::make_shared<LambertianMaterial>(RGB{ 0.8f, 0.2f, 0.0f });
+    //auto sphere_material1  = std::make_shared<LambertianMaterial>(RGB{ 0.1f, 0.2f, 1.0f });
+    //auto plane_material0   = std::make_shared<LambertianMaterial>(RGB{ 0.6f, 0.6f, 1.0f });
+    auto sphere_material0  = std::make_shared<Material>(create_lambertian_material(RGB{ 0.8f, 0.2f, 0.0f }));
+    auto sphere_material1  = std::make_shared<Material>(create_clearcoat_material(RGB{ 0.1f, 0.2f, 1.0f }));
+    auto plane_material0   = std::make_shared<Material>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
     auto sphere_primitive0 = std::make_shared<GeometricPrimitive>(sphere_shape0, sphere_material0);
     auto sphere_primitive1 = std::make_shared<GeometricPrimitive>(sphere_shape1, sphere_material1);
     auto plane_primitive0  = std::make_shared<GeometricPrimitive>(plane_shape0, plane_material0);

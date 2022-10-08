@@ -9,16 +9,17 @@
 #include <numbers>
 
 namespace sp {
-inline Vector3 sample_to_hemisphere(const Point2& p) noexcept
+inline Vector3 sample_to_hemisphere(const Point2& u)
 {
-    const float phi       = 2.0f * std::numbers::pi_v<float> * p.x;
-    const float cos_phi   = std::cos(phi);
-    const float sin_phi   = std::sin(phi);
-    const float cos_theta = p.y;
-    const float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
-    const float pu        = sin_theta * cos_phi;
-    const float pv        = sin_theta * sin_phi;
-    const float pw        = cos_theta;
-    return Vector3{ pu, pv, pw };
+    const float y = u.x;
+    const float r = std::sqrt(std::max(0.0f, 1.0f - y * y));
+    const float phi = 2.0f * std::numbers::pi_v<float> * u.y;
+    return {r * std::cos(phi), y, r * std::sin(phi)};
 }
+
+inline constexpr float uniform_hemisphere_pdf() noexcept
+{
+    return 1.0f / (2.0f * std::numbers::pi_v<float>);
+}
+
 } // namespace sp

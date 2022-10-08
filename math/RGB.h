@@ -139,6 +139,11 @@ inline RGB operator/(RGB a, float b) noexcept
     return a /= b;
 }
 
+inline constexpr float relative_luminance(const RGB& c) noexcept
+{
+    return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+}
+
 inline std::ostream& operator<<(std::ostream& outs, const RGB& c)
 {
     return outs << c.r << ' ' << c.g << ' ' << c.b;

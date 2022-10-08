@@ -162,6 +162,8 @@ struct alignas(16) BaseVector2
         default:
             assert(!"Should not get here");
         }
+        assert(!"Should not get here");
+        return x;
     }
 
     float& operator[](const size_t index) noexcept
@@ -175,6 +177,8 @@ struct alignas(16) BaseVector2
         default:
             assert(!"Should not get here");
         }
+        assert(!"Should not get here");
+        return x;
     }
 };
 

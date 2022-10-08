@@ -24,17 +24,6 @@
 
 namespace fs = std::filesystem;
 
-void enable_pretty_printing(std::ostream& outs)
-{
-    // Enable pretty-printing of our types.
-    outs.iword(sp::k_pretty_print_key) = 1;
-}
-
-void print_usage(std::string_view exe_name)
-{
-    std::cout << "Usage: " << exe_name << "[--threads <n>] <filename>\n";
-}
-
 sp::Scene parse_scene_file(std::string_view file_name)
 {
     using namespace std::literals;
@@ -131,6 +120,17 @@ std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
     return std::make_tuple(a);
 }
 
+void enable_pretty_printing(std::ostream& outs)
+{
+    // Enable pretty-printing of our types.
+    outs.iword(sp::k_pretty_print_key) = 1;
+}
+
+void print_usage(std::string_view exe_name)
+{
+    std::cout << "Usage: " << exe_name << "[--threads <n>] <filename>\n";
+}
+
 int main(const int argc, const char* const argv[])
 {
     using namespace std::literals;
@@ -150,6 +150,9 @@ int main(const int argc, const char* const argv[])
             std::string_view arg(argv[i]);
             if (!arg.starts_with("--")) {
                 file_path = arg;
+            } else if (arg == "--help"sv || arg == "-h"sv) {
+                print_usage(argv[0]);
+                return EXIT_SUCCESS;
             } else if (arg == "--threads"sv) {
                 constexpr int num_args = 1;
                 if (i + num_args >= argc) {
@@ -161,7 +164,7 @@ int main(const int argc, const char* const argv[])
             } else if (arg == "--samples"sv) {
                 constexpr int num_args = 1;
                 if (i + num_args >= argc) {
-                    std::cerr << "Expected additional argument to '--threads'";
+                    std::cerr << "Expected additional argument to '--samples'";
                     return EXIT_FAILURE;
                 }
                 std::tie(num_pixel_samples) = parse_args<unsigned>(argv + i + 1);

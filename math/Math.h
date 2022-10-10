@@ -13,6 +13,19 @@
 
 namespace sp {
 
+template <typename T, typename U>
+T safe_divide(const T& a, const U& b) noexcept;
+
+template <>
+inline float safe_divide(const float& a, const float& b) noexcept
+{
+    if (b == 0.0f) {
+        return 0.0f;
+    } else {
+        return a / b;
+    }
+}
+
 template <typename IteratorValue, typename IteratorPDF>
 requires std::forward_iterator<IteratorValue> && std::forward_iterator<IteratorPDF>
 auto balance_heuristic(typename std::iterator_traits<IteratorValue>::value_type v,
@@ -25,7 +38,7 @@ auto balance_heuristic(typename std::iterator_traits<IteratorValue>::value_type 
     assert(std::distance(values_first, values_last) == std::distance(pdfs_first, pdfs_last));
     using Type       = typename std::iterator_traits<IteratorValue>::value_type;
     const auto denom = std::inner_product(values_first, values_last, pdfs_first, Type{});
-    const auto w     = (v * p) / denom;
+    const auto w     = safe_divide(v * p, denom);
     return w;
 }
 

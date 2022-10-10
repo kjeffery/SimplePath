@@ -64,17 +64,19 @@ inline float fresnel_dielectric(float cos_theta_i, float eta_i, float eta_t)
     }
 
     // Compute cos_theta_t using Snell’s law
-    float sin_theta_i = std::sqrt(std::max(0.0f, 1.0f - cos_theta_i * cos_theta_i));
-    float sin_theta_t = eta_i / eta_t * sin_theta_i;
+    const float sin_theta_i = std::sqrt(std::max(0.0f, 1.0f - cos_theta_i * cos_theta_i));
+    const float sin_theta_t = eta_i / eta_t * sin_theta_i;
     // Handle total internal reflection
     if (sin_theta_t >= 1) {
         return 1.0f;
     }
 
-    float cos_theta_t = std::sqrt(std::max(0.0f, 1.0f - sin_theta_t * sin_theta_t));
+    const float cos_theta_t = std::sqrt(std::max(0.0f, 1.0f - sin_theta_t * sin_theta_t));
 
-    float real_parl = ((eta_t * cos_theta_i) - (eta_i * cos_theta_t)) / ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
-    float real_perp = ((eta_i * cos_theta_i) - (eta_t * cos_theta_t)) / ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
+    const float real_parl =
+        ((eta_t * cos_theta_i) - (eta_i * cos_theta_t)) / ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
+    const float real_perp =
+        ((eta_i * cos_theta_i) - (eta_t * cos_theta_t)) / ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
     return (real_parl * real_parl + real_perp * real_perp) / 2.0f;
 }
 
@@ -83,6 +85,12 @@ struct MaterialSampleResult
     RGB     color;
     Vector3 direction;
     float   pdf;
+};
+
+struct MaterialEvalResult
+{
+    RGB   color;
+    float pdf;
 };
 
 class BRDF
@@ -95,13 +103,19 @@ public:
         return sample_impl(wo_local, onb_local, sampler);
     }
 
-    [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wi) const
+    [[nodiscard]] MaterialEvalResult eval(const Vector3& wo_local, const Vector3& wi_local) const
     {
-        return pdf_impl(wo, wi);
+        return eval_impl(wo_local, wi_local);
+    }
+
+    [[nodiscard]] float pdf(const Vector3& wo_local, const Vector3& wi_local) const
+    {
+        return pdf_impl(wo_local, wi_local);
     }
 
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
+    virtual MaterialEvalResult   eval_impl(const Vector3& wo_local, const Vector3& wi_local) const                  = 0;
     virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                               = 0;
 };
 
@@ -119,6 +133,12 @@ private:
         // TODO: cosine-weighted hemispherical sampling
         const auto sp = sample_to_hemisphere(sampler.get_next_2D());
         return { m_albedo, Vector3{ sp }, uniform_hemisphere_pdf() };
+    }
+
+    MaterialEvalResult eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    {
+        // TODO: assert or check they are in the same hemisphere.
+        return MaterialEvalResult{ m_albedo, uniform_hemisphere_pdf() };
     }
 
     float pdf_impl(const Vector3&, const Vector3&) const override
@@ -145,6 +165,11 @@ private:
         // std::cout << "Local: " << onb_local.to_world(wi) << '\n';
         // const RGB  color = m_r;
         return { color, wi, 1.0f };
+    }
+
+    MaterialEvalResult eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    {
+        return MaterialEvalResult{ RGB::black(), 0.0f };
     }
 
     float pdf_impl(const Vector3&, const Vector3&) const override
@@ -242,8 +267,8 @@ private:
             return m_bxdfs.front()->sample(wo_local, onb_local, sampler);
         } else {
             // TODO: thread-local memory arena
-            std::vector<MaterialSampleResult> results{num_bxdfs};
-            std::vector<float>                weights{num_bxdfs};
+            std::vector<MaterialSampleResult> results(num_bxdfs);
+            std::vector<float>                weights(num_bxdfs);
 
             // We first use _weights_ to store the potential contributions in order to importance-select our BxDF.
 
@@ -278,11 +303,19 @@ private:
             // Go through each BxDF and calculate the multiple-importance sampling weight.
             // Here we're reusing _weights_ to store the PDFs from the sampling results.
 
-            std::vector<RGB> values{num_bxdfs};
-            const float      pdf = results[index].pdf * weights[index];
+            std::vector<RGB> values(num_bxdfs);
+            const float      result_pdf = results[index].pdf * weights[index];
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
-                values[i]  = results[i].color;
-                weights[i] = results[i].pdf;
+                // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
+                // the eval function, which will give us incorrect results.
+                if (i == index) {
+                    values[i]  = results[i].color;
+                    weights[i] = results[i].pdf;
+                    continue;
+                }
+                const auto eval_result = m_bxdfs[i]->eval(wo_local, results[index].direction);
+                values[i]              = eval_result.color;
+                weights[i]             = eval_result.pdf;
             }
 
             auto       result     = results[index];
@@ -295,7 +328,7 @@ private:
 
             // TODO: do we want to add in all of the other MIS contributions?
 
-            result.pdf   = pdf;
+            result.pdf   = result_pdf;
             result.color = mis_weight * result.color;
             return result;
         }

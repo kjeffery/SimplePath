@@ -2,6 +2,8 @@
 
 /// @author Keith Jeffery
 
+#include "math.h"
+
 #include <cassert>
 #include <cstdint>
 #include <ostream>
@@ -151,6 +153,28 @@ inline RGB operator/(RGB a, const RGB& b) noexcept
 inline RGB operator/(RGB a, float b) noexcept
 {
     return a /= b;
+}
+
+template <>
+inline RGB safe_divide(const RGB& a, const float& b) noexcept
+{
+    if (b == 0.0f) {
+        return RGB::black();
+    } else {
+        return a / b;
+    }
+}
+
+template <>
+inline RGB safe_divide(const RGB& a, const RGB& b) noexcept
+{
+    RGB result = a / b;
+    for (int i = 0; i < 3; ++i) {
+        if (b[i] == 0.0f) {
+            result[i] = 0.0f;
+        }
+    }
+    return result;
 }
 
 inline constexpr float relative_luminance(const RGB& c) noexcept

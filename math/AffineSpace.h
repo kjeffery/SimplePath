@@ -47,7 +47,7 @@ public:
 
     static AffineSpace identity() noexcept
     {
-        AffineSpace{ LinearSpace3x3::identity(), Vector3::zero() };
+        return AffineSpace{ LinearSpace3x3::identity(), Vector3::zero() };
     }
 
     inline static AffineSpace scale(const Vector3& s) noexcept;

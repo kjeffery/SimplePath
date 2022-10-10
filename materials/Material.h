@@ -288,37 +288,37 @@ private:
             // Save the results.
             const float u           = sampler.get_next_1D();
             float       running_cdf = 0.0f;
-            std::size_t index;
-            for (index = 0; index < num_bxdfs; ++index) {
-                if (weights[index] + running_cdf > u) {
+            std::size_t selected_index;
+            for (std::size_t i = 0; i < num_bxdfs; ++i) {
+                if (weights[i] + running_cdf > u) {
+                    selected_index = i;
                     break;
                 }
-                running_cdf += weights[index];
+                running_cdf += weights[i];
             }
-            assert(index < num_bxdfs);
-            if (index >= num_bxdfs) {
-                index = num_bxdfs - 1u;
-            }
+
+            // Account for numerical precision errors.
+            selected_index = std::min(num_bxdfs - 1u, selected_index);
 
             // Go through each BxDF and calculate the multiple-importance sampling weight.
             // Here we're reusing _weights_ to store the PDFs from the sampling results.
 
             std::vector<RGB> values(num_bxdfs);
-            const float      result_pdf = results[index].pdf * weights[index];
+            const float      result_pdf = results[selected_index].pdf * weights[selected_index];
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
                 // the eval function, which will give us incorrect results.
-                if (i == index) {
+                if (i == selected_index) {
                     values[i]  = results[i].color;
                     weights[i] = results[i].pdf;
                     continue;
                 }
-                const auto eval_result = m_bxdfs[i]->eval(wo_local, results[index].direction);
+                const auto eval_result = m_bxdfs[i]->eval(wo_local, results[selected_index].direction);
                 values[i]              = eval_result.color;
                 weights[i]             = eval_result.pdf;
             }
 
-            auto       result     = results[index];
+            auto       result     = results[selected_index];
             const auto mis_weight = balance_heuristic(result.color,
                                                       result.pdf,
                                                       values.cbegin(),

@@ -271,12 +271,24 @@ private:
             std::vector<float>                weights(num_bxdfs);
 
             // We first use _weights_ to store the potential contributions in order to importance-select our BxDF.
+            // We sample each BxDF to find a potential contribution from that BxDF. We will only end up using one of
+            // these values, but use the others to importance-sample our primary BxDF.
 
+            // We keep a running total of the weights so that we can normalize them into a proper discrete probability
+            // mass function.
             float weight_sum = 0.0f;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 results[i] = m_bxdfs[i]->sample(wo_local, onb_local, sampler);
+                if (results[i].pdf == 0.0f) {
+                    weights[i] = 0.0f;
+                    continue;
+                }
                 weights[i] = relative_luminance(results[i].color) / results[i].pdf;
                 weight_sum += weights[i];
+            }
+
+            if (weight_sum == 0.0f) {
+                return results.front();
             }
 
             // Normalize the weights
@@ -297,6 +309,7 @@ private:
                 running_cdf += weights[i];
             }
 
+            // In pure mathematics, this wouldn't happen, but we're using IEEE-754 ;)
             // Account for numerical precision errors.
             selected_index = std::min(num_bxdfs - 1u, selected_index);
 
@@ -304,7 +317,10 @@ private:
             // Here we're reusing _weights_ to store the PDFs from the sampling results.
 
             std::vector<RGB> values(num_bxdfs);
-            const float      result_pdf = results[selected_index].pdf * weights[selected_index];
+
+            // Save off our resulting PDF before we overwrite weights...
+            const float result_pdf = results[selected_index].pdf * weights[selected_index];
+
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
                 // the eval function, which will give us incorrect results.

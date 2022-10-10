@@ -1,5 +1,3 @@
-#pragma once
-
 /// @author Keith Jeffery
 
 #include "Image.h"

@@ -142,8 +142,8 @@ private:
     {
         const auto wi    = specular_reflection_local(wo_local);
         const RGB  color = fresnel_dielectric(cos_theta(wi), 1.0f, 1.5f) * m_r / abs_cos_theta(wi);
-        //std::cout << "Local: " << onb_local.to_world(wi) << '\n';
-        //const RGB  color = m_r;
+        // std::cout << "Local: " << onb_local.to_world(wi) << '\n';
+        // const RGB  color = m_r;
         return { color, wi, 1.0f };
     }
 
@@ -220,7 +220,7 @@ public:
     [[nodiscard]] MaterialSampleResult
     sample(const Vector3& wo_world, const Normal3& shading_normal, Sampler& sampler) const
     {
-        //std::cout << "Global: " << specular_reflection(wo_world, shading_normal) << '\n';
+        // std::cout << "Global: " << specular_reflection(wo_world, shading_normal) << '\n';
         const auto onb    = ONB::from_v(Vector3{ shading_normal });
         auto       result = sample_impl(onb.to_onb(wo_world), onb, sampler);
         result.direction  = onb.to_world(result.direction);
@@ -243,13 +243,16 @@ private:
         } else {
             const std::size_t           results_allocation_size = sizeof(MaterialSampleResult) * num_bxdfs;
             const std::size_t           weights_allocation_size = sizeof(float) * num_bxdfs;
+            const std::size_t           values_allocation_size  = sizeof(RGB) * num_bxdfs;
 
 #if defined(_MSC_VER)
             MaterialSampleResult* const results = static_cast<MaterialSampleResult*>(_malloca(results_allocation_size));
             float* const                weights = static_cast<float*>(_malloca(weights_allocation_size));
+            RGB* const                  values  = static_cast<RGB*>(_malloca(values_allocation_size));
 #else
             MaterialSampleResult* const results = static_cast<MaterialSampleResult*>(alloca(results_allocation_size));
             float* const                weights = static_cast<float*>(alloca(weights_allocation_size));
+            RGB* const                  values  = static_cast<RGB*>(alloca(values_allocation_size));
 #endif
             float                       weight_sum = 0.0f;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
@@ -263,24 +266,44 @@ private:
                 weights[i] /= weight_sum;
             }
 
-            // Randomly select one BxDF
+            // Randomly select one BxDF based on sampling each BxDF.
+            // Save the results.
             const float u           = sampler.get_next_1D();
             float       running_cdf = 0.0f;
             std::size_t index;
             for (index = 0; index < num_bxdfs; ++index) {
                 if (weights[index] + running_cdf > u) {
-                    results[index].pdf *= weights[index];
+                    // results[index].pdf *= weights[index];
                     break;
                 }
                 running_cdf += weights[index];
             }
             assert(index < num_bxdfs);
+            if (index >= num_bxdfs) {
+                index = num_bxdfs - 1u;
+            }
 
-            const auto result = results[index];
+            // Go through each BxDF and calculate the multiple-importance sampling weight.
+
+            const float pdf = results[index].pdf * weights[index];
+            for (index = 0; index < num_bxdfs; ++index) {
+                values[index]  = results[index].color;
+                weights[index] = results[index].pdf;
+            }
+
+            auto       result = results[index];
+            const auto mis_weight =
+                balance_heuristic(result.color, result.pdf, values, values + num_bxdfs, weights, weights + num_bxdfs);
+
+            // RGB color_result = RGB::black();
+            // for (index = 0; index < num_bxdfs; ++index) { }
+
 #if defined(_MSC_VER)
             _freea(results);
             _freea(weights);
 #endif
+            result.pdf   = pdf;
+            result.color = mis_weight * result.color;
             return result;
         }
     }
@@ -300,8 +323,8 @@ inline Material create_clearcoat_material(RGB albedo, RGB reflection = RGB::whit
 {
     Material::BxDFContainer bxdfs;
     bxdfs.emplace_back(new SpecularReflectionBRDF{ reflection });
-    //bxdfs.emplace_back(new LambertianBRDF{ reflection });
-    //bxdfs.emplace_back(new LambertianBRDF{ albedo });
+    // bxdfs.emplace_back(new LambertianBRDF{ reflection });
+    // bxdfs.emplace_back(new LambertianBRDF{ albedo });
     bxdfs.emplace_back(new LambertianBRDF{ albedo });
     return Material{ std::move(bxdfs) };
 };

@@ -4,17 +4,36 @@
 ///@author Keith Jeffery
 
 #include <cmath>
+#include <concepts>
+#include <iterator>
+#include <numeric>
 
 #include <immintrin.h>
 #include <xmmintrin.h>
 
 namespace sp {
 
+template <typename IteratorValue, typename IteratorPDF>
+requires std::forward_iterator<IteratorValue> && std::forward_iterator<IteratorPDF>
+auto balance_heuristic(typename std::iterator_traits<IteratorValue>::value_type v,
+                       float                                                    p,
+                       IteratorValue                                            values_first,
+                       IteratorValue                                            values_last,
+                       IteratorPDF                                              pdfs_first,
+                       IteratorPDF                                              pdfs_last) noexcept
+{
+    assert(std::distance(values_first, values_last) == std::distance(pdfs_first, pdfs_last));
+    using Type       = typename std::iterator_traits<IteratorValue>::value_type;
+    const auto denom = std::inner_product(values_first, values_last, pdfs_first, Type{});
+    const auto w     = (v * p) / denom;
+    return w;
+}
+
 template <typename T>
 requires std::is_integral_v<T>
 constexpr bool is_power_of_two(T v) noexcept
 {
-    return v > 0 && !(v & (v - T{1}));
+    return v > 0 && !(v & (v - T{ 1 }));
 }
 
 #if defined(__AVX2__) || defined(__ARM_NEON)

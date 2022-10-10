@@ -241,20 +241,13 @@ private:
         if (num_bxdfs == 1) {
             return m_bxdfs.front()->sample(wo_local, onb_local, sampler);
         } else {
-            const std::size_t           results_allocation_size = sizeof(MaterialSampleResult) * num_bxdfs;
-            const std::size_t           weights_allocation_size = sizeof(float) * num_bxdfs;
-            const std::size_t           values_allocation_size  = sizeof(RGB) * num_bxdfs;
+            // TODO: thread-local memory arena
+            std::vector<MaterialSampleResult> results{num_bxdfs};
+            std::vector<float>                weights{num_bxdfs};
 
-#if defined(_MSC_VER)
-            MaterialSampleResult* const results = static_cast<MaterialSampleResult*>(_malloca(results_allocation_size));
-            float* const                weights = static_cast<float*>(_malloca(weights_allocation_size));
-            RGB* const                  values  = static_cast<RGB*>(_malloca(values_allocation_size));
-#else
-            MaterialSampleResult* const results = static_cast<MaterialSampleResult*>(alloca(results_allocation_size));
-            float* const                weights = static_cast<float*>(alloca(weights_allocation_size));
-            RGB* const                  values  = static_cast<RGB*>(alloca(values_allocation_size));
-#endif
-            float                       weight_sum = 0.0f;
+            // We first use _weights_ to store the potential contributions in order to importance-select our BxDF.
+
+            float weight_sum = 0.0f;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 results[i] = m_bxdfs[i]->sample(wo_local, onb_local, sampler);
                 weights[i] = relative_luminance(results[i].color) / results[i].pdf;
@@ -273,7 +266,6 @@ private:
             std::size_t index;
             for (index = 0; index < num_bxdfs; ++index) {
                 if (weights[index] + running_cdf > u) {
-                    // results[index].pdf *= weights[index];
                     break;
                 }
                 running_cdf += weights[index];
@@ -284,24 +276,25 @@ private:
             }
 
             // Go through each BxDF and calculate the multiple-importance sampling weight.
+            // Here we're reusing _weights_ to store the PDFs from the sampling results.
 
-            const float pdf = results[index].pdf * weights[index];
-            for (index = 0; index < num_bxdfs; ++index) {
-                values[index]  = results[index].color;
-                weights[index] = results[index].pdf;
+            std::vector<RGB> values{num_bxdfs};
+            const float      pdf = results[index].pdf * weights[index];
+            for (std::size_t i = 0; i < num_bxdfs; ++i) {
+                values[i]  = results[i].color;
+                weights[i] = results[i].pdf;
             }
 
-            auto       result = results[index];
-            const auto mis_weight =
-                balance_heuristic(result.color, result.pdf, values, values + num_bxdfs, weights, weights + num_bxdfs);
+            auto       result     = results[index];
+            const auto mis_weight = balance_heuristic(result.color,
+                                                      result.pdf,
+                                                      values.cbegin(),
+                                                      values.cend(),
+                                                      weights.cbegin(),
+                                                      weights.cend());
 
-            // RGB color_result = RGB::black();
-            // for (index = 0; index < num_bxdfs; ++index) { }
+            // TODO: do we want to add in all of the other MIS contributions?
 
-#if defined(_MSC_VER)
-            _freea(results);
-            _freea(weights);
-#endif
             result.pdf   = pdf;
             result.color = mis_weight * result.color;
             return result;

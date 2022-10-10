@@ -334,9 +334,8 @@ private:
                 weights[i]             = eval_result.pdf;
             }
 
-            auto       result     = results[selected_index];
-            const auto mis_weight = balance_heuristic(result.color,
-                                                      result.pdf,
+            const auto mis_weight = balance_heuristic(results[selected_index].color,
+                                                      results[selected_index].pdf,
                                                       values.cbegin(),
                                                       values.cend(),
                                                       weights.cbegin(),
@@ -344,9 +343,10 @@ private:
 
             // TODO: do we want to add in all of the other MIS contributions?
 
-            result.pdf   = result_pdf;
-            result.color = mis_weight * result.color;
-            return result;
+            // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
+            // above) so that we can use return value optimization (RVO). We return a temporary above, so we want to be
+            // consistent.
+            return MaterialSampleResult{ results[selected_index].color, results[selected_index].direction, result_pdf };
         }
     }
 

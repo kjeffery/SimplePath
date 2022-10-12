@@ -7,6 +7,7 @@
 #include "../math/RGB.h"
 
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <iosfwd>
 #include <stdexcept>

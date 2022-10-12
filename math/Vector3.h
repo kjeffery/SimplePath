@@ -158,6 +158,8 @@ struct alignas(16) BaseVector3
         default:
             assert(!"Should not get here");
         }
+        assert(!"Should not get here");
+        return x;
     }
 
     float& operator[](const size_t index) noexcept
@@ -173,6 +175,8 @@ struct alignas(16) BaseVector3
         default:
             assert(!"Should not get here");
         }
+        assert(!"Should not get here");
+        return x;
     }
 };
 
@@ -752,14 +756,14 @@ inline float distance(const Point3& a, const Point3& b) noexcept
     return length(a - b);
 }
 
-inline float halfArea(const Vector3& d) noexcept
+inline float half_area(const Vector3& d) noexcept
 {
     return madd(d.x, (d.y + d.z), d.y * d.z);
 }
 
 inline float area(const Vector3& d) noexcept
 {
-    return 2.0f * halfArea(d);
+    return 2.0f * half_area(d);
 }
 
 inline Vector3 normalize_safe(const Vector3& a) noexcept

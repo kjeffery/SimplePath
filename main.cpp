@@ -2,6 +2,7 @@
 
 #include "base/FileParser.h"
 #include "base/not_null.h"
+#include "base/ProgressBar.h"
 #include "base/Tile.h"
 #include "base/TileScheduler.h"
 #include "base/Util.h"
@@ -18,7 +19,7 @@
 #include <iostream>
 #include <ranges>
 #include <string>
-#include <syncstream>
+// #include <syncstream>
 #include <thread>
 #include <tuple>
 
@@ -47,11 +48,12 @@ sp::Sampler get_pixel_sampler(std::uint32_t x, std::uint32_t y)
 }
 
 // TODO: should this be a member of Scene?
-void render_thread(sp::Image&                    image,
-                   const unsigned                num_pixel_samples,
-                   const sp::Scene&              scene,
-                   const sp::Integrator&         integrator,
-                   sp::ColumnMajorTileScheduler& scheduler)
+void render_thread(sp::Image&            image,
+                   const unsigned        num_pixel_samples,
+                   const sp::Scene&      scene,
+                   const sp::Integrator& integrator,
+                   sp::TileScheduler&    scheduler,
+                   sp::ProgressBar&      progress_bar)
 {
     while (auto scheduled_tile = scheduler.get_next_tile()) {
         const auto& tile = scheduled_tile->tile;
@@ -68,6 +70,8 @@ void render_thread(sp::Image&                    image,
             }
             image(p.x, p.y) /= num_pixel_samples;
         }
+        progress_bar.update();
+        progress_bar.draw();
     }
 }
 
@@ -80,6 +84,7 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
     // sp::MandelbrotIntegrator     integrator(scene.image_width, scene.image_height);
     sp::BruteForceIntegrator     integrator;
     sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
+    sp::ProgressBar              progress_bar(scheduler.get_num_tiles() * num_passes);
     std::vector<std::jthread>    threads;
     threads.reserve(num_threads);
 
@@ -89,7 +94,8 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
                              num_pixel_samples,
                              std::cref(scene),
                              std::cref(integrator),
-                             std::ref(scheduler));
+                             std::ref(scheduler),
+                             std::ref(progress_bar));
     }
 
     for (auto& t : threads) {

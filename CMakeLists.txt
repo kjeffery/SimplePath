@@ -40,6 +40,7 @@ set(SOURCES
         base/Endian.h
         base/FileParser.cpp
         base/FileParser.h
+        base/ProgressBar.h
         base/Scene.h
         base/SmartToRawPointerIterator.h
         base/Tile.h

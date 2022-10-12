@@ -9,20 +9,41 @@
 #include "../Cameras/Camera.h"
 #include "../Lights/Light.h"
 #include "../shapes/Aggregate.h"
+#include "../shapes/BVHAccelerator.h"
 #include "../shapes/ListAccelerator.h"
 #include "../shapes/Primitive.h"
 #include "../shapes/Shape.h"
 
+#include <algorithm>
+#include <concepts>
 #include <filesystem>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace sp {
+
+namespace internal {
+template <typename Iterator>
+requires std::random_access_iterator<Iterator>
+ListAccelerator create_acceleration_structure(Iterator first, Iterator last)
+{
+    // We can't store unbounded geometry in a spatial-partitioning acceleration structure, so we partition those out,
+    // create a spatial-partitioning structure, and put that and the unbounded geometry into a ListAccelerator.
+    const auto      part_it             = std::partition(first, last, [](const auto& p) { return p->is_bounded(); });
+    const auto      bounded_accelerator = std::make_shared<BVHAccelerator>(first, part_it);
+    ListAccelerator top_accelerator(part_it, last);
+    top_accelerator.push_back(std::move(bounded_accelerator));
+    top_accelerator.shrink_to_fit();
+    return top_accelerator;
+}
+} // namespace internal
+
 class Scene
 {
 public:
-    using PrimitiveContainer = std::vector<not_null<std::shared_ptr<const GeometricPrimitive>>>;
-    using LightContainer     = std::vector<not_null<std::shared_ptr<const Light>>>;
+    using PrimitiveContainer = std::vector<std::shared_ptr<const GeometricPrimitive>>;
+    using LightContainer     = std::vector<std::shared_ptr<const Light>>;
 
 #if 0
     Scene(std::unique_ptr<Aggregate> accelerator_geometry, std::unique_ptr<Aggregate> accelerator_lights)
@@ -51,7 +72,7 @@ public:
           PrimitiveIterator shapes_last,
           LightIterator     lights_first,
           LightIterator     lights_last)
-    : m_accelerator_geometry{ shapes_first, shapes_last }
+    : m_accelerator_geometry{ internal::create_acceleration_structure(shapes_first, shapes_last) }
     , m_accelerator_lights{ lights_first, lights_last }
     {
     }
@@ -72,8 +93,8 @@ public:
     }
 
     // TODO: variables
-    int image_width  = 800;
-    int image_height = 600;
+    int                  image_width  = 800;
+    int                  image_height = 600;
     static constexpr int min_depth    = 3;
     static constexpr int max_depth    = 10;
 

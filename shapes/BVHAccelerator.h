@@ -24,8 +24,10 @@ class BVHAccelerator : public Aggregate
         {
         }
 
-        [[nodiscard]] virtual bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept = 0;
-        [[nodiscard]] virtual bool intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept = 0;
+        [[nodiscard]] virtual bool
+        intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept = 0;
+        [[nodiscard]] virtual bool
+        intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept              = 0;
         [[nodiscard]] virtual bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept = 0;
 
         BBox3 m_bounds;
@@ -43,13 +45,17 @@ class BVHAccelerator : public Aggregate
         {
             bool hit = false;
 
-            RayLimits internal_limits{limits};
             for (int i = 0; i < 2; ++i) {
                 assert(m_children[i]);
+                RayLimits internal_limits{ limits };
                 if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
                     if (m_children[i]->intersect(ray, internal_limits, intersection)) {
-                        hit    = true;
-                        limits = internal_limits;
+                        hit = true;
+                        // The intersection with the bounding box will modify the limit's minimum value as well, which
+                        // we don't want to modify for our "real" ray limits. We should only get here if we intersect
+                        // actual geometry: if we hit a bounding box and no geometry, we don't want to modify the
+                        // limits.
+                        limits.m_t_max = internal_limits.m_t_max;
                     }
                 }
             }
@@ -62,10 +68,14 @@ class BVHAccelerator : public Aggregate
 
             for (int i = 0; i < 2; ++i) {
                 assert(m_children[i]);
-                RayLimits internal_limits{limits};
+                RayLimits internal_limits{ limits };
                 if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
                     if (m_children[i]->intersect(ray, internal_limits, intersection)) {
-                        hit    = true;
+                        hit = true;
+                        // The intersection with the bounding box will modify the limit's minimum value as well, which
+                        // we don't want to modify for our "real" ray limits. We should only get here if we intersect
+                        // actual geometry: if we hit a bounding box and no geometry, we don't want to modify the
+                        // limits.
                         limits.m_t_max = internal_limits.m_t_max;
                     }
                 }
@@ -75,9 +85,9 @@ class BVHAccelerator : public Aggregate
 
         bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
         {
-            RayLimits internal_limits{limits};
             for (int i = 0; i < 2; ++i) {
                 assert(m_children[i]);
+                RayLimits internal_limits{ limits };
                 if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
                     if (m_children[i]->intersect_p(ray, limits)) {
                         return true;

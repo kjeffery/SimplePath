@@ -118,7 +118,7 @@ T center(const BBox<T>& box) noexcept
 template <typename T>
 [[nodiscard]] bool intersect_p(const BBox<T>& box, const Ray& ray, RayLimits& limits) noexcept
 {
-    float t0{ 0.0f };
+    float t0{ limits.m_t_min };
     float t1{ limits.m_t_max };
 
     for (int i = 0; i < 3; ++i) {

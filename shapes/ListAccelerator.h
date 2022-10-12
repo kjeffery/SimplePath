@@ -22,6 +22,16 @@ public:
     {
     }
 
+    void push_back(std::shared_ptr<const Hitable> p)
+    {
+        m_primitives.push_back(p);
+    }
+
+    void shrink_to_fit()
+    {
+        m_primitives.shrink_to_fit();
+    }
+
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
     {
@@ -65,6 +75,6 @@ private:
 
     // To be extra safe, these should be shared_ptrs (or unique_ptrs assuming this is the only owner), but we will defer
     // sole ownership to the Scene class and avoid the overhead of shared_ptrs.
-    std::vector<not_null<std::shared_ptr<const Hitable>>> m_primitives;
+    std::vector<std::shared_ptr<const Hitable>> m_primitives;
 };
 } // namespace sp

@@ -341,12 +341,12 @@ private:
                                                       weights.cbegin(),
                                                       weights.cend());
 
-            // TODO: do we want to add in all of the other MIS contributions?
+            const RGB result_color = mis_weight * results[selected_index].color;
 
             // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
             // above) so that we can use return value optimization (RVO). We return a temporary above, so we want to be
             // consistent.
-            return MaterialSampleResult{ results[selected_index].color, results[selected_index].direction, result_pdf };
+            return MaterialSampleResult{ result_color, results[selected_index].direction, result_pdf };
         }
     }
 

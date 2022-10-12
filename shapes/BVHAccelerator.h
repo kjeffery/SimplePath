@@ -201,6 +201,10 @@ private:
         if (num_elements <= k_max_leaf_elements) {
             result.reset(new NodeLeaf{ bounds, first, last });
         } else {
+            // TODO: Add surface-area heuristic.
+            // Create n (e.g., 16) buckets that span the bounding box in our dimension.
+            // For each object, classify which buckets it spans.
+            // Caculate SAH for each bucket, and split at the best.
             const auto dimension     = max_dim(bounds.size());
             const auto [left, right] = split(dimension, center(bounds), first, last);
 

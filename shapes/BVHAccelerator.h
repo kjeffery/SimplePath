@@ -24,7 +24,9 @@ class BVHAccelerator : public Aggregate
         {
         }
 
-        virtual bool is_leaf() const noexcept = 0;
+        [[nodiscard]] virtual bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept = 0;
+        [[nodiscard]] virtual bool intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept = 0;
+        [[nodiscard]] virtual bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept = 0;
 
         BBox3 m_bounds;
     };
@@ -37,8 +39,51 @@ class BVHAccelerator : public Aggregate
         {
         }
 
-        bool is_leaf() const noexcept override
+        bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept override
         {
+            bool hit = false;
+
+            RayLimits internal_limits{limits};
+            for (int i = 0; i < 2; ++i) {
+                assert(m_children[i]);
+                if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
+                    if (m_children[i]->intersect(ray, internal_limits, intersection)) {
+                        hit    = true;
+                        limits = internal_limits;
+                    }
+                }
+            }
+            return hit;
+        }
+
+        bool intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept override
+        {
+            bool hit = false;
+
+            for (int i = 0; i < 2; ++i) {
+                assert(m_children[i]);
+                RayLimits internal_limits{limits};
+                if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
+                    if (m_children[i]->intersect(ray, internal_limits, intersection)) {
+                        hit    = true;
+                        limits.m_t_max = internal_limits.m_t_max;
+                    }
+                }
+            }
+            return hit;
+        }
+
+        bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
+        {
+            RayLimits internal_limits{limits};
+            for (int i = 0; i < 2; ++i) {
+                assert(m_children[i]);
+                if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
+                    if (m_children[i]->intersect_p(ray, limits)) {
+                        return true;
+                    }
+                }
+            }
             return false;
         }
 
@@ -55,9 +100,19 @@ class BVHAccelerator : public Aggregate
         {
         }
 
-        bool is_leaf() const noexcept override
+        bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept override
         {
-            return false;
+            return m_primitives.intersect(ray, limits, intersection);
+        }
+
+        bool intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept override
+        {
+            return m_primitives.intersect(ray, limits, intersection);
+        }
+
+        bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
+        {
+            return m_primitives.intersect_p(ray, limits);
         }
 
         ListAccelerator m_primitives;
@@ -72,34 +127,22 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& intersection) const noexcept override
     {
-        bool hit = false;
-        // for (const auto& p : m_primitives) {
-        //// limits should be automatically updated so that the max value is the closest hit so far.
-        // hit = p->intersect(ray, limits, isect) || hit;
-        //}
-        return hit;
+        assert(m_root);
+        return m_root->intersect(ray, limits, intersection);
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& intersection) const noexcept override
     {
-        bool hit = false;
-        // for (const auto& p : m_primitives) {
-        //  limits should be automatically updated so that the max value is the closest hit so far.
-        // hit = p->intersect(ray, limits, isect) || hit;
-        //}
-        return hit;
+        assert(m_root);
+        return m_root->intersect(ray, limits, intersection);
     }
 
     bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        // for (const auto& p : m_primitives) {
-        // if (p->intersect_p(ray, limits)) {
-        // return true;
-        //}
-        //}
-        return false;
+        assert(m_root);
+        return m_root->intersect_p(ray, limits);
     }
 
     BBox3 get_world_bounds_impl() const noexcept override
@@ -110,11 +153,6 @@ private:
     bool is_bounded_impl() const noexcept override
     {
         return true;
-    }
-
-    bool intersect_impl(const NodeBase& node, const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept
-    {
-        if (intersect_p(node.m_bounds, ray, limits)) { }
     }
 
     // Reorders elements and returns two additional iterators (called left and right) such that:b

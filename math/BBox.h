@@ -3,10 +3,12 @@
 /// @author Keith Jeffery
 
 #include "Point2i.h"
+#include "Ray.h"
 #include "Vector2.h"
 #include "Vector3.h"
 
 namespace sp {
+
 template <typename T>
 class BBox
 {
@@ -37,6 +39,11 @@ public:
     {
         m_min = min(p, m_min);
         m_max = max(p, m_max);
+    }
+
+    const T size() const noexcept
+    {
+        return m_max - m_min;
     }
 
     friend bool operator==(const BBox<T>& a, const BBox<T>& b) noexcept = default;
@@ -98,6 +105,41 @@ template <typename T>
 typename T::scalar extents(const BBox<T>& box, std::size_t dim) noexcept
 {
     return box.get_upper()[dim] - box.get_lower()[dim];
+}
+
+template <typename T>
+T center(const BBox<T>& box) noexcept
+{
+    return (box.get_lower() + box.get_upper()) / T(2);
+}
+
+// This is close to PBRT's version:
+// https://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface#Bounds3::IntersectP
+template <typename T>
+[[nodiscard]] bool intersect_p(const BBox<T>& box, const Ray& ray, RayLimits& limits) noexcept
+{
+    float t0{ 0.0f };
+    float t1{ limits.m_t_max };
+
+    for (int i = 0; i < 3; ++i) {
+        // This may be NaN, and that's okay.
+        const float inv_ray_dir = 1.0f / ray.get_direction()[i];
+        float       t_near      = (box.get_lower()[i] - ray.get_origin()[i]) * inv_ray_dir;
+        float       t_far       = (box.get_upper()[i] - ray.get_origin()[i]) * inv_ray_dir;
+
+        if (t_near > t_far) {
+            std::swap(t_near, t_far);
+        }
+
+        t0 = std::max(t_near, t0);
+        t1 = std::min(t_far, t1);
+        if (t0 > t1) {
+            return false;
+        }
+    }
+    limits.m_t_min = t0;
+    limits.m_t_max = t1;
+    return true;
 }
 
 using BBox2i = BBox<Point2i>;

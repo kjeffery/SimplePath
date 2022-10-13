@@ -28,17 +28,39 @@ inline float safe_divide(const float& a, const float& b) noexcept
 
 template <typename IteratorValue, typename IteratorPDF>
 requires std::forward_iterator<IteratorValue> && std::forward_iterator<IteratorPDF>
-auto balance_heuristic(typename std::iterator_traits<IteratorValue>::value_type v,
-                       float                                                    p,
-                       IteratorValue                                            values_first,
-                       IteratorValue                                            values_last,
-                       IteratorPDF                                              pdfs_first,
-                       IteratorPDF                                              pdfs_last) noexcept
+float balance_heuristic(int           c,
+                        float         p,
+                        IteratorValue c_first,
+                        IteratorValue c_last,
+                        IteratorPDF   pdfs_first,
+                        IteratorPDF   pdfs_last) noexcept
 {
-    assert(std::distance(values_first, values_last) == std::distance(pdfs_first, pdfs_last));
-    using Type       = typename std::iterator_traits<IteratorValue>::value_type;
-    const auto denom = std::inner_product(values_first, values_last, pdfs_first, Type{});
-    const auto w     = safe_divide(v * p, denom);
+    assert(std::distance(c_first, c_last) == std::distance(pdfs_first, pdfs_last));
+    const float inner_product = std::inner_product(c_first, c_last, pdfs_first, 0.0f);
+    if (inner_product == 0.0f) {
+        return 0.0f;
+    }
+    const auto w = (c * p) / inner_product;
+    return w;
+}
+
+// Specialization for when the inner product is precomputed
+inline float balance_heuristic(int c, float p, float inner_product) noexcept
+{
+    if (inner_product == 0.0f) {
+        return 0.0f;
+    }
+    const auto w = (c * p) / inner_product;
+    return w;
+}
+
+// Specialization for when we are taking one sample from our distribution and the inner product is precomputed
+inline float balance_heuristic(float p, float inner_product) noexcept
+{
+    if (inner_product == 0.0f) {
+        return 0.0f;
+    }
+    const auto w = p / inner_product;
     return w;
 }
 

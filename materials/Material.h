@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <numeric>
 #include <utility>
 
 #if defined(_MSC_VER)
@@ -258,6 +259,9 @@ public:
     }
 
 private:
+    // This implements Veach and Guibas' one-sample model from _Optimally Combining Sampling Techniques
+    // for Monte Carlo Rendering_.
+    // Eric Veach and Leonidas J. Guibas
     MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const
     {
         const std::size_t num_bxdfs = m_bxdfs.size();
@@ -334,14 +338,22 @@ private:
                 weights[i]             = eval_result.pdf;
             }
 
-            const auto mis_weight = balance_heuristic(results[selected_index].color,
-                                                      results[selected_index].pdf,
-                                                      values.cbegin(),
-                                                      values.cend(),
-                                                      weights.cbegin(),
-                                                      weights.cend());
+            // We're using one sample for each type, so our inner product is just the sum of all weights (as opposed to
+            // the inner product of weights and sample counts).
+            const float inner_product = std::reduce(weights.cbegin(), weights.cend(), 0.0f);
 
-            const RGB result_color = mis_weight * results[selected_index].color;
+            // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
+            // techniques.
+#if 0
+            const auto mis_weight = balance_heuristic(weights[selected_index], inner_product);
+            const RGB result_color = mis_weight * values[selected_index];
+#else
+            RGB result_color = RGB::black();
+            for (std::size_t i = 0; i < num_bxdfs; ++i) {
+                const auto mis_weight = balance_heuristic(weights[i], inner_product);
+                result_color += mis_weight * values[i];
+            }
+#endif
 
             // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
             // above) so that we can use return value optimization (RVO). We return a temporary above, so we want to be

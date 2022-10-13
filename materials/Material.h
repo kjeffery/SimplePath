@@ -188,52 +188,6 @@ private:
     RGB m_r;
 };
 
-#if 0
-class Material
-{
-public:
-    virtual ~Material() = default;
-
-    [[nodiscard]] MaterialSampleResult sample(const Vector3& wo_world, const Normal3& shading_normal, Sampler& sampler) const
-    {
-        const auto onb    = ONB::from_w(Vector3{ shading_normal });
-        auto       result = sample_impl(onb.to_onb(wo_world), onb, sampler);
-        result.direction  = onb.to_world(result.direction);
-        return result;
-    }
-
-    [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wi) const
-    {
-        return pdf_impl(wo, wi);
-    }
-
-private:
-    virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) = 0;
-    virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                         = 0;
-};
-
-class LambertianMaterial : public Material
-{
-public:
-    explicit LambertianMaterial(RGB albedo) noexcept
-    : m_brdf(albedo)
-    {
-    }
-
-private:
-    MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
-    {
-        return m_brdf.sample(wo_local, onb_local, sampler);
-    }
-
-    float pdf_impl(const Vector3& wo, const Vector3& wi) const override
-    {
-        return m_brdf.pdf(wo, wi);
-    }
-
-    LambertianBRDF m_brdf;
-};
-#else
 class Material
 {
 public:
@@ -481,7 +435,5 @@ inline ClearcoatMaterial create_clearcoat_material(RGB albedo, float ior, RGB re
     return ClearcoatMaterial{ std::move(base), ior, reflection };
 #endif
 };
-
-#endif
 
 } // namespace sp

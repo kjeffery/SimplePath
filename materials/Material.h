@@ -18,14 +18,6 @@
 #include <numeric>
 #include <utility>
 
-#if defined(_MSC_VER)
-#include <iostream>
-
-#include <malloc.h>
-#else
-#include <alloca.h>
-#endif
-
 namespace sp {
 inline Vector3 specular_reflection(const Vector3& wo, const Normal3& n) noexcept
 {

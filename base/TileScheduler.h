@@ -58,7 +58,6 @@ class ColumnMajorTileScheduler : public TileScheduler
 public:
     ColumnMajorTileScheduler(int width, int height, int pass_clamp) noexcept
     : TileScheduler{ width, height }
-    , m_counter(0)
     , m_pass_clamp(pass_clamp)
     {
     }
@@ -82,7 +81,7 @@ private:
                                              pass };
     }
 
-    std::atomic<int> m_counter;
+    std::atomic<int> m_counter{0};
     int              m_pass_clamp;
 };
 

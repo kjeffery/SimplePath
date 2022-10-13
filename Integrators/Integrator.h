@@ -91,7 +91,6 @@ private:
 
 class BruteForceIntegrator : public Integrator
 {
-public:
 private:
     RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler) const override
     {

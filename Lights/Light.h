@@ -8,11 +8,6 @@ namespace sp {
 
 class Light : public Hitable
 {
-public:
-    virtual ~Light() = default;
-
-private:
-
 };
 
 class EnvironmentLight : public Light

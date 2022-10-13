@@ -12,8 +12,6 @@ constexpr int k_tile_dimension = 8;
 
 static_assert(is_power_of_two(k_tile_dimension), "We assume power of two for Morton traversal");
 
-// using Tile = BBox2i;
-
 class Tile : private BBox2i
 {
 public:

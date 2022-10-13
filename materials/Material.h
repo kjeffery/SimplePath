@@ -390,39 +390,37 @@ private:
     BxDFContainer m_bxdfs;
 };
 
+// This is a simple layered material. The top layer is a specular reflection. This doesn't account for refraction or
+// depth of the clear coat, but it does physically-plausible energy conservation (any energy lost from the specular
+// reflection is removed from the base material).
 class ClearcoatMaterial : public Material
 {
 public:
-    // TODO: add IOR and clearcoat color
-    explicit ClearcoatMaterial(std::unique_ptr<Material> base)
-    //: m_specular(RGB::white())
-    : m_base(std::move(base))
+    explicit ClearcoatMaterial(std::unique_ptr<Material> base, float ior, RGB specular_color = RGB::white())
+    : m_ior(ior)
+    , m_specular_color(specular_color)
+    , m_base(std::move(base))
     {
     }
 
 private:
     MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
     {
-        // We will sample our top-level specular_result material. Using that result, we will probabilistically decide to
-        // sample the underlying material, subtracting the contribution of the top-level specular_result.
+        // We will sample our top-level specular material. Using that result, we will probabilistically decide to sample
+        // the underlying material, subtracting the contribution of the top-level specular_result.
 
-        // TODO: user parameter
-        constexpr RGB m_specular_color{1.0f, 1.0f, 1.0f};
+        constexpr float ior_air = 1.0f;
 
-        const float f = fresnel_dielectric(cos_theta(wo_local), 1.0f, 1.5f);
-        // const auto specular_result = m_specular.sample(wo_local, onb_local, sampler);
-        // assert(specular_result.pdf == 1.0f);
-        // const float weight = std::min(1.0f, relative_luminance(specular_result.color));
+        const float f = fresnel_dielectric(cos_theta(wo_local), ior_air, m_ior);
 
-        const auto  specular_wi{ specular_reflection_local(wo_local) };
-        const RGB   specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
+        const auto specular_wi{ specular_reflection_local(wo_local) };
+        const RGB  specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
 
+        // Importance sample the specular layer based on the Fresnel contribution.
         const float u = sampler.get_next_1D();
         if (u < f) {
             const float specular_pdf = f; // Our old pdf is 1.0, so this is a multiplication against 1.
             return MaterialSampleResult{ specular_color_result, specular_wi, specular_pdf };
-
-            // return MaterialSampleResult{ specular_result.color, specular_result.direction, result_pdf };
         }
 
         const auto base_result = m_base->sample_local_space(wo_local, onb_local, sampler);
@@ -430,7 +428,6 @@ private:
             return base_result;
         }
 
-        // TODO: do I need to modify the pdf?
         const float result_pdf = (1.0f - f) * base_result.pdf;
         const RGB   color      = (RGB::white() - f * m_specular_color) * base_result.color;
         return MaterialSampleResult{ color, base_result.direction, result_pdf };
@@ -442,7 +439,8 @@ private:
         return 1.0f;
     }
 
-    // SpecularReflectionBRDF    m_specular;
+    float                     m_ior;
+    RGB                       m_specular_color;
     std::unique_ptr<Material> m_base;
 };
 
@@ -467,11 +465,11 @@ inline OneSampleMaterial create_lambertian_material(RGB albedo)
 {
     OneSampleMaterial::BxDFContainer bxdfs;
     bxdfs.emplace_back(new LambertianBRDF{ albedo });
-    //bxdfs.emplace_back(new SpecularReflectionBRDF{ albedo });
+    // bxdfs.emplace_back(new SpecularReflectionBRDF{ albedo });
     return OneSampleMaterial{ std::move(bxdfs) };
 };
 
-inline ClearcoatMaterial create_clearcoat_material(RGB albedo, RGB reflection = RGB::white())
+inline ClearcoatMaterial create_clearcoat_material(RGB albedo, float ior, RGB reflection = RGB::white())
 {
 #if 0
     OneSampleMaterial::BxDFContainer bxdfs;
@@ -480,7 +478,7 @@ inline ClearcoatMaterial create_clearcoat_material(RGB albedo, RGB reflection = 
     return OneSampleMaterial{ std::move(bxdfs) };
 #else
     auto base = std::make_unique<LambertianMaterial>(albedo);
-    return ClearcoatMaterial{ std::move(base) };
+    return ClearcoatMaterial{ std::move(base), ior, reflection };
 #endif
 };
 

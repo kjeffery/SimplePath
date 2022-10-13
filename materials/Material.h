@@ -58,8 +58,7 @@ inline float fresnel_dielectric(float cos_theta_i, float eta_i, float eta_t)
 {
     cos_theta_i = std::clamp(cos_theta_i, -1.0f, 1.0f);
     // Potentially swap indices of refraction
-    const bool entering = cos_theta_i > 0.0f;
-    if (!entering) {
+    if (const bool entering = cos_theta_i > 0.0f; !entering) {
         std::swap(eta_i, eta_t);
         cos_theta_i = std::abs(cos_theta_i);
     }
@@ -74,10 +73,15 @@ inline float fresnel_dielectric(float cos_theta_i, float eta_i, float eta_t)
 
     const float cos_theta_t = std::sqrt(std::max(0.0f, 1.0f - sin_theta_t * sin_theta_t));
 
-    const float real_parl =
-        ((eta_t * cos_theta_i) - (eta_i * cos_theta_t)) / ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
-    const float real_perp =
-        ((eta_i * cos_theta_i) - (eta_t * cos_theta_t)) / ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
+    assert(cos_theta_i >= 0.0f);
+    assert(cos_theta_t >= 0.0f);
+
+    // clang-format off
+    const float real_parl = ((eta_t * cos_theta_i) - (eta_i * cos_theta_t)) /
+                            ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
+    const float real_perp = ((eta_i * cos_theta_i) - (eta_t * cos_theta_t)) /
+                            ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
+    // clang-format on
     return (real_parl * real_parl + real_perp * real_perp) / 2.0f;
 }
 
@@ -233,20 +237,11 @@ private:
 class Material
 {
 public:
-    using BxDFPointer   = std::unique_ptr<BRDF>;
-    using BxDFContainer = std::vector<BxDFPointer>;
-
-    // static constexpr int k_max_bxdfs = 8;
-
-    explicit Material(BxDFContainer bxdfs)
-    : m_bxdfs(std::move(bxdfs))
-    {
-    }
+    virtual ~Material() = default;
 
     [[nodiscard]] MaterialSampleResult
     sample(const Vector3& wo_world, const Normal3& shading_normal, Sampler& sampler) const
     {
-        // std::cout << "Global: " << specular_reflection(wo_world, shading_normal) << '\n';
         const auto onb    = ONB::from_v(Vector3{ shading_normal });
         auto       result = sample_impl(onb.to_onb(wo_world), onb, sampler);
         result.direction  = onb.to_world(result.direction);
@@ -255,14 +250,38 @@ public:
 
     [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wi) const
     {
-        return 1.0f;
+        return pdf_impl(wo, wi);
+    }
+
+    [[nodiscard]] MaterialSampleResult
+    sample_local_space(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const
+    {
+        return sample_impl(wo_local, onb_local, sampler);
+    }
+
+private:
+    virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
+    virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                               = 0;
+};
+
+// This is based on Veach and Guibas' multiple importance sampling. It's a general material used to hold any number of
+// BxDFs
+class OneSampleMaterial : public Material
+{
+public:
+    using BxDFPointer   = std::unique_ptr<BRDF>;
+    using BxDFContainer = std::vector<BxDFPointer>;
+
+    explicit OneSampleMaterial(BxDFContainer bxdfs)
+    : m_bxdfs(std::move(bxdfs))
+    {
     }
 
 private:
     // This implements Veach and Guibas' one-sample model from _Optimally Combining Sampling Techniques
     // for Monte Carlo Rendering_.
     // Eric Veach and Leonidas J. Guibas
-    MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const
+    MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
     {
         const std::size_t num_bxdfs = m_bxdfs.size();
         assert(num_bxdfs > 0);
@@ -362,25 +381,98 @@ private:
         }
     }
 
-    // std::array<std::unique_ptr<BRDF>, k_max_bxdfs> m_bxdfs;
+    // TODO: implement when needed
+    float pdf_impl(const Vector3& wo, const Vector3& wi) const override
+    {
+        return 1.0f;
+    }
+
     BxDFContainer m_bxdfs;
 };
 
-inline Material create_lambertian_material(RGB albedo)
+class ClearcoatMaterial : public Material
 {
-    Material::BxDFContainer bxdfs;
-    bxdfs.emplace_back(new LambertianBRDF{ albedo });
-    return Material{ std::move(bxdfs) };
+public:
+    // TODO: add IOR and clearcoat color
+    explicit ClearcoatMaterial(std::unique_ptr<Material> base)
+    : m_specular(RGB::white())
+    , m_base(std::move(base))
+    {
+    }
+
+private:
+    MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
+    {
+        // We will sample our top-level specular_result material. Using that result, we will probabilistically decide to
+        // sample the underlying material, subtracting the contribution of the top-level specular_result.
+
+        const auto specular_result = m_specular.sample(wo_local, onb_local, sampler);
+        assert(specular_result.pdf == 1.0f);
+        const float weight = std::min(1.0f, relative_luminance(specular_result.color));
+
+        const float u = sampler.get_next_1D();
+        if (u < weight) {
+            const float result_pdf = weight; // Our old pdf is 1.0, so this is a multiplication against 1.
+            return MaterialSampleResult{ specular_result.color, specular_result.direction, result_pdf };
+        }
+
+        const auto base_result = m_base->sample_local_space(wo_local, onb_local, sampler);
+        if (base_result.pdf == 0.0f) {
+            return base_result;
+        }
+
+        // TODO: do I need to modify the pdf?
+        const float result_pdf = (1.0f - weight) * base_result.pdf;
+        const RGB color = (RGB::white() - specular_result.color) * base_result.color;
+        return MaterialSampleResult{ color, base_result.direction, result_pdf };
+    };
+
+    // TODO: implement when needed
+    float pdf_impl(const Vector3& wo, const Vector3& wi) const override
+    {
+        return 1.0f;
+    }
+
+    SpecularReflectionBRDF    m_specular;
+    std::unique_ptr<Material> m_base;
 };
 
-inline Material create_clearcoat_material(RGB albedo, RGB reflection = RGB::white())
+class LambertianMaterial : public OneSampleMaterial
 {
-    Material::BxDFContainer bxdfs;
+public:
+    explicit LambertianMaterial(RGB albedo)
+    : OneSampleMaterial{ build(albedo) }
+    {
+    }
+
+private:
+    static OneSampleMaterial::BxDFContainer build(RGB albedo)
+    {
+        OneSampleMaterial::BxDFContainer bxdfs;
+        bxdfs.emplace_back(new LambertianBRDF{ albedo });
+        return bxdfs;
+    }
+};
+
+inline OneSampleMaterial create_lambertian_material(RGB albedo)
+{
+    OneSampleMaterial::BxDFContainer bxdfs;
+    //bxdfs.emplace_back(new LambertianBRDF{ albedo });
+    bxdfs.emplace_back(new SpecularReflectionBRDF{ albedo });
+    return OneSampleMaterial{ std::move(bxdfs) };
+};
+
+inline ClearcoatMaterial create_clearcoat_material(RGB albedo, RGB reflection = RGB::white())
+{
+#if 0
+    OneSampleMaterial::BxDFContainer bxdfs;
     bxdfs.emplace_back(new SpecularReflectionBRDF{ reflection });
-    // bxdfs.emplace_back(new LambertianBRDF{ reflection });
-    // bxdfs.emplace_back(new LambertianBRDF{ albedo });
     bxdfs.emplace_back(new LambertianBRDF{ albedo });
-    return Material{ std::move(bxdfs) };
+    return OneSampleMaterial{ std::move(bxdfs) };
+#else
+    auto base = std::make_unique<LambertianMaterial>(albedo);
+    return ClearcoatMaterial{ std::move(base) };
+#endif
 };
 
 #endif

@@ -19,7 +19,7 @@ struct RGB
     {
     }
 
-    constexpr RGB(float v) noexcept
+    explicit constexpr RGB(float v) noexcept
     : r(v)
     , g(v)
     , b(v)
@@ -177,7 +177,7 @@ inline RGB safe_divide(const RGB& a, const RGB& b) noexcept
     return result;
 }
 
-inline constexpr float relative_luminance(const RGB& c) noexcept
+constexpr float relative_luminance(const RGB& c) noexcept
 {
     return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
 }
@@ -185,6 +185,14 @@ inline constexpr float relative_luminance(const RGB& c) noexcept
 inline std::ostream& operator<<(std::ostream& outs, const RGB& c)
 {
     return outs << c.r << ' ' << c.g << ' ' << c.b;
+}
+
+inline std::istream& operator>>(std::istream& ins, RGB& c)
+{
+    ins >> c.r;
+    ins >> c.g;
+    ins >> c.b;
+    return ins;
 }
 
 } // namespace sp

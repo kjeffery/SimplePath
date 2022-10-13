@@ -395,8 +395,8 @@ class ClearcoatMaterial : public Material
 public:
     // TODO: add IOR and clearcoat color
     explicit ClearcoatMaterial(std::unique_ptr<Material> base)
-    : m_specular(RGB::white())
-    , m_base(std::move(base))
+    //: m_specular(RGB::white())
+    : m_base(std::move(base))
     {
     }
 
@@ -406,14 +406,23 @@ private:
         // We will sample our top-level specular_result material. Using that result, we will probabilistically decide to
         // sample the underlying material, subtracting the contribution of the top-level specular_result.
 
-        const auto specular_result = m_specular.sample(wo_local, onb_local, sampler);
-        assert(specular_result.pdf == 1.0f);
-        const float weight = std::min(1.0f, relative_luminance(specular_result.color));
+        // TODO: user parameter
+        constexpr RGB m_specular_color{1.0f, 1.0f, 1.0f};
+
+        const float f = fresnel_dielectric(cos_theta(wo_local), 1.0f, 1.5f);
+        // const auto specular_result = m_specular.sample(wo_local, onb_local, sampler);
+        // assert(specular_result.pdf == 1.0f);
+        // const float weight = std::min(1.0f, relative_luminance(specular_result.color));
+
+        const auto  specular_wi{ specular_reflection_local(wo_local) };
+        const RGB   specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
 
         const float u = sampler.get_next_1D();
-        if (u < weight) {
-            const float result_pdf = weight; // Our old pdf is 1.0, so this is a multiplication against 1.
-            return MaterialSampleResult{ specular_result.color, specular_result.direction, result_pdf };
+        if (u < f) {
+            const float specular_pdf = f; // Our old pdf is 1.0, so this is a multiplication against 1.
+            return MaterialSampleResult{ specular_color_result, specular_wi, specular_pdf };
+
+            // return MaterialSampleResult{ specular_result.color, specular_result.direction, result_pdf };
         }
 
         const auto base_result = m_base->sample_local_space(wo_local, onb_local, sampler);
@@ -422,8 +431,8 @@ private:
         }
 
         // TODO: do I need to modify the pdf?
-        const float result_pdf = (1.0f - weight) * base_result.pdf;
-        const RGB color = (RGB::white() - specular_result.color) * base_result.color;
+        const float result_pdf = (1.0f - f) * base_result.pdf;
+        const RGB   color      = (RGB::white() - f * m_specular_color) * base_result.color;
         return MaterialSampleResult{ color, base_result.direction, result_pdf };
     };
 
@@ -433,7 +442,7 @@ private:
         return 1.0f;
     }
 
-    SpecularReflectionBRDF    m_specular;
+    // SpecularReflectionBRDF    m_specular;
     std::unique_ptr<Material> m_base;
 };
 
@@ -457,8 +466,8 @@ private:
 inline OneSampleMaterial create_lambertian_material(RGB albedo)
 {
     OneSampleMaterial::BxDFContainer bxdfs;
-    //bxdfs.emplace_back(new LambertianBRDF{ albedo });
-    bxdfs.emplace_back(new SpecularReflectionBRDF{ albedo });
+    bxdfs.emplace_back(new LambertianBRDF{ albedo });
+    //bxdfs.emplace_back(new SpecularReflectionBRDF{ albedo });
     return OneSampleMaterial{ std::move(bxdfs) };
 };
 

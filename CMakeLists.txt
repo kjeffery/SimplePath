@@ -48,6 +48,7 @@ set(SOURCES
         base/Util.h
         base/not_null.h
         main.cpp
+        materials/Material.cpp
         materials/Material.h
         math/AffineSpace.h
         math/Angles.h
@@ -71,6 +72,7 @@ set(SOURCES
         shapes/Shape.h
         shapes/Sphere.h
 )
+
 add_executable(SimplePath ${SOURCES})
 
 if (UNIX)

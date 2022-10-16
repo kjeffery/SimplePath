@@ -19,6 +19,21 @@
 #include <utility>
 
 namespace sp {
+constexpr bool same_hemisphere(const Vector3& a, const Vector3& b)
+{
+    return a.y * b.y > 0.0f;
+}
+
+constexpr bool same_hemisphere(const Vector3& a, const Normal3& b)
+{
+    return a.y * b.y > 0.0f;
+}
+
+constexpr bool same_hemisphere(const Normal3& a, const Vector3& b)
+{
+    return a.y * b.y > 0.0f;
+}
+
 inline Vector3 specular_reflection(const Vector3& wo, const Normal3& n) noexcept
 {
     return -wo + 2.0f * dot(wo, n) * n;
@@ -30,19 +45,61 @@ inline Vector3 specular_reflection_local(const Vector3& wo) noexcept
     return Vector3{ -wo.x, wo.y, -wo.z };
 }
 
-inline float cos_theta(const Vector3& w)
+inline float cos_theta(const Vector3& w) noexcept
 {
     return w.y;
 }
 
-inline float cos2_theta(const Vector3& w)
+inline float cos2_theta(const Vector3& w) noexcept
 {
     return w.y * w.y;
 }
 
-inline float abs_cos_theta(const Vector3& w)
+inline float abs_cos_theta(const Vector3& w) noexcept
 {
     return std::abs(w.y);
+}
+
+inline float sin2_theta(const Vector3& w) noexcept
+{
+    return std::max(0.0f, 1.0f - cos2_theta(w));
+}
+
+inline float sin_theta(const Vector3& w) noexcept
+{
+    return std::sqrt(sin2_theta(w));
+}
+
+inline float tan_theta(const Vector3& w) noexcept
+{
+    return sin_theta(w) / cos_theta(w);
+}
+
+inline float tan2_theta(const Vector3& w) noexcept
+{
+    return sin2_theta(w) / cos2_theta(w);
+}
+
+inline float cos_phi(const Vector3& w) noexcept
+{
+    const float sin_theta_v = sin_theta(w);
+    return (sin_theta_v == 0.0f) ? 1.0f : std::clamp(w.x / sin_theta_v, -1.0f, 1.0f);
+}
+
+inline float sin_phi(const Vector3& w) noexcept
+{
+    const float sin_theta_v = sin_theta(w);
+    return (sin_theta_v == 0.0f) ? 1.0f : std::clamp(w.z / sin_theta_v, -1.0f, 1.0f);
+}
+
+inline float cos2_phi(const Vector3& w) noexcept
+{
+    return square(cos_phi(w));
+}
+
+inline float sin2_phi(const Vector3& w) noexcept
+{
+    return square(sin_phi(w));
 }
 
 // This is taken near-verbatim from PBRT
@@ -82,12 +139,122 @@ struct MaterialSampleResult
     RGB     color;
     Vector3 direction;
     float   pdf;
+
+    static MaterialSampleResult degenerate() noexcept
+    {
+        return MaterialSampleResult{ RGB::black(), Vector3{ no_init }, 0.0f };
+    }
 };
 
-struct MaterialEvalResult
+// These come from PBRT:
+// https://www.pbr-book.org/3ed-2018/Reflection_Models/Microfacet_Models#MicrofacetDistribution
+class MicrofacetDistribution
 {
-    RGB   color;
-    float pdf;
+public:
+    virtual ~MicrofacetDistribution() = default;
+
+    [[nodiscard]] float D(const Vector3& wh) const
+    {
+        return D_impl(wh);
+    }
+
+    [[nodiscard]] float G1(const Vector3& w) const
+    {
+        return 1.0f / (1.0f + lambda(w));
+    }
+
+    [[nodiscard]] float G(const Vector3& wo, const Vector3& wi) const
+    {
+        return 1.0f / (1.0f + lambda(wo) + lambda(wi));
+    }
+
+    [[nodiscard]] Vector3 sample_wh(const Vector3& wo, Sampler& sampler) const
+    {
+        return sample_wh_impl(wo, sampler);
+    }
+
+    [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wh) const
+    {
+        if (m_sample_visible_area) {
+            return D(wh) * G1(wo) * std::abs(dot(wo, wh)) / abs_cos_theta(wo);
+        } else {
+            return D(wh) * abs_cos_theta(wh);
+        }
+    }
+
+protected:
+    explicit MicrofacetDistribution(bool sample_visible_area) noexcept
+    : m_sample_visible_area(sample_visible_area)
+    {
+    }
+
+    bool sample_visible_area() const noexcept
+    {
+        return m_sample_visible_area;
+    }
+
+private:
+    virtual float   D_impl(const Vector3& wh) const                           = 0;
+    virtual float   lambda(const Vector3& w) const                            = 0;
+    virtual Vector3 sample_wh_impl(const Vector3& wo, Sampler& sampler) const = 0;
+
+    bool m_sample_visible_area;
+};
+
+class BeckmannDistribution : public MicrofacetDistribution
+{
+public:
+    explicit BeckmannDistribution(float roughness, bool sample_visible_area = true)
+    : MicrofacetDistribution(sample_visible_area)
+    , m_alpha_x(roughness_to_alpha(roughness))
+    , m_alpha_y(roughness_to_alpha(roughness))
+    {
+    }
+
+    BeckmannDistribution(float roughness0, float roughness1, bool sample_visible_area = true)
+    : MicrofacetDistribution(sample_visible_area)
+    , m_alpha_x(roughness_to_alpha(roughness0))
+    , m_alpha_y(roughness_to_alpha(roughness1))
+    {
+    }
+
+private:
+    static float roughness_to_alpha(float roughness)
+    {
+        roughness     = std::max(roughness, 1e-3f);
+        const float x = std::log(roughness);
+        return 1.62142f + 0.819955f * x + 0.1734f * x * x + 0.0171201f * x * x * x + 0.000640711f * x * x * x * x;
+    }
+
+    float D_impl(const Vector3& wh) const override
+    {
+        const float tan2_theta_v = tan2_theta(wh);
+        if (std::isinf(tan2_theta_v)) {
+            return 0.0f;
+        }
+        const float cos4_theta_v = square(cos2_theta(wh));
+        return std::exp(-tan2_theta_v * (cos2_phi(wh) / square(m_alpha_x) + sin2_phi(wh) / square(m_alpha_y))) /
+               (std::numbers::pi_v<float> * m_alpha_x * m_alpha_y * cos4_theta_v);
+    }
+
+    float lambda(const Vector3& w) const override
+    {
+        const float abs_tan_theta_v = std::abs(tan_theta(w));
+        if (std::isinf(abs_tan_theta_v)) {
+            return 0.0f;
+        }
+        const float alpha = std::sqrt(cos2_phi(w) * square(m_alpha_x) + sin2_phi(w) * square(m_alpha_y));
+        const float a     = 1.0f / (alpha * abs_tan_theta_v);
+        if (a >= 1.6f) {
+            return 0.0f;
+        }
+        return (1.0f - 1.259f * a + 0.396f * square(a)) / (3.535f * a + 2.181f * square(a));
+    }
+
+    Vector3 sample_wh_impl(const Vector3& wo, Sampler& sampler) const override;
+
+    float m_alpha_x;
+    float m_alpha_y;
 };
 
 class BRDF
@@ -100,7 +267,7 @@ public:
         return sample_impl(wo_local, onb_local, sampler);
     }
 
-    [[nodiscard]] MaterialEvalResult eval(const Vector3& wo_local, const Vector3& wi_local) const
+    [[nodiscard]] RGB eval(const Vector3& wo_local, const Vector3& wi_local) const
     {
         return eval_impl(wo_local, wi_local);
     }
@@ -112,7 +279,7 @@ public:
 
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
-    virtual MaterialEvalResult   eval_impl(const Vector3& wo_local, const Vector3& wi_local) const                  = 0;
+    virtual RGB                  eval_impl(const Vector3& wo_local, const Vector3& wi_local) const                  = 0;
     virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                               = 0;
 };
 
@@ -132,10 +299,10 @@ private:
         return { m_albedo, Vector3{ sp }, uniform_hemisphere_pdf() };
     }
 
-    MaterialEvalResult eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
     {
-        // TODO: assert or check they are in the same hemisphere.
-        return MaterialEvalResult{ m_albedo, uniform_hemisphere_pdf() };
+        assert(same_hemisphere(wo_local, wi_local));
+        return m_albedo;
     }
 
     float pdf_impl(const Vector3&, const Vector3&) const override
@@ -164,9 +331,9 @@ private:
         return { color, wi, 1.0f };
     }
 
-    MaterialEvalResult eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
     {
-        return MaterialEvalResult{ RGB::black(), 0.0f };
+        return RGB::black();
     }
 
     float pdf_impl(const Vector3&, const Vector3&) const override
@@ -178,6 +345,72 @@ private:
 
 private:
     RGB m_r;
+};
+
+// This is based on PBRT's Torrance-Sparrow implementation
+class MicrofacetReflection : public BRDF
+{
+public:
+    MicrofacetReflection(RGB r, std::unique_ptr<MicrofacetDistribution> distribution, float ior)
+    : m_r(r)
+    , m_distribution(std::move(distribution))
+    , m_ior(ior)
+    {
+    }
+
+private:
+    MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
+    {
+        if (wo_local.y == 0.0f) {
+            return MaterialSampleResult::degenerate();
+        }
+        const auto  wh_local    = m_distribution->sample_wh(wo_local, sampler);
+        const float dot_product = dot(wo_local, wh_local);
+        if (dot_product < 0.0f) {
+            return MaterialSampleResult::degenerate();
+        }
+
+        const auto wi_local = specular_reflection(wo_local, wh_local);
+        if (!same_hemisphere(wo_local, wi_local)) {
+            return MaterialSampleResult::degenerate();
+        }
+
+        const float pdf   = m_distribution->pdf(wo_local, wh_local) / (4.0f * dot_product);
+        const auto  color = eval(wo_local, wi_local);
+        return MaterialSampleResult{ color, wi_local, pdf };
+    }
+
+    RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    {
+        const float abs_cos_theta_o = abs_cos_theta(wo_local);
+        const float abs_cos_theta_i = abs_cos_theta(wi_local);
+
+        if (abs_cos_theta_i == 0.0f || abs_cos_theta_o == 0.0f) {
+            return RGB::black();
+        }
+
+        Vector3 wh_local = wi_local + wo_local;
+        if (wh_local.x == 0.0f && wh_local.y == 0.0f && wh_local.z == 0.0f) {
+            return RGB::black();
+        }
+        wh_local     = normalize(wh_local);
+        const auto f = fresnel_dielectric(dot(wi_local, wh_local), 1.0f, m_ior);
+        return m_r * m_distribution->D(wh_local) * m_distribution->G(wo_local, wi_local) * f /
+               (4.0f * abs_cos_theta_i * abs_cos_theta_o);
+    }
+
+    float pdf_impl(const Vector3& wo, const Vector3& wi) const override
+    {
+        if (!same_hemisphere(wo, wi)) {
+            return 0.0f;
+        }
+        const auto wh = normalize(wo + wi);
+        return m_distribution->pdf(wo, wh) / (4.0f * dot(wo, wh));
+    }
+
+    RGB                                     m_r;
+    std::unique_ptr<MicrofacetDistribution> m_distribution;
+    float m_ior; // We only model reflection right now, so, unlike PBRT, we don't have a general Fresnel class
 };
 
 class Material
@@ -298,9 +531,10 @@ private:
                     weights[i] = results[i].pdf;
                     continue;
                 }
-                const auto eval_result = m_bxdfs[i]->eval(wo_local, results[selected_index].direction);
-                values[i]              = eval_result.color;
-                weights[i]             = eval_result.pdf;
+                const auto eval_color = m_bxdfs[i]->eval(wo_local, results[selected_index].direction);
+                const auto eval_pdf   = m_bxdfs[i]->pdf(wo_local, results[selected_index].direction);
+                values[i]             = eval_color;
+                weights[i]            = eval_pdf;
             }
 
             // We're using one sample for each type, so our inner product is just the sum of all weights (as opposed to
@@ -411,7 +645,6 @@ inline OneSampleMaterial create_lambertian_material(RGB albedo)
 {
     OneSampleMaterial::BxDFContainer bxdfs;
     bxdfs.emplace_back(new LambertianBRDF{ albedo });
-    // bxdfs.emplace_back(new SpecularReflectionBRDF{ albedo });
     return OneSampleMaterial{ std::move(bxdfs) };
 };
 
@@ -427,5 +660,15 @@ inline ClearcoatMaterial create_clearcoat_material(RGB albedo, float ior, RGB re
     return ClearcoatMaterial{ std::move(base), ior, reflection };
 #endif
 };
+
+// TODO: anisotropic version
+inline OneSampleMaterial create_beckmann_glossy_material(RGB color, float roughness, float ior)
+{
+    OneSampleMaterial::BxDFContainer        bxdfs;
+    std::unique_ptr<MicrofacetDistribution> microfacet(new BeckmannDistribution{ roughness });
+    bxdfs.emplace_back(new MicrofacetReflection{ RGB::white(), std::move(microfacet), ior });
+    bxdfs.emplace_back(new LambertianBRDF{ color });
+    return OneSampleMaterial{ std::move(bxdfs) };
+}
 
 } // namespace sp

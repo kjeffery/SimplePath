@@ -87,6 +87,14 @@ inline RGB& operator+=(RGB& a, const RGB& b) noexcept
     return a;
 }
 
+inline RGB& operator-=(RGB& a, const RGB& b) noexcept
+{
+    a.r -= b.r;
+    a.g -= b.g;
+    a.b -= b.b;
+    return a;
+}
+
 inline RGB& operator*=(RGB& a, const RGB& b) noexcept
 {
     a.r *= b.r;
@@ -123,6 +131,12 @@ inline RGB& operator/=(RGB& a, float b) noexcept
 inline RGB operator+(RGB a, const RGB& b) noexcept
 {
     return a += b;
+}
+
+// Pass-by-value on purpose
+inline RGB operator-(RGB a, const RGB& b) noexcept
+{
+    return a -= b;
 }
 
 // Pass-by-value on purpose

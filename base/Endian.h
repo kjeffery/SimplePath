@@ -18,54 +18,60 @@ static_assert(std::endian::native == std::endian::big || std::endian::native == 
 
 inline std::uint16_t little_endian(std::uint16_t v) noexcept
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    using enum std::endian;
+    if constexpr (native == little) {
         return v;
-    } else if constexpr (std::endian::native == std::endian::big) {
+    } else if constexpr (native == big) {
         return _byteswap_ushort(v);
     }
 }
 
 inline std::uint16_t big_endian(std::uint16_t v) noexcept
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    using enum std::endian;
+    if constexpr (native == little) {
         return _byteswap_ushort(v);
-    } else if constexpr (std::endian::native == std::endian::big) {
+    } else if constexpr (native == big) {
         return v;
     }
 }
 
 inline std::uint32_t little_endian(std::uint32_t v) noexcept
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    using enum std::endian;
+    if constexpr (native == little) {
         return v;
-    } else if constexpr (std::endian::native == std::endian::big) {
+    } else if constexpr (native == big) {
         return _byteswap_ulong(v);
     }
 }
 
 inline std::uint32_t big_endian(std::uint32_t v) noexcept
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    using enum std::endian;
+    if constexpr (native == little) {
         return _byteswap_ulong(v);
-    } else if constexpr (std::endian::native == std::endian::big) {
+    } else if constexpr (native == big) {
         return v;
     }
 }
 
 inline std::uint64_t little_endian(std::uint64_t v) noexcept
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    using enum std::endian;
+    if constexpr (native == little) {
         return v;
-    } else if constexpr (std::endian::native == std::endian::big) {
+    } else if constexpr (native == big) {
         return _byteswap_uint64(v);
     }
 }
 
 inline std::uint64_t big_endian(std::uint64_t v) noexcept
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    using enum std::endian;
+    if constexpr (native == little) {
         return _byteswap_uint64(v);
-    } else if constexpr (std::endian::native == std::endian::big) {
+    } else if constexpr (native == big) {
         return v;
     }
 }

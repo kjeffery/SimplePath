@@ -77,6 +77,8 @@ struct RGB
     float r;
     float g;
     float b;
+
+    friend bool operator==(const RGB&, const RGB&) noexcept = default;
 };
 
 inline RGB& operator+=(RGB& a, const RGB& b) noexcept

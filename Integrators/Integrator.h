@@ -94,11 +94,10 @@ class BruteForceIntegrator : public Integrator
 private:
     RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler) const override
     {
-        return do_integrate(ray, scene, RGB::white(), sampler, 0);
+        return do_integrate(ray, scene, sampler, 0);
     }
 
-    // TODO: throughput only for interative
-    RGB do_integrate(const Ray& ray, const Scene& scene, RGB throughput, Sampler& sampler, int depth) const
+    RGB do_integrate(const Ray& ray, const Scene& scene, Sampler& sampler, int depth) const
     {
         if (depth >= scene.max_depth) {
             return RGB::black();
@@ -112,7 +111,7 @@ private:
             const Normal3& n  = geometry_intersection.m_normal;
 
             const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
-            if (shading_result.pdf == 0.0f) {
+            if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                 return RGB::black();
             }
 
@@ -122,13 +121,59 @@ private:
             const auto  outgoing_position = ray(limits.m_t_max);
             const Ray   outgoing_ray{ outgoing_position, wi };
 
-            return do_integrate(outgoing_ray, scene, throughput, sampler, depth + 1) * cosine * shading_result.color /
+            return do_integrate(outgoing_ray, scene, sampler, depth + 1) * cosine * shading_result.color /
                    shading_result.pdf;
         } else if (hit_light) {
             return light_intersection.L;
         } else {
             return RGB::black();
         }
+    }
+};
+
+class BruteForceIntegratorIterative : public Integrator
+{
+private:
+    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler) const override
+    {
+        return do_integrate(ray, scene, sampler);
+    }
+
+    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    {
+        RGB throughput = RGB::white();
+        RGB L = RGB::black();
+
+        for (int depth = 0; depth < scene.max_depth; ++depth) {
+            RayLimits         limits;
+            LightIntersection light_intersection;
+            const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+            if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
+                const Vector3  wo = -ray.get_direction();
+                const Normal3& n  = geometry_intersection.m_normal;
+
+                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
+                    break;
+                }
+
+                // Get next direction
+                const auto& wi                = shading_result.direction;
+                const auto  cosine            = dot(wi, n);
+                const auto  outgoing_position = ray(limits.m_t_max);
+                const Ray   outgoing_ray{ outgoing_position, wi };
+                ray = outgoing_ray;
+
+                const RGB contribution = cosine * shading_result.color / shading_result.pdf;
+                throughput *= contribution;
+            } else if (hit_light) {
+                L += throughput * light_intersection.L;
+                break;
+            } else {
+                break;
+            }
+        }
+        return L;
     }
 };
 

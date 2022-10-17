@@ -28,10 +28,10 @@ auto beckmann_sample11(float cos_theta_i, float U1, float U2)
     // and techniques like Kelemen-style MLT. The following code performs a numerical inversion with better behavior.
     const float sin_theta_i = std::sqrt(std::max(0.0f, 1.0f - square(cos_theta_i)));
     const float tan_theta_i = sin_theta_i / cos_theta_i;
-    const float cot_theta_i = 1 / tan_theta_i;
+    const float cot_theta_i = 1.0f / tan_theta_i;
 
     // Search interval -- everything is parameterized in the Erf() domain
-    float       a        = -1;
+    float       a        = -1.0f;
     float       c        = std::erf(cot_theta_i);
     const float sample_x = std::max(U1, 1e-6f);
 
@@ -47,7 +47,7 @@ auto beckmann_sample11(float cos_theta_i, float U1, float U2)
     static const float sqrt_pi_inv = 1.0f / std::sqrt(std::numbers::pi_v<float>);
     const float normalization = 1.0f / (1.0f + c + sqrt_pi_inv * tan_theta_i * std::exp(-cot_theta_i * cot_theta_i));
 
-    for (int it = 0; ++it < 10;) {
+    for (int it = 0; it < 9; ++it) {
         // Bisection criterion -- the oddly-looking Boolean expression are intentional to check for NaNs at little
         // additional cost
         if (!(b >= a && b <= c)) {
@@ -127,17 +127,20 @@ Vector3 BeckmannDistribution::sample_wh_impl(const Vector3& wo, Sampler& sampler
             phi = std::atan(
                 m_alpha_y / m_alpha_x *
                 std::tan(2.0f * std::numbers::pi_v<float> * sampler.get_next_1D() + 0.5f * std::numbers::pi_v<float>));
-            if (sampler.get_next_1D() > 0.5f) phi += std::numbers::pi_v<float>;
-            const float sin_phi = std::sin(phi);
-            const float cos_phi = std::cos(phi);
-            const float alphax2 = m_alpha_x * m_alpha_x, alphay2 = m_alpha_y * m_alpha_y;
-            tan2_theta = -log_sample / (square(cos_phi) / alphax2 + square(sin_phi) / alphay2);
+            if (sampler.get_next_1D() > 0.5f) {
+                phi += std::numbers::pi_v<float>;
+            }
+            const float sin_phi  = std::sin(phi);
+            const float cos_phi  = std::cos(phi);
+            const float alpha_x2 = square(m_alpha_x);
+            const float alpha_y2 = square(m_alpha_y);
+            tan2_theta           = -log_sample / (square(cos_phi) / alpha_x2 + square(sin_phi) / alpha_y2);
         }
 
         // Map sampled Beckmann angles to normal direction _wh_
-        const float cos_theta = 1 / std::sqrt(1 + tan2_theta);
-        const float sinTheta  = std::sqrt(std::max(0.0f, 1.0f - square(cos_theta)));
-        Vector3     wh        = spherical_direction(sinTheta, cos_theta, phi);
+        const float cos_theta_v = 1.0f / std::sqrt(1.0f + tan2_theta);
+        const float sin_theta_v = std::sqrt(std::max(0.0f, 1.0f - square(cos_theta_v)));
+        Vector3     wh          = spherical_direction(sin_theta_v, cos_theta_v, phi);
         if (!same_hemisphere(wo, wh)) {
             wh = -wh;
         }

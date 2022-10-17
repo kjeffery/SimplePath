@@ -9,6 +9,7 @@
 
 #include "../math/BBox.h"
 
+#include <concepts>
 #include <iterator>
 #include <vector>
 
@@ -76,6 +77,7 @@ class BVHAccelerator : public Aggregate
                         // we don't want to modify for our "real" ray limits. We should only get here if we intersect
                         // actual geometry: if we hit a bounding box and no geometry, we don't want to modify the
                         // limits.
+                        assert(internal_limits.m_t_max <= limits.m_t_max);
                         limits.m_t_max = internal_limits.m_t_max;
                     }
                 }

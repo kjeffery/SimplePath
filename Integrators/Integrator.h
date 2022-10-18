@@ -177,4 +177,67 @@ private:
     }
 };
 
+class BruteForceIntegratorIterativeRR : public Integrator
+{
+private:
+    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler) const override
+    {
+        return do_integrate(ray, scene, sampler);
+    }
+
+    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    {
+        RGB throughput = RGB::white();
+        RGB L = RGB::black();
+
+        for (int depth = 0; depth < scene.max_depth; ++depth) {
+            RayLimits         limits;
+            LightIntersection light_intersection;
+            const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+            if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
+                const Vector3  wo = -ray.get_direction();
+                const Normal3& n  = geometry_intersection.m_normal;
+
+                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
+                    break;
+                }
+
+                // Get next direction
+                const auto& wi                = shading_result.direction;
+                const auto  cosine            = dot(wi, n);
+                const auto  outgoing_position = ray(limits.m_t_max);
+                const Ray   outgoing_ray{ outgoing_position, wi };
+                ray = outgoing_ray;
+
+                const RGB contribution = cosine * shading_result.color / shading_result.pdf;
+                throughput *= contribution;
+
+                // TODO: dynamic
+                if (depth >= scene.min_depth) {
+                    constexpr float mean_throughput_luminance = 0.1f;
+                    const float lum = relative_luminance(throughput);
+                    if (lum < mean_throughput_luminance) {
+                        // q is the probability of continuing
+                        const float q = std::max(0.05f, lum/mean_throughput_luminance);
+                        assert(q < 1.0f);
+                        if (sampler.get_next_1D() < q) {
+                            throughput /= q;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+            } else if (hit_light) {
+                L += throughput * light_intersection.L;
+                break;
+            } else {
+                break;
+            }
+        }
+        return L;
+    }
+};
+
 } // namespace sp

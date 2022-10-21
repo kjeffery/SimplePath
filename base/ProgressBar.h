@@ -41,7 +41,7 @@ public:
 
         const unsigned percentage = calc_percentage(step, m_total);
 
-        constexpr char     marker  = '=';
+        constexpr char     marker  = '*';
         constexpr unsigned width   = 50;
         const unsigned     numDraw = calculate_number_of_fill_elements(step, m_total, width);
 
@@ -55,7 +55,7 @@ public:
             // clang-format off
             std::cout << '\r'
                       << std::right << std::setfill(' ') << std::setw(4) << percentage << "% |"
-                      << std::left  << std::setfill(' ') << std::setw(width) << bar << "> "
+                      << std::left  << std::setfill('-') << std::setw(width) << bar << "| "
                       << step << '/' << m_total
                       << std::flush;
             // clang-format on

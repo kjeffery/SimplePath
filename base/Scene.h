@@ -28,6 +28,7 @@ template <typename Iterator>
 requires std::random_access_iterator<Iterator>
 ListAccelerator create_acceleration_structure(Iterator first, Iterator last)
 {
+#if 1
     // We can't store unbounded geometry in a spatial-partitioning acceleration structure, so we partition those out,
     // create a spatial-partitioning structure, and put that and the unbounded geometry into a ListAccelerator.
     const auto      part_it             = std::partition(first, last, [](const auto& p) { return p->is_bounded(); });
@@ -36,6 +37,11 @@ ListAccelerator create_acceleration_structure(Iterator first, Iterator last)
     top_accelerator.push_back(std::move(bounded_accelerator));
     top_accelerator.shrink_to_fit();
     return top_accelerator;
+#else
+    ListAccelerator top_accelerator(first, last);
+    top_accelerator.shrink_to_fit();
+    return top_accelerator;
+#endif
 }
 } // namespace internal
 
@@ -45,24 +51,6 @@ public:
     using PrimitiveContainer = std::vector<std::shared_ptr<const GeometricPrimitive>>;
     using LightContainer     = std::vector<std::shared_ptr<const Light>>;
 
-#if 0
-    Scene(std::unique_ptr<Aggregate> accelerator_geometry, std::unique_ptr<Aggregate> accelerator_lights)
-    : m_accelerator_geometry(std::move(accelerator_geometry))
-    , m_accelerator_lights(std::move(accelerator_lights))
-    {
-    }
-#endif
-
-#if 0
-    explicit Scene(HitableContainer hitables, HitableContainer lights)
-    : m_shapes(std::move(hitables))
-    , m_lights(std::move(lights))
-    , m_accelerator_geometry(SmartToRawPointerIterator{ m_shapes.cbegin() },
-                             SmartToRawPointerIterator{ m_shapes.cend() })
-    , m_accelerator_lights(SmartToRawPointerIterator{ m_lights.cbegin() }, SmartToRawPointerIterator{ m_lights.cend() })
-    {
-    }
-#endif
     template <typename PrimitiveIterator, typename LightIterator>
     requires std::convertible_to<typename std::iterator_traits<PrimitiveIterator>::value_type,
                                  typename PrimitiveContainer::value_type> &&
@@ -104,10 +92,6 @@ public:
     std::unique_ptr<Camera> m_camera;
 
 private:
-    // Scene owns the geometry + other hitables.
-    // HitableContainer m_shapes;
-    // HitableContainer m_lights;
-
     ListAccelerator m_accelerator_geometry;
     ListAccelerator m_accelerator_lights;
 };

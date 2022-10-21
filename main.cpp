@@ -3,6 +3,7 @@
 #include "base/FileParser.h"
 #include "base/not_null.h"
 #include "base/ProgressBar.h"
+#include "base/Stopwatch.h"
 #include "base/Tile.h"
 #include "base/TileScheduler.h"
 #include "base/Util.h"
@@ -63,10 +64,11 @@ void render_thread(sp::Image&            image,
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
             auto sampler = get_pixel_sampler(p.x, p.y);
             for (unsigned i = 0; i < num_pixel_samples; ++i) {
-                const auto    sample = sampler.get_next_2D();
-                const sp::Ray ray    = scene.m_camera->generate_ray(p.x + sample.x, p.y + sample.y);
+                const auto       sample = sampler.get_next_2D();
+                const sp::Point2 pixel_coords{ p.x + sample.x, p.y + sample.y };
+                const sp::Ray    ray = scene.m_camera->generate_ray(pixel_coords.x, pixel_coords.y);
                 // std::osyncstream(std::cout) << ray << '\n';
-                image(p.x, p.y) += integrator.integrate(ray, scene, sampler);
+                image(p.x, p.y) += integrator.integrate(ray, scene, sampler, pixel_coords);
             }
             image(p.x, p.y) /= num_pixel_samples;
         }
@@ -79,13 +81,21 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
 {
     constexpr int num_passes = 1;
 
+    sp::Stopwatch stopwatch;
+
     sp::Image image(scene.image_width, scene.image_height, sp::RGB::black());
 
     // sp::MandelbrotIntegrator     integrator(scene.image_width, scene.image_height);
-    sp::BruteForceIntegrator     integrator;
-    sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
-    sp::ProgressBar              progress_bar(scheduler.get_num_tiles() * num_passes);
-    std::vector<std::jthread>    threads;
+    // sp::BruteForceIntegrator     integrator;
+    // sp::BruteForceIntegratorIterative integrator;
+    // sp::BruteForceIntegratorIterativeRR integrator;
+    sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
+                                                          scene.max_depth,
+                                                          scene.image_width,
+                                                          scene.image_height);
+    sp::ColumnMajorTileScheduler               scheduler{ scene.image_width, scene.image_height, num_passes };
+    sp::ProgressBar                            progress_bar(scheduler.get_num_tiles() * num_passes);
+    std::vector<std::jthread>                  threads;
     threads.reserve(num_threads);
 
     for (int i = 0; i < num_threads; ++i) {
@@ -104,6 +114,9 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
     }
 
     sp::write(scene.output_file_name, image);
+    stopwatch.stop();
+    std::cout << "\nElapsed time: ";
+    stopwatch.print(std::cout);
 }
 
 template <typename First, typename... Rest>

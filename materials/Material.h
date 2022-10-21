@@ -543,7 +543,7 @@ private:
 
             // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
             // techniques.
-#if 0
+#if 1
             const auto mis_weight = balance_heuristic(weights[selected_index], inner_product);
             const RGB result_color = mis_weight * values[selected_index];
 #else

@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <variant>
 
 namespace sp {
@@ -116,7 +117,7 @@ DataType text_to_data_type(std::string_view s)
     }
 }
 
-DataType check_data_consistency(DataType new_data_type, DataType old_data_type)
+void check_data_consistency(DataType new_data_type, DataType old_data_type)
 {
     if (old_data_type != new_data_type && old_data_type != DataType::NOT_SET) {
         throw std::runtime_error("Inconsistent data type"); // TODO: PlyException
@@ -136,6 +137,15 @@ struct AsciiTypeReader : public TypeReader
         T val;
         ins >> val;
         return sp::ReadType(val);
+    }
+};
+
+template <>
+struct AsciiTypeReader<std::nullptr_t> : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        return sp::ReadType();
     }
 };
 
@@ -258,7 +268,7 @@ Mesh read_ply(const std::filesystem::path& file_name)
             }
 
             if (element_text[1] == "vertex"sv) {
-                num_vertices = std::strtol(element_text[2]);
+                num_vertices = std::stoul(std::string(element_text[2]));
                 line         = read_next(ins);
                 while (line.starts_with("property")) {
                     const auto property_text = split(line);
@@ -273,9 +283,10 @@ Mesh read_ply(const std::filesystem::path& file_name)
                     } else {
                         std::cerr << "Unknown property '" << line << "'. Skipping.\n";
                     }
+                    line = read_next(ins);
                 }
             } else if (element_text[1] == "face"sv) {
-                num_vertices = std::strtol(element_text[2]);
+                num_vertices = std::stoul(std::string(element_text[2]));
                 line         = read_next(ins);
                 while (line.starts_with("property")) {
                     const auto property_text = split(line);
@@ -289,9 +300,10 @@ Mesh read_ply(const std::filesystem::path& file_name)
                     } else {
                         std::cerr << "Unknown property '" << line << "'. Skipping.\n";
                     }
+                    line = read_next(ins);
                 }
             } else {
-                std::cerr << "Unknown element '" << element_type << "'. Skipping.\n";
+                std::cerr << "Unknown element '" << element_text[1] << "'. Skipping.\n";
             }
         }
         line = read_next(ins);

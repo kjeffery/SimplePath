@@ -75,8 +75,53 @@ enum class FileType
     binary_big_endian
 };
 
+enum class DataType
+{
+    NOT_SET,
+    INT8,
+    UINT8,
+    INT16,
+    UINT16,
+    INT32,
+    UINT32,
+    FLOAT,
+    DOUBLE
+};
+
 using ReadType =
     std::variant<std::int8_t, std::uint8_t, std::int16_t, std::uint16_t, std::int32_t, std::uint32_t, float, double>;
+
+DataType text_to_data_type(std::string_view s)
+{
+    using namespace std::literals;
+
+    if (s == "char"sv) {
+        return DataType::INT8;
+    } else if (s == "uchar"sv) {
+        return DataType::UINT8;
+    } else if (s == "short"sv) {
+        return DataType::INT16;
+    } else if (s == "ushort"sv) {
+        return DataType::UINT16;
+    } else if (s == "int"sv) {
+        return DataType::INT16;
+    } else if (s == "uint"sv) {
+        return DataType::UINT16;
+    } else if (s == "float"sv) {
+        return DataType::FLOAT;
+    } else if (s == "double"sv) {
+        return DataType::DOUBLE;
+    } else {
+        throw std::runtime_error("Unknown data type"); // TODO: PlyException
+    }
+}
+
+DataType check_data_consistency(DataType new_data_type, DataType old_data_type)
+{
+    if (old_data_type != new_data_type && old_data_type != DataType::NOT_SET) {
+        throw std::runtime_error("Inconsistent data type"); // TODO: PlyException
+    }
+}
 
 struct TypeReader
 {
@@ -102,6 +147,36 @@ std::unique_ptr<TypeReader> create_reader(FileType file_type)
         return std::make_unique<AsciiTypeReader<T>>();
     }
     return std::make_unique<AsciiTypeReader<T>>();
+}
+
+std::unique_ptr<TypeReader> create_reader(FileType file_type, DataType data_type)
+{
+    switch (data_type) {
+    case DataType::NOT_SET:
+        assert(!"Should not get here");
+        return std::make_unique<AsciiTypeReader<nullptr_t>>();
+    case DataType::INT8:
+        return create_reader<std::int8_t>(file_type);
+    case DataType::UINT8:
+        return create_reader<std::uint8_t>(file_type);
+    case DataType::INT16:
+        return create_reader<std::int16_t>(file_type);
+    case DataType::UINT16:
+        return create_reader<std::uint16_t>(file_type);
+    case DataType::INT32:
+        return create_reader<std::int32_t>(file_type);
+    case DataType::UINT32:
+        return create_reader<std::uint32_t>(file_type);
+    case DataType::FLOAT:
+        return create_reader<float>(file_type);
+    case DataType::DOUBLE:
+        return create_reader<double>(file_type);
+    default:
+        assert(!"Should not get here");
+        return std::make_unique<AsciiTypeReader<nullptr_t>>();
+    }
+    assert(!"Should not get here");
+    return std::make_unique<AsciiTypeReader<nullptr_t>>();
 }
 
 Face read_face(std::istream& ins, const TypeReader& count_reader, const TypeReader& index_reader)
@@ -137,6 +212,8 @@ std::string read_next(std::istream& ins)
 
 Mesh read_ply(const std::filesystem::path& file_name)
 {
+    using namespace std::literals;
+
     std::ifstream ins(file_name);
     ins.exceptions(std::ios_base::badbit);
 
@@ -145,18 +222,6 @@ Mesh read_ply(const std::filesystem::path& file_name)
     if (header != "ply") {
         throw std::runtime_error("Invalid PLY header"); // TODO: PlyException
     }
-
-    enum class DataType
-    {
-        INT8,
-        UINT8,
-        INT16,
-        UINT16,
-        INT32,
-        UINT32,
-        FLOAT,
-        DOUBLE
-    };
 
     FileType file_type;
 
@@ -178,47 +243,62 @@ Mesh read_ply(const std::filesystem::path& file_name)
     std::uint32_t num_vertices{ 0 };
     std::uint32_t num_faces{ 0 };
 
-    std::unique_ptr<TypeReader> vertex_type_reader;
-    std::unique_ptr<TypeReader> face_count_type_reader;
-    std::unique_ptr<TypeReader> face_index_type_reader;
+    DataType vertex_data_type            = DataType::NOT_SET;
+    DataType vertex_list_count_data_type = DataType::NOT_SET;
+    DataType vertex_list_index_data_type = DataType::NOT_SET;
 
     std::string line = read_next(ins);
     while (!line.empty() && line != "end_header") {
         if (line.starts_with("element")) {
-            std::istringstream line_stream(line);
+            const auto element_text = split(line);
 
-            std::string element_identifier;
-            line_stream >> element_identifier;
-            assert(element_identifier == "element");
+            // We're assuming that we have "element" "type" and "number"
+            if (element_text.size() < 3) {
+                throw std::runtime_error("Unexpected argument count to 'element'"); // TODO: PlyException
+            }
 
-            std::string element_type;
-            line_stream >> element_type;
-            if (element_type == "vertex") {
-                line_stream >> num_vertices;
-                line = read_next(ins);
+            if (element_text[1] == "vertex"sv) {
+                num_vertices = std::strtol(element_text[2]);
+                line         = read_next(ins);
                 while (line.starts_with("property")) {
-                    if (line.ends_with(" x") || line.ends_with(" y") || line.ends_with(" z")) {
-                        if (line.contains(" float ")) {
-                            vertex_type_reader = create_reader<float>(file_type);
-                        } else if (line.contains(" double ")) {
-                            vertex_type_reader = create_reader<double>(file_type);
+                    const auto property_text = split(line);
+                    if (property_text.size() == 3) {
+                        if (property_text[2] == "x"sv || property_text[2] == "y"sv || property_text[2] == "z"sv) {
+                            const auto data_type = text_to_data_type(property_text[1]);
+                            check_data_consistency(data_type, vertex_data_type);
+                            vertex_data_type = data_type;
                         } else {
-                            throw std::runtime_error("Don't know how to handle vertex type"); // TODO: PlyException
+                            std::cerr << "Unknown property '" << line << "'. Skipping.\n";
                         }
+                    } else {
+                        std::cerr << "Unknown property '" << line << "'. Skipping.\n";
                     }
-                    line = read_next(ins);
                 }
-                // Need to read properties until they are no more...
-                // But we need to put back when not a propery.
-            } else if (element_type == "face") {
-                line_stream >> num_faces;
+            } else if (element_text[1] == "face"sv) {
+                num_vertices = std::strtol(element_text[2]);
+                line         = read_next(ins);
+                while (line.starts_with("property")) {
+                    const auto property_text = split(line);
+                    if (property_text.size() == 1) {
+                        throw std::runtime_error("Malformed face property"); // TODO: PlyException
+                    }
+                    if (property_text.size() == 5 && property_text[1] == "list"sv &&
+                        (property_text[4] == "vertex_indices"sv || property_text[4] == "vertex_index"sv)) {
+                        vertex_list_count_data_type = text_to_data_type(property_text[2]);
+                        vertex_list_index_data_type = text_to_data_type(property_text[3]);
+                    } else {
+                        std::cerr << "Unknown property '" << line << "'. Skipping.\n";
+                    }
+                }
             } else {
                 std::cerr << "Unknown element '" << element_type << "'. Skipping.\n";
             }
         }
-
         line = read_next(ins);
     }
+    std::unique_ptr<TypeReader> vertex_type_reader     = create_reader(file_type, vertex_data_type);
+    std::unique_ptr<TypeReader> face_count_type_reader = create_reader(file_type, vertex_list_count_data_type);
+    std::unique_ptr<TypeReader> face_index_type_reader = create_reader(file_type, vertex_list_index_data_type);
 
     // Look for "element face" and "element vertex" -- Warn on any other elements
     // Look for "vertex_index" or "vertex_indices"

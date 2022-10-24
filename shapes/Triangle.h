@@ -1,0 +1,120 @@
+#pragma once
+
+/// @author Keith Jeffery
+
+#include "Shape.h"
+
+#include "../math/Vector3.h"
+
+#include <array>
+#include <memory>
+#include <utility>
+#include <vector>
+
+namespace sp {
+
+class Mesh
+{
+public:
+    Mesh(std::vector<Point3> vertices, std::vector<Normal3> normals)
+    : m_vertices(std::move(vertices))
+    , m_normals(std::move(normals))
+    {
+    }
+
+    std::vector<Point3>  m_vertices;
+    std::vector<Normal3> m_normals;
+};
+
+class Triangle : public Shape
+{
+public:
+private:
+    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    {
+        return false;
+    }
+
+    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    {
+        const Point3& p0 = m_mesh->m_vertices[m_indices[0]];
+        const Point3& p1 = m_mesh->m_vertices[m_indices[1]];
+        const Point3& p2 = m_mesh->m_vertices[m_indices[2]];
+
+        const float A = p0.x - p1.x;
+        const float B = p0.y - p1.y;
+        const float C = p0.z - p1.z;
+
+        const float D = p0.x - p2.x;
+        const float E = p0.y - p2.y;
+        const float F = p0.z - p2.z;
+
+        const float G = ray.get_direction().x;
+        const float H = ray.get_direction().y;
+        const float I = ray.get_direction().z;
+
+        const float J = p0.x - ray.get_origin().x;
+        const float K = p0.y - ray.get_origin().y;
+        const float L = p0.z - ray.get_origin().z;
+
+        const float EIHF = msub(E, I, H * F); // E*I - H*F
+        const float GFDI = msub(G, F, D * I); // G*F - D*I
+        const float DHEG = msub(D, H, E * G); // D*H - E*G
+
+        const float denom = madd(A, EIHF, madd(B, GFDI, C * DHEG)); // A*EIHF + B*GFDI + C*DHEG
+        if (denom == 0) {
+            return false;
+        }
+
+        const float beta = madd(J, EIHF, madd(K, GFDI, L * DHEG)) / denom; // J*EIHF + K*GFDI + L*DHEG
+        if (beta <= 0.0f || beta >= 1.0f) {
+            return false;
+        }
+
+        const float AKJB = msub(A, K, J * B); // A*K - J*B
+        const float JCAL = msub(J, C, A * L); // J*C - A*L
+        const float BLKC = msub(B, L, K * C); // B*L - K*C
+
+        const float gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
+        if (gamma <= 0.0f || gamma >= 1.0f) {
+            return false;
+        }
+
+        const float t = -madd(F, AKJB, madd(E, JCAL, D * BLKC)) / denom; // F*AKJB + E*JCAL + D*BLKC
+        if (t < limits.m_t_min || t > limits.m_t_max) {
+            return false;
+        }
+
+        const Normal3& n0 = m_mesh->m_normals[m_indices[0]];
+        const Normal3& n1 = m_mesh->m_normals[m_indices[1]];
+        const Normal3& n2 = m_mesh->m_normals[m_indices[2]];
+
+        // Use the barycentric coordinates to interpolate our normal.
+        const float alpha = 1.0f - beta - gamma;
+        isect.m_point = ray(t);
+        //isect.m_normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
+        isect.m_normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
+
+        return true;
+    }
+
+    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    {
+        return false;
+    }
+
+    BBox3 get_world_bounds_impl() const noexcept override
+    {
+        return sp::BBox3();
+    }
+
+    bool is_bounded_impl() const noexcept override
+    {
+        return true;
+    }
+
+    std::shared_ptr<Mesh>      m_mesh;
+    std::array<std::size_t, 3> m_indices;
+};
+
+} // namespace sp

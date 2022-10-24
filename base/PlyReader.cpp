@@ -398,13 +398,15 @@ Mesh read_ply(const std::filesystem::path& file_name)
     faces.reserve(num_faces);
 
     for (std::uint32_t i = 0; i < num_faces; ++i) {
-        auto vertex_count_variant = vertex_count_type_reader->read(ins);
-        const auto vertex_count = std::visit([](auto arg) {
-            if (!std::is_integral_v<decltype(arg)>) {
-                throw std::runtime_error("Face vertex count should be integral."); // TODO: PlyException
-            }
-            return static_cast<std::uint64_t>(arg);
-        }, vertex_count_variant);
+        auto       vertex_count_variant = vertex_count_type_reader->read(ins);
+        const auto vertex_count         = std::visit(
+            [](auto arg) {
+                if (!std::is_integral_v<decltype(arg)>) {
+                    throw std::runtime_error("Face vertex count should be integral."); // TODO: PlyException
+                }
+                return static_cast<std::uint64_t>(arg);
+            },
+            vertex_count_variant);
 
         // TODO: it should be easy to support quads and split them here.
         if (vertex_count != 3) {
@@ -423,9 +425,10 @@ Mesh read_ply(const std::filesystem::path& file_name)
         }
 
         // Assumption: we've read the vertices
+        // Assumption: counter-clockwise vertices
         const Vector3 edge0 = vertices.at(f.vertex_indices[1]) - vertices.at(f.vertex_indices[0]);
         const Vector3 edge1 = vertices.at(f.vertex_indices[2]) - vertices.at(f.vertex_indices[0]);
-        f.face_normal = Normal3{cross(edge0, edge1)};
+        f.face_normal       = Normal3{ cross(edge0, edge1) };
         if (sqr_length(f.face_normal) < 0.00001f) {
             std::cerr << "Encountered zero-area face. Skipping\n";
             continue;
@@ -434,7 +437,21 @@ Mesh read_ply(const std::filesystem::path& file_name)
         faces.push_back(f);
     }
 
-    return Mesh{};
+    // Calculate vertex normals from the face normals.
+    std::vector<Normal3> vertex_normals(num_vertices, Normal3{ 0.0f, 0.0f, 0.0f });
+    for (const auto& f : faces) {
+        for (std::size_t i = 0; i < 3; ++i) {
+            vertex_normals.at(f.vertex_indices[i]) += f.face_normal;
+        }
+    }
+
+    for (auto& n : vertex_normals) {
+        if (n != Normal3{ 0.0f, 0.0f, 0.0f }) {
+            n = normalize(n);
+        }
+    }
+
+    return Mesh{ std::move(vertices), std::move(vertex_normals) };
 }
 
 } // namespace sp

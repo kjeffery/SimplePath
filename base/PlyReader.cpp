@@ -1,6 +1,8 @@
 
 /// @author Keith Jeffery
 
+#include "Endian.h"
+
 #include "../shapes/Triangle.h"
 
 #include <filesystem>
@@ -150,11 +152,55 @@ struct AsciiTypeReader<std::nullptr_t> : public TypeReader
 };
 
 template <typename T>
+struct LittleEndianTypeReader : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        T val;
+        ins.read(reinterpret_cast<char*>(std::addressof(val)), sizeof(val));
+        return little_endian(val);
+    }
+};
+
+template <>
+struct LittleEndianTypeReader<std::nullptr_t> : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        return sp::ReadType();
+    }
+};
+
+template <typename T>
+struct BigEndianTypeReader : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        T val;
+        ins.read(reinterpret_cast<char*>(std::addressof(val)), sizeof(val));
+        return big_endian(val);
+    }
+};
+
+template <>
+struct BigEndianTypeReader<std::nullptr_t> : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        return sp::ReadType();
+    }
+};
+
+template <typename T>
 std::unique_ptr<TypeReader> create_reader(FileType file_type)
 {
     switch (file_type) {
     case FileType::ascii:
         return std::make_unique<AsciiTypeReader<T>>();
+    case FileType::binary_big_endian:
+        return std::make_unique<BigEndianTypeReader<T>>();
+    case FileType::binary_little_endian:
+        return std::make_unique<LittleEndianTypeReader<T>>();
     }
     return std::make_unique<AsciiTypeReader<T>>();
 }
@@ -224,7 +270,10 @@ Mesh read_ply(const std::filesystem::path& file_name)
 {
     using namespace std::literals;
 
-    std::ifstream ins(file_name);
+    using ReaderPointer   = std::unique_ptr<TypeReader>;
+    using AnnotatedReader = std::pair<ReaderPointer, std::string>;
+
+    std::ifstream ins(file_name, std::ios::binary);
     ins.exceptions(std::ios_base::badbit);
 
     // Read magic "ply"
@@ -253,9 +302,10 @@ Mesh read_ply(const std::filesystem::path& file_name)
     std::uint32_t num_vertices{ 0 };
     std::uint32_t num_faces{ 0 };
 
-    DataType vertex_data_type            = DataType::NOT_SET;
     DataType vertex_list_count_data_type = DataType::NOT_SET;
     DataType vertex_list_index_data_type = DataType::NOT_SET;
+
+    std::vector<AnnotatedReader> readers;
 
     std::string line = read_next(ins);
     while (!line.empty() && line != "end_header") {
@@ -273,18 +323,20 @@ Mesh read_ply(const std::filesystem::path& file_name)
                 while (line.starts_with("property")) {
                     const auto property_text = split(line);
                     if (property_text.size() == 3) {
-                        if (property_text[2] == "x"sv || property_text[2] == "y"sv || property_text[2] == "z"sv) {
-                            const auto data_type = text_to_data_type(property_text[1]);
-                            check_data_consistency(data_type, vertex_data_type);
-                            vertex_data_type = data_type;
-                        } else {
-                            std::cerr << "Unknown property '" << line << "'. Skipping.\n";
+                        const auto data_type = text_to_data_type(property_text[1]);
+                        readers.emplace_back(create_reader(file_type, data_type), property_text[2]);
+
+                        if (property_text[2] != "x"sv && property_text[2] != "y"sv && property_text[2] != "z"sv) {
+                            std::cerr << "Unknown property '" << property_text[2] << "'. Skipping.\n";
                         }
                     } else {
-                        std::cerr << "Unknown property '" << line << "'. Skipping.\n";
+                        std::cerr << "Unknown property format '" << line << "'. Skipping.\n";
                     }
                     line = read_next(ins);
                 }
+
+                // No more properties to read
+                continue;
             } else if (element_text[1] == "face"sv) {
                 num_vertices = std::stoul(std::string(element_text[2]));
                 line         = read_next(ins);
@@ -302,18 +354,39 @@ Mesh read_ply(const std::filesystem::path& file_name)
                     }
                     line = read_next(ins);
                 }
+
+                // No more properties to read.
+                continue;
             } else {
                 std::cerr << "Unknown element '" << element_text[1] << "'. Skipping.\n";
             }
         }
         line = read_next(ins);
     }
-    std::unique_ptr<TypeReader> vertex_type_reader     = create_reader(file_type, vertex_data_type);
+
     std::unique_ptr<TypeReader> face_count_type_reader = create_reader(file_type, vertex_list_count_data_type);
     std::unique_ptr<TypeReader> face_index_type_reader = create_reader(file_type, vertex_list_index_data_type);
 
-    // Look for "element face" and "element vertex" -- Warn on any other elements
-    // Look for "vertex_index" or "vertex_indices"
+    std::vector<Point3> vertices;
+    vertices.reserve(num_vertices);
+
+    for (std::uint32_t i = 0; i < num_vertices; ++i) {
+        float      x;
+        float      y;
+        float      z;
+        const auto converter = [](auto arg) { return static_cast<float>(arg); };
+        for (auto& reader : readers) {
+            const std::string_view name(reader.second);
+            const auto             read_value = reader.first->read(ins);
+            if (name == "x"sv) {
+                x = std::visit(converter, read_value);
+            } else if (name == "y"sv) {
+                y = std::visit(converter, read_value);
+            } else if (name == "z"sv) {
+                z = std::visit(converter, read_value);
+            }
+        }
+    }
 
     return Mesh{};
 }

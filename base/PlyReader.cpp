@@ -15,7 +15,8 @@ namespace sp {
 
 struct Face
 {
-    std::array<unsigned, 3> v;
+    std::array<unsigned, 3> vertex_indices;
+    Normal3                 face_normal;
 };
 
 // Ply types:
@@ -249,7 +250,7 @@ Face read_face(std::istream& ins, const TypeReader& count_reader, const TypeRead
     for (count_type i = 0; i < vertex_count; ++i) {
         auto       vertex_index_variant = index_reader.read(ins);
         const auto vertex_index = std::visit([](auto arg) { return static_cast<unsigned>(arg); }, vertex_index_variant);
-        f.v[i]                  = vertex_index;
+        f.vertex_indices[i]     = vertex_index;
     }
     return f;
 }
@@ -290,11 +291,11 @@ Mesh read_ply(const std::filesystem::path& file_name)
     //     format binary_big_endian 1.0
     const std::string format = read_next(ins);
     if (format == "format ascii 1.0") {
-        file_type = FileType ::ascii;
+        file_type = FileType::ascii;
     } else if (format == "format binary_little_endian 1.0") {
-        file_type = FileType ::binary_little_endian;
+        file_type = FileType::binary_little_endian;
     } else if (format == "format binary_big_endian 1.0") {
-        file_type = FileType ::binary_big_endian;
+        file_type = FileType::binary_big_endian;
     } else {
         throw std::runtime_error("Invalid PLY format"); // TODO: PlyException
     }
@@ -364,12 +365,15 @@ Mesh read_ply(const std::filesystem::path& file_name)
         line = read_next(ins);
     }
 
-    std::unique_ptr<TypeReader> face_count_type_reader = create_reader(file_type, vertex_list_count_data_type);
-    std::unique_ptr<TypeReader> face_index_type_reader = create_reader(file_type, vertex_list_index_data_type);
+    std::unique_ptr<TypeReader> vertex_count_type_reader = create_reader(file_type, vertex_list_count_data_type);
+    std::unique_ptr<TypeReader> vertex_index_type_reader = create_reader(file_type, vertex_list_index_data_type);
 
     std::vector<Point3> vertices;
     vertices.reserve(num_vertices);
 
+    // We're making an assumption that the vertices are listed first. I'm not sure that PLY requires this.
+    // But then again, PLY is an incredibly dumb file format. It's far too flexible and could be much more constrained,
+    // making it easier to read.
     for (std::uint32_t i = 0; i < num_vertices; ++i) {
         float      x;
         float      y;
@@ -386,6 +390,48 @@ Mesh read_ply(const std::filesystem::path& file_name)
                 z = std::visit(converter, read_value);
             }
         }
+        vertices.emplace_back(x, y, z);
+    }
+
+    std::vector<Face> faces;
+    // TODO: If we end up splitting quads in the future, we may want to make this reserve twice as big.
+    faces.reserve(num_faces);
+
+    for (std::uint32_t i = 0; i < num_faces; ++i) {
+        auto vertex_count_variant = vertex_count_type_reader->read(ins);
+        const auto vertex_count = std::visit([](auto arg) {
+            if (!std::is_integral_v<decltype(arg)>) {
+                throw std::runtime_error("Face vertex count should be integral."); // TODO: PlyException
+            }
+            return static_cast<std::uint64_t>(arg);
+        }, vertex_count_variant);
+
+        // TODO: it should be easy to support quads and split them here.
+        if (vertex_count != 3) {
+            std::cerr << "Encountered a non-triangular face. Skipping\n";
+            for (std::uint64_t i = 0; i < vertex_count; ++i) {
+                vertex_index_type_reader->read(ins);
+            }
+            continue;
+        }
+        Face f;
+        for (std::uint64_t v = 0; v < vertex_count; ++v) {
+            auto       vertex_index_variant = vertex_index_type_reader->read(ins);
+            const auto vertex_index =
+                std::visit([](auto arg) { return static_cast<unsigned>(arg); }, vertex_index_variant);
+            f.vertex_indices[v] = vertex_index;
+        }
+
+        // Assumption: we've read the vertices
+        const Vector3 edge0 = vertices.at(f.vertex_indices[1]) - vertices.at(f.vertex_indices[0]);
+        const Vector3 edge1 = vertices.at(f.vertex_indices[2]) - vertices.at(f.vertex_indices[0]);
+        f.face_normal = Normal3{cross(edge0, edge1)};
+        if (sqr_length(f.face_normal) < 0.00001f) {
+            std::cerr << "Encountered zero-area face. Skipping\n";
+            continue;
+        }
+        f.face_normal = normalize(f.face_normal);
+        faces.push_back(f);
     }
 
     return Mesh{};

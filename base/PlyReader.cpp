@@ -101,17 +101,31 @@ DataType text_to_data_type(std::string_view s)
 
     if (s == "char"sv) {
         return DataType::INT8;
+    } else if (s == "int8"sv) {
+        return DataType::INT8;
     } else if (s == "uchar"sv) {
+        return DataType::UINT8;
+    } else if (s == "uint8"sv) {
         return DataType::UINT8;
     } else if (s == "short"sv) {
         return DataType::INT16;
+    } else if (s == "int16"sv) {
+        return DataType::INT16;
     } else if (s == "ushort"sv) {
         return DataType::UINT16;
-    } else if (s == "int"sv) {
-        return DataType::INT16;
-    } else if (s == "uint"sv) {
+    } else if (s == "uint16"sv) {
         return DataType::UINT16;
+    } else if (s == "int"sv) {
+        return DataType::INT32;
+    } else if (s == "int32"sv) {
+        return DataType::INT32;
+    } else if (s == "uint"sv) {
+        return DataType::UINT32;
+    } else if (s == "uint32"sv) {
+        return DataType::UINT32;
     } else if (s == "float"sv) {
+        return DataType::FLOAT;
+    } else if (s == "float32"sv) {
         return DataType::FLOAT;
     } else if (s == "double"sv) {
         return DataType::DOUBLE;
@@ -339,8 +353,8 @@ Mesh read_ply(const std::filesystem::path& file_name)
                 // No more properties to read
                 continue;
             } else if (element_text[1] == "face"sv) {
-                num_vertices = std::stoul(std::string(element_text[2]));
-                line         = read_next(ins);
+                num_faces = std::stoul(std::string(element_text[2]));
+                line      = read_next(ins);
                 while (line.starts_with("property")) {
                     const auto property_text = split(line);
                     if (property_text.size() == 1) {
@@ -393,7 +407,8 @@ Mesh read_ply(const std::filesystem::path& file_name)
         vertices.emplace_back(x, y, z);
     }
 
-    std::vector<Face> faces;
+    std::vector<std::size_t> vertex_indices;
+    std::vector<Face>        faces;
     // TODO: If we end up splitting quads in the future, we may want to make this reserve twice as big.
     faces.reserve(num_faces);
 
@@ -434,6 +449,9 @@ Mesh read_ply(const std::filesystem::path& file_name)
             continue;
         }
         f.face_normal = normalize(f.face_normal);
+        for (std::size_t v = 0; v < 3; ++v) {
+            vertex_indices.push_back(f.vertex_indices[v]);
+        }
         faces.push_back(f);
     }
 
@@ -451,7 +469,7 @@ Mesh read_ply(const std::filesystem::path& file_name)
         }
     }
 
-    return Mesh{ std::move(vertices), std::move(vertex_normals) };
+    return Mesh{ std::move(vertex_indices), std::move(vertices), std::move(vertex_normals) };
 }
 
 } // namespace sp

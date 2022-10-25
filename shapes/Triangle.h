@@ -16,19 +16,52 @@ namespace sp {
 class Mesh
 {
 public:
-    Mesh(std::vector<Point3> vertices, std::vector<Normal3> normals)
-    : m_vertices(std::move(vertices))
+    Mesh(std::vector<std::size_t> indices, std::vector<Point3> vertices, std::vector<Normal3> normals)
+    : m_indices(std::move(indices))
+    , m_vertices(std::move(vertices))
     , m_normals(std::move(normals))
     {
     }
 
-    std::vector<Point3>  m_vertices;
-    std::vector<Normal3> m_normals;
+    Mesh(Mesh&&)                 = default;
+    Mesh(const Mesh&)            = default;
+    Mesh& operator=(Mesh&&)      = default;
+    Mesh& operator=(const Mesh&) = default;
+
+    std::size_t get_num_triangles() const noexcept
+    {
+        const std::size_t s = m_indices.size();
+        assert(s % 3u == 0u);
+        return s / 3u;
+    }
+
+    std::vector<std::size_t> m_indices;
+    std::vector<Point3>      m_vertices;
+    std::vector<Normal3>     m_normals;
 };
 
 class Triangle : public Shape
 {
 public:
+#if 0
+    Triangle(AffineSpace           object_to_world,
+             AffineSpace           world_to_object,
+             std::shared_ptr<Mesh> mesh,
+             std::size_t           triangle_number)
+    : Shape(object_to_world, world_to_object)
+    , m_mesh{ mesh }
+    , m_indices{ mesh->m_indices.data() + triangle_number * 3 }
+    {
+    }
+#else
+    Triangle(std::shared_ptr<Mesh> mesh, std::size_t triangle_number)
+    : Shape(AffineSpace::identity(), AffineSpace::identity())
+    , m_mesh{ mesh }
+    , m_indices{ mesh->m_indices.data() + triangle_number * 3 }
+    {
+    }
+#endif
+
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
     {
@@ -91,8 +124,8 @@ private:
 
         // Use the barycentric coordinates to interpolate our normal.
         const float alpha = 1.0f - beta - gamma;
-        isect.m_point = ray(t);
-        //isect.m_normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
+        isect.m_point     = ray(t);
+        // isect.m_normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
         isect.m_normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
 
         return true;
@@ -103,9 +136,14 @@ private:
         return false;
     }
 
-    BBox3 get_world_bounds_impl() const noexcept override
+    BBox3 get_object_bounds() const noexcept override
     {
-        return sp::BBox3();
+        BBox3 bounds;
+        for (std::size_t i = 0; i < 3; ++i) {
+            const Point3& p = m_mesh->m_vertices[m_indices[i]];
+            bounds.extend(p);
+        }
+        return bounds;
     }
 
     bool is_bounded_impl() const noexcept override
@@ -113,8 +151,8 @@ private:
         return true;
     }
 
-    std::shared_ptr<Mesh>      m_mesh;
-    std::array<std::size_t, 3> m_indices;
+    std::shared_ptr<Mesh> m_mesh;
+    std::size_t*          m_indices;
 };
 
 } // namespace sp

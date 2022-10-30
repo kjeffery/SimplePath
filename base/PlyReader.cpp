@@ -92,8 +92,8 @@ enum class DataType
     DOUBLE
 };
 
-using ReadType =
-    std::variant<std::int8_t, std::uint8_t, std::int16_t, std::uint16_t, std::int32_t, std::uint32_t, float, double>;
+// We don't store the uint8/int8 types because C++ likes to confuse how they're handled as ASCII vs numbers.
+using ReadType = std::variant<std::int16_t, std::uint16_t, std::int32_t, std::uint32_t, float, double>;
 
 DataType text_to_data_type(std::string_view s)
 {
@@ -152,6 +152,28 @@ struct AsciiTypeReader : public TypeReader
     ReadType read(std::istream& ins) const override
     {
         T val;
+        ins >> val;
+        return sp::ReadType(val);
+    }
+};
+
+template <>
+struct AsciiTypeReader<std::uint8_t> : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        std::uint16_t val;
+        ins >> val;
+        return sp::ReadType(val);
+    }
+};
+
+template <>
+struct AsciiTypeReader<std::int8_t> : public TypeReader
+{
+    ReadType read(std::istream& ins) const override
+    {
+        std::int16_t val;
         ins >> val;
         return sp::ReadType(val);
     }
@@ -444,7 +466,7 @@ Mesh read_ply(const std::filesystem::path& file_name)
         const Vector3 edge0 = vertices.at(f.vertex_indices[1]) - vertices.at(f.vertex_indices[0]);
         const Vector3 edge1 = vertices.at(f.vertex_indices[2]) - vertices.at(f.vertex_indices[0]);
         f.face_normal       = Normal3{ cross(edge0, edge1) };
-        if (sqr_length(f.face_normal) < 0.00001f) {
+        if (sqr_length(f.face_normal) < std::numeric_limits<float>::epsilon()) {
             std::cerr << "Encountered zero-area face. Skipping\n";
             continue;
         }

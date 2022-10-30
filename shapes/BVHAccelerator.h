@@ -167,24 +167,37 @@ private:
         return true;
     }
 
+    template <typename Iterator>
+    requires std::random_access_iterator<Iterator>
+    static auto partition(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
+    {
+        // Put all of the elements that are totally to the left in place
+        const auto left = std::partition(first, last, [absolute_split_location, dimension](const auto& a) {
+          return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
+        });
+
+        // Put all of the elements that are totally to the left in place
+        const auto right = std::partition(left, last, [absolute_split_location, dimension](const auto& a) {
+          return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
+        });
+        return std::make_pair(left, right);
+    }
+
     // Reorders elements and returns two additional iterators (called left and right) such that:b
     // Elements in [first, left) are completely to the left of the split location
     // Elements in [right, last) are completely to the right of the split location
     // Elements in [left, right) straddle the split location
     template <typename Iterator>
     requires std::random_access_iterator<Iterator>
-    auto split(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
+    static auto split(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
     {
-        // Put all of the elements that are totally to the left in place
-        const auto left = std::partition(first, last, [absolute_split_location, dimension](const auto& a) {
-            return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
-        });
-
-        // Put all of the elements that are totally to the left in place
-        const auto right = std::partition(left, last, [absolute_split_location, dimension](const auto& a) {
-            return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
-        });
-        return std::make_pair(left, right);
+        for (std::size_t i = 0; i < 3; ++i) {
+            const auto [left, right] = partition((dimension + i) % 3, absolute_split_location, first, last);
+            if (i == 2 || left != first || right != last) {
+                return std::make_pair(left, right);
+            }
+        }
+        return std::make_pair(first, last);
     }
 
     template <typename Iterator>
@@ -206,9 +219,14 @@ private:
             // TODO: Add surface-area heuristic.
             // Create n (e.g., 16) buckets that span the bounding box in our dimension.
             // For each object, classify which buckets it spans.
-            // Caculate SAH for each bucket, and split at the best.
+            // Calculate SAH for each bucket, and split at the best.
             const auto dimension     = max_dim(bounds.size());
             const auto [left, right] = split(dimension, center(bounds), first, last);
+
+            if (left == first || right == last) {
+                result.reset(new NodeLeaf{ bounds, first, last });
+                return result;
+            }
 
             // Elements in [left, right) are in both sub-trees, so we do an overlapping construction here.
             auto left_child{ construct(first, right) };

@@ -47,7 +47,7 @@ private:
         return result;
     }
 
-    std::mt19937                          m_rng;
+    std::mt19937_64                       m_rng;
     std::uniform_real_distribution<float> m_dist;
 };
 

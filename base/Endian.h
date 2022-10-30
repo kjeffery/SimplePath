@@ -192,6 +192,31 @@ inline std::int64_t big_endian(std::int64_t v) noexcept
     return static_cast<const std::int64_t>(bv);
 }
 
+#if defined(__cpp_lib_bit_cast)
+inline float little_endian(float v) noexcept
+{
+    const auto bv = little_endian(std::bit_cast<std::uint32_t>(v));
+    return std::bit_cast<float>(bv);
+}
+
+inline float big_endian(float v) noexcept
+{
+    const auto bv = big_endian(std::bit_cast<std::uint32_t>(v));
+    return std::bit_cast<float>(bv);
+}
+
+inline double little_endian(double v) noexcept
+{
+    const auto bv = little_endian(std::bit_cast<std::uint64_t>(v));
+    return std::bit_cast<double>(bv);
+}
+
+inline double big_endian(double v) noexcept
+{
+    const auto bv = big_endian(std::bit_cast<std::uint64_t>(v));
+    return std::bit_cast<double>(bv);
+}
+#else
 inline float little_endian(float v) noexcept
 {
     const auto bv = little_endian(*reinterpret_cast<std::uint32_t*>(&v));
@@ -215,3 +240,4 @@ inline double big_endian(double v) noexcept
     const auto bv = big_endian(*reinterpret_cast<std::uint64_t*>(&v));
     return *reinterpret_cast<const double*>(&bv);
 }
+#endif

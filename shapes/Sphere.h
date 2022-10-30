@@ -5,6 +5,7 @@
 #include "Shape.h"
 
 #include "../math/AffineSpace.h"
+#include "../math/Vector3.h"
 
 namespace sp {
 class Sphere : public Shape
@@ -39,7 +40,7 @@ private:
                 return false;
             }
 
-            const Normal3 n{ (o + t * d) / k_radius };
+            const Normal3 n{ madd(t, d, Vector3{o}) / k_radius }; // (o + t * d) / k_radius };
             isect.m_normal = get_object_to_world()(n);
             isect.m_point  = ray(t);
             limits.m_t_max = t;

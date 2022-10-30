@@ -109,7 +109,7 @@ private:
         const float BLKC = msub(B, L, K * C); // B*L - K*C
 
         const float gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
-        if (gamma <= 0.0f || gamma >= 1.0f) {
+        if (gamma <= 0.0f || beta + gamma >= 1.0f) {
             return false;
         }
 
@@ -124,9 +124,12 @@ private:
 
         // Use the barycentric coordinates to interpolate our normal.
         const float alpha = 1.0f - beta - gamma;
-        isect.m_point     = ray(t);
-        // isect.m_normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
-        isect.m_normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
+        //const Normal3 normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
+        const Normal3 normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
+
+        isect.m_point  = ray(t);
+        isect.m_normal = normal;
+        limits.m_t_max = t;
 
         return true;
     }

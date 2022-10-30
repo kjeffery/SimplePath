@@ -130,9 +130,9 @@ private:
         , m_height(height)
         , m_data(allocator_traits::allocate(m_impl.get_allocator(), memory_size(width, height)))
         {
-            std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
-            std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
-            std::cerr << "Tiles height: " << num_tiles_height(height) << '\n';
+            //std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
+            //std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
+            //std::cerr << "Tiles height: " << num_tiles_height(height) << '\n';
             construct();
         }
 
@@ -142,9 +142,9 @@ private:
         , m_height(height)
         , m_data(allocator_traits::allocate(this->get_allocator(), memory_size(width, height)))
         {
-            std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
-            std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
-            std::cerr << "Tiles height: " << num_tiles_height(height) << '\n';
+            //std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
+            //std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
+            //std::cerr << "Tiles height: " << num_tiles_height(height) << '\n';
             construct();
         }
 
@@ -154,9 +154,9 @@ private:
         , m_height(height)
         , m_data(allocator_traits::allocate(this->get_allocator(), memory_size(width, height)))
         {
-            std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
-            std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
-            std::cerr << "Tiles height: " << num_tiles_height(height) << '\n';
+            //std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
+            //std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
+            //std::cerr << "Tiles height: " << num_tiles_height(height) << '\n';
             construct(val);
         }
 

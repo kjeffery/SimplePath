@@ -446,6 +446,12 @@ inline BaseVector3<type> madd(const float a, const BaseVector3<type>& b, const B
 }
 
 template <VectorType type>
+inline BaseVector3<type> madd(const BaseVector3<type>& a, const float b, const BaseVector3<type>& c) noexcept
+{
+    return madd(a, BaseVector3<type>(b), c);
+}
+
+template <VectorType type>
 inline BaseVector3<type> msub(const float a, const BaseVector3<type>& b, const BaseVector3<type>& c) noexcept
 {
     return msub(BaseVector3<type>(a), b, c);

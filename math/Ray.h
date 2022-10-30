@@ -48,17 +48,14 @@ private:
     Vector3 m_direction;
 };
 
-Point3 get_ray_offset(const Normal3& n, const float cos_d, const Point3& p) noexcept
+inline float get_ray_offset(const Normal3& n, const float cos_d) noexcept
 {
     assert(cos_d != 0.0f);
-
     const float h = k_ray_epsilon / cos_d;
-    const Vector3 offset = h * Vector3{n};
-    const Point3 po = p + offset;
-    return po;
+    return h;
 }
 
-Point3 get_ray_offset(const Normal3& n, const Vector3& d, const Point3& p) noexcept
+inline float get_ray_offset(const Normal3& n, const Vector3& d) noexcept
 {
     // To avoid self intersections (due to numeric precision issues), we offset our ray origins by a small amount.
     // However, when the ray direction is shallow (compared to the surface), this offset has to be larger.
@@ -82,12 +79,7 @@ Point3 get_ray_offset(const Normal3& n, const Vector3& d, const Point3& p) noexc
     // There are certainly more advanced ways to handle this offsetting business (e.g., see PBRT v3+, where they track
     // accumulated floating-point error). That's Pharr from what we're doing here.
 
-    return get_ray_offset(n, dot(n, d), p);
-
-    //const float h = k_ray_epsilon / dot(n, d);
-    //const Vector3 offset = h * Vector3{n};
-    //const Point3 po = p + offset;
-    //return po;
+    return get_ray_offset(n, dot(n, d));
 }
 
 inline std::ostream& operator<<(std::ostream& outs, const Ray& ray)

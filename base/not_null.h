@@ -90,6 +90,12 @@ public:
         return *get();
     }
 
+    friend void swap(not_null& a, not_null& b) noexcept
+    {
+        using std::swap; // Allow ADL
+        swap(a.m_ptr, b.m_ptr);
+    }
+
     not_null(std::nullptr_t)            = delete;
     not_null& operator=(std::nullptr_t) = delete;
 
@@ -105,5 +111,14 @@ public:
 private:
     T m_ptr;
 };
+
+//template <typename T>
+//void swap(not_null<T>& a, not_null<T>& b) noexcept(noexcept(swap(std::declval<T>(), std::declval<T>())))
+//void swap(not_null<T>& a, not_null<T>& b)
+//{
+    //using std::swap; // Allow ADL
+    //swap(a.m_ptr, b.m_ptr);
+    //a.swap(b);
+//}
 
 } // namespace sp

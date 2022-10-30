@@ -326,8 +326,6 @@ private:
     {
         const auto wi    = specular_reflection_local(wo_local);
         const RGB  color = fresnel_dielectric(cos_theta(wi), 1.0f, 1.5f) * m_r / abs_cos_theta(wi);
-        // std::cout << "Local: " << onb_local.to_world(wi) << '\n';
-        // const RGB  color = m_r;
         return { color, wi, 1.0f };
     }
 
@@ -592,6 +590,8 @@ private:
         constexpr float ior_air = 1.0f;
 
         const float f = fresnel_dielectric(cos_theta(wo_local), ior_air, m_ior);
+        assert(f >= 0.0f);
+        assert(f <= 1.0f);
 
         const auto specular_wi{ specular_reflection_local(wo_local) };
         const RGB  specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
@@ -610,6 +610,9 @@ private:
 
         const float result_pdf = (1.0f - f) * base_result.pdf;
         const RGB   color      = (RGB::white() - f * m_specular_color) * base_result.color;
+        assert(color.r >= 0.0f);
+        assert(color.g >= 0.0f);
+        assert(color.b >= 0.0f);
         return MaterialSampleResult{ color, base_result.direction, result_pdf };
     };
 

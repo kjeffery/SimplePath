@@ -2,6 +2,7 @@
 
 #include "FileParser.h"
 
+#include "PlyReader.h"
 #include "Scene.h"
 #include "Util.h"
 
@@ -9,6 +10,7 @@
 #include "../shapes/Plane.h"
 #include "../shapes/Primitive.h"
 #include "../shapes/Sphere.h"
+#include "../shapes/Triangle.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -19,6 +21,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -213,6 +216,9 @@ private:
     int                     m_image_height = 256;
     std::filesystem::path   m_output_file_name;
     std::unique_ptr<Camera> m_camera;
+
+private:
+    std::unordered_map<std::string, std::unique_ptr<Material>> m_materials;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -231,7 +237,7 @@ Scene FileParser::parse(std::istream& ins)
     }
 
     // TODO: temp
-#if 1
+#if 0
     auto sphere_shape0     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 1.0f, 0.0f }),
                                                   AffineSpace::translate(Vector3{ 0.0f, -1.0f, 0.0f }));
     auto sphere_shape1     = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 2.0f, 1.0f, 0.0f }),
@@ -256,7 +262,93 @@ Scene FileParser::parse(std::istream& ins)
     geometry.push_back(plane_primitive0);
     Scene::LightContainer lights;
     lights.push_back(env_light);
-    Scene scene{ geometry.cbegin(), geometry.cend(), lights.cbegin(), lights.cend() };
+    Scene scene{ geometry.begin(), geometry.end(), lights.begin(), lights.end() };
+
+    if (!m_camera) {
+        throw ParsingException("No camera specified");
+    }
+    scene.m_camera         = std::move(m_camera);
+    scene.output_file_name = std::move(m_output_file_name);
+    scene.image_width      = m_image_width;
+    scene.image_height     = m_image_height;
+    return scene;
+#elif 0
+    Scene::PrimitiveContainer geometry;
+
+    auto plane_shape0 = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
+                                                AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
+
+    // auto sphere_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.8f, 0.2f, 0.0f }));
+    // auto sphere_material1 = std::make_shared<ClearcoatMaterial>(create_clearcoat_material(RGB{ 0.1f, 0.2f, 1.0f }));
+    // std::shared_ptr<Material> sphere_material0{ new OneSampleMaterial{
+    // create_lambertian_material(RGB{ 0.8f, 0.2f, 0.0f }) } };
+    std::shared_ptr<Material> sphere_material0{ new OneSampleMaterial{
+        create_beckmann_glossy_material(RGB{ 0.8f, 0.2f, 0.0f }, 0.05f, 1.5f) } };
+    std::unique_ptr<Material> base{ new LambertianMaterial{ RGB{ 0.1f, 0.2f, 1.0f } } };
+    std::shared_ptr<Material> sphere_material1{ new ClearcoatMaterial{ std::move(base), 1.5f } };
+    // std::shared_ptr<Material> sphere_material1{ new OneSampleMaterial{
+    // create_lambertian_material(RGB{ 0.1f, 0.2f, 1.0f }) } };
+    // auto sphere_material1 = std::make_shared<ClearcoatMaterial>(create_clearcoat_material(RGB{ 0.1f,
+    // 0.2f, 1.0f }));
+    auto plane_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
+
+    auto plane_primitive0 = std::make_shared<GeometricPrimitive>(plane_shape0, plane_material0);
+    geometry.push_back(plane_primitive0);
+
+    constexpr int start = -5;
+    constexpr int end   = +5;
+    for (int z = start; z <= end; ++z) {
+        for (int x = start; x <= end; ++x) {
+            const float pos_x        = x * 2;
+            const float pos_z        = z * 2;
+            auto        sphere_shape = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ pos_x, 1.0f, pos_z }),
+                                                         AffineSpace::translate(Vector3{ -pos_x, -1.0f, -pos_z }));
+
+            const bool alt = (x & 1) ^ (z & 1);
+
+            auto sphere_primitive =
+                std::make_shared<GeometricPrimitive>(sphere_shape, alt ? sphere_material0 : sphere_material1);
+            geometry.push_back(sphere_primitive);
+        }
+    }
+
+    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
+
+    Scene::LightContainer lights;
+    lights.push_back(env_light);
+
+    Scene scene{ geometry.begin(), geometry.end(), lights.begin(), lights.end() };
+
+    if (!m_camera) {
+        throw ParsingException("No camera specified");
+    }
+    scene.m_camera         = std::move(m_camera);
+    scene.output_file_name = std::move(m_output_file_name);
+    scene.image_width      = m_image_width;
+    scene.image_height     = m_image_height;
+    return scene;
+
+#elif 0
+    Scene::PrimitiveContainer geometry;
+
+    // std::shared_ptr<Material> sphere_material0{ new OneSampleMaterial{
+    // create_lambertian_material(RGB{ 1.0f, 1.0f, 1.0f }) } };
+    std::unique_ptr<Material> base{ new LambertianMaterial{ RGB{ 1.0f, 1.0f, 1.0f } } };
+    std::shared_ptr<Material> sphere_material0{ new ClearcoatMaterial{ std::move(base), 1.5f } };
+    //auto sphere_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
+
+    auto sphere_shape = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
+                                                 AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
+
+    auto sphere_primitive = std::make_shared<GeometricPrimitive>(sphere_shape, sphere_material0);
+    geometry.push_back(sphere_primitive);
+
+    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
+
+    Scene::LightContainer lights;
+    lights.push_back(env_light);
+
+    Scene scene{ geometry.begin(), geometry.end(), lights.begin(), lights.end() };
 
     if (!m_camera) {
         throw ParsingException("No camera specified");
@@ -267,7 +359,42 @@ Scene FileParser::parse(std::istream& ins)
     scene.image_height     = m_image_height;
     return scene;
 #else
-    return Scene{};
+    Scene::PrimitiveContainer geometry;
+
+    auto plane_shape0 = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
+                                                AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
+    auto plane_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
+    auto plane_primitive0 = std::make_shared<GeometricPrimitive>(plane_shape0, plane_material0);
+
+    geometry.push_back(plane_primitive0);
+
+    std::unique_ptr<Material> base{ new LambertianMaterial{ RGB{ 0.1f, 0.2f, 1.0f } } };
+    std::shared_ptr<Material> mesh_material0{ new ClearcoatMaterial{ std::move(base), 1.5f } };
+    //std::shared_ptr<Material> mesh_material0{ new OneSampleMaterial{
+        //create_beckmann_glossy_material(RGB{ 0.8f, 0.2f, 0.0f }, 0.05f, 1.5f) } };
+
+    //auto mesh0 = std::make_shared<Mesh>(read_ply("lucy.ply"));
+    auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/cow.ply"));
+    //auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/octahedron.ply"));
+    const auto num_tris0 = mesh0->get_num_triangles();
+    for (std::size_t i = 0; i < num_tris0; ++i) {
+        auto tri = std::make_shared<Triangle>(mesh0, i);
+        auto tri_primitive = std::make_shared<GeometricPrimitive>(tri, mesh_material0);
+        geometry.push_back(tri_primitive);
+    }
+
+    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
+
+    Scene::LightContainer lights;
+    lights.push_back(env_light);
+
+    Scene scene{ geometry.begin(), geometry.end(), lights.begin(), lights.end() };
+
+    scene.m_camera         = std::move(m_camera);
+    scene.output_file_name = std::move(m_output_file_name);
+    scene.image_width      = m_image_width;
+    scene.image_height     = m_image_height;
+    return scene;
 #endif
 }
 
@@ -315,6 +442,41 @@ void FileParser::parse_material_lambertian(const std::string&         body,
                                            const LineNumberContainer& line_numbers,
                                            int                        line_number_character_offset)
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    std::string name;
+    RGB         albedo;
+
+    // name: "base"
+    // diffuse: 0.1 0.2 0.8
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "name") {
+            ins >> name;
+            name = trim(name, '"');
+        } else if (word == "diffuse") {
+            ins >> albedo;
+        } else {
+            throw ParsingException("Unknown material_lambertian attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    // auto insertion_result = m_materials.try_emplace(name, DiffuseMaterial{ albedo });
+    auto material         = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
+    auto insertion_result = m_materials.try_emplace(name, std::move(material));
+    if (!insertion_result.second) {
+        throw ParsingException("Material " + name + " already exists",
+                               line_numbers[line_number_character_offset + ins.tellg()]);
+    }
 }
 
 void FileParser::parse_material_layered(const std::string&         body,

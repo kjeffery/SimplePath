@@ -3,7 +3,9 @@
 /// @author Keith Jeffery
 
 #include <cmath>
+#include <istream>
 #include <numbers>
+#include <ostream>
 
 namespace sp {
 
@@ -271,6 +273,32 @@ inline constexpr Degrees operator-(Degrees a, const Degrees& b) noexcept
 {
     a -= b;
     return a;
+}
+
+inline std::ostream& operator<<(std::ostream& outs, const Radians& radians)
+{
+    return outs << radians.as_float() << " radians";
+}
+
+inline std::istream& operator>>(std::istream& ins, Radians& radians)
+{
+    float f;
+    ins >> f;
+    radians = Radians{ f };
+    return ins;
+}
+
+inline std::ostream& operator<<(std::ostream& outs, const Degrees& degrees)
+{
+    return outs << degrees.as_float() << " degrees";
+}
+
+inline std::istream& operator>>(std::istream& ins, Degrees& degrees)
+{
+    float f;
+    ins >> f;
+    degrees = Degrees{ f };
+    return ins;
 }
 
 } // namespace sp

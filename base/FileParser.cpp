@@ -6,6 +6,7 @@
 #include "Scene.h"
 #include "Util.h"
 
+#include "../base/Logger.h"
 #include "../math/Vector3.h"
 #include "../shapes/Plane.h"
 #include "../shapes/Primitive.h"
@@ -218,7 +219,8 @@ private:
     std::unique_ptr<Camera> m_camera;
 
 private:
-    std::unordered_map<std::string, std::unique_ptr<Material>> m_materials;
+    std::unordered_map<std::string, std::shared_ptr<Material>> m_materials;
+    Scene::PrimitiveContainer m_geometry;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -335,7 +337,7 @@ Scene FileParser::parse(std::istream& ins)
     // create_lambertian_material(RGB{ 1.0f, 1.0f, 1.0f }) } };
     std::unique_ptr<Material> base{ new LambertianMaterial{ RGB{ 1.0f, 1.0f, 1.0f } } };
     std::shared_ptr<Material> sphere_material0{ new ClearcoatMaterial{ std::move(base), 1.5f } };
-    //auto sphere_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
+    // auto sphere_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
 
     auto sphere_shape = std::make_shared<Sphere>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
                                                  AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
@@ -361,24 +363,28 @@ Scene FileParser::parse(std::istream& ins)
 #else
     Scene::PrimitiveContainer geometry;
 
-    auto plane_shape0 = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
+    auto plane_shape0     = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
                                                 AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }));
-    auto plane_material0 = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
+    auto plane_material0  = std::make_shared<OneSampleMaterial>(create_lambertian_material(RGB{ 0.6f, 0.6f, 1.0f }));
     auto plane_primitive0 = std::make_shared<GeometricPrimitive>(plane_shape0, plane_material0);
 
     geometry.push_back(plane_primitive0);
 
-    std::unique_ptr<Material> base{ new LambertianMaterial{ RGB{ 0.1f, 0.2f, 1.0f } } };
+    std::unique_ptr<Material> base{ new OneSampleMaterial{
+        create_beckmann_glossy_material(RGB{ 0.8f, 0.2f, 0.0f }, 0.5f, 1.2f) } };
+    // std::unique_ptr<Material> base{ new LambertianMaterial{ RGB{ 0.1f, 0.2f, 1.0f } } };
     std::shared_ptr<Material> mesh_material0{ new ClearcoatMaterial{ std::move(base), 1.5f } };
-    //std::shared_ptr<Material> mesh_material0{ new OneSampleMaterial{
-        //create_beckmann_glossy_material(RGB{ 0.8f, 0.2f, 0.0f }, 0.05f, 1.5f) } };
+    // std::shared_ptr<Material> mesh_material0{ new OneSampleMaterial{
+    // create_beckmann_glossy_material(RGB{ 0.8f, 0.2f, 0.0f }, 0.05f, 1.5f) } };
 
-    //auto mesh0 = std::make_shared<Mesh>(read_ply("lucy.ply"));
-    auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/cow.ply"));
-    //auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/octahedron.ply"));
+    // auto mesh0 = std::make_shared<Mesh>(read_ply("lucy.ply"));
+    // auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/cow.ply"));
+    // auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/cow.binary.ply"));
+    auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/bunny/reconstruction/bun_zipper.ply"));
+    // auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/octahedron.ply"));
     const auto num_tris0 = mesh0->get_num_triangles();
     for (std::size_t i = 0; i < num_tris0; ++i) {
-        auto tri = std::make_shared<Triangle>(mesh0, i);
+        auto tri           = std::make_shared<Triangle>(mesh0, i);
         auto tri_primitive = std::make_shared<GeometricPrimitive>(tri, mesh_material0);
         geometry.push_back(tri_primitive);
     }
@@ -436,6 +442,7 @@ void FileParser::parse_instance(const std::string&         body,
                                 const LineNumberContainer& line_numbers,
                                 int                        line_number_character_offset)
 {
+    LOG_WARNING("No support for instances yet");
 }
 
 void FileParser::parse_material_lambertian(const std::string&         body,
@@ -489,6 +496,7 @@ void FileParser::parse_material_transmissive_dielectric(const std::string&      
                                                         const LineNumberContainer& line_numbers,
                                                         int                        line_number_character_offset)
 {
+    LOG_WARNING("No transmissive dielectric supported yet");
 }
 
 void FileParser::parse_mesh(const std::string&         body,
@@ -576,11 +584,87 @@ void FileParser::parse_scene_parameters(const std::string&         body,
     }
 }
 
+std::pair<AffineSpace, AffineSpace> parse_translate(std::istream& ins)
+{
+    Vector3 translate;
+    ins >> translate;
+    return std::make_pair(AffineSpace::translate(translate), AffineSpace::translate(-translate));
+}
+
+void append_translate(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+{
+    const auto [t, t_inverse] = parse_translate(ins);
+    transform *= t;
+    inverse_transform = t_inverse * inverse_transform;
+    assert(compare(transform * inverse_transform, AffineSpace::identity()));
+}
+
 void FileParser::parse_sphere(const std::string&         body,
                               const LineNumberContainer& line_numbers,
                               int                        line_number_character_offset)
 
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    AffineSpace transform{AffineSpace::identity()};
+    AffineSpace inverse_transform{AffineSpace::identity()};
+    std::shared_ptr<Material> material;
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "material") {
+            std::string material_name;
+            ins >> material_name;
+            material_name = trim(material_name, '"');
+            if (auto m = m_materials.find(material_name); m != m_materials.end()) {
+                material = m->second;
+            } else {
+                LOG_ERROR("Material '", material_name, "' not found\n");
+            }
+        } else if (word == "translate") {
+            Vector3 translate;
+            ins >> translate;
+            transform *= AffineSpace::translate(translate);
+            inverse_transform = AffineSpace::translate(-translate) * inverse_transform;
+            //inverse_transform *= AffineSpace::translate(-translate);
+        } else if (word == "rotate") {
+            Vector3 axis;
+            ins >> axis;
+            Degrees degrees{0};
+            ins >> degrees;
+
+            // TODO: have the rotate functions take an Angle
+            transform *= AffineSpace::rotate(axis, to_radians(degrees));
+            inverse_transform = AffineSpace::rotate(axis, -to_radians(degrees)) * inverse_transform;
+            //inverse_transform *= AffineSpace::rotate(axis, -to_radians(degrees));
+        } else if (word == "scale") {
+            Vector3 scale;
+            ins >> scale;
+            transform *= AffineSpace::scale(scale);
+            inverse_transform = AffineSpace::scale(1.0f/scale) * inverse_transform;
+            //inverse_transform *= AffineSpace::scale(1.0f/scale);
+        } else {
+            throw ParsingException("Unknown material_lambertian attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    assert(material);
+    // TODO: near comparison
+    //const auto t = transform * inverse_transform;
+    //assert(transform * inverse_transform == AffineSpace::identity());
+
+    auto sphere_shape = std::make_shared<Sphere>(transform, inverse_transform);
+    auto sphere_primitive = std::make_shared<GeometricPrimitive>(sphere_shape, material);
+    m_geometry.push_back(sphere_primitive);
+
 }
 
 void FileParser::parse_sphere_light(const std::string&         body,

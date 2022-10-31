@@ -59,6 +59,60 @@ namespace {
     return std::isspace(static_cast<unsigned char>(c)) != 0;
 }
 
+std::pair<AffineSpace, AffineSpace> parse_translate(std::istream& ins)
+{
+    Vector3 translate{ no_init };
+    ins >> translate;
+    return std::make_pair(AffineSpace::translate(translate), AffineSpace::translate(-translate));
+}
+
+std::pair<AffineSpace, AffineSpace> parse_rotation(std::istream& ins)
+{
+    Vector3 axis{ no_init };
+    ins >> axis;
+    Degrees degrees{ no_init };
+    ins >> degrees;
+
+    // TODO: have the rotate functions take an Angle
+    return std::make_pair(
+        AffineSpace::rotate(axis, to_radians(degrees)), AffineSpace::rotate(axis, -to_radians(degrees)));
+}
+
+std::pair<AffineSpace, AffineSpace> parse_scale(std::istream& ins)
+{
+    Vector3 scale{ no_init };
+    ins >> scale;
+
+    if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f) {
+        throw std::domain_error("Unable to handle zero scale");
+    }
+    return std::make_pair(AffineSpace::scale(scale), AffineSpace::scale(1.0f / scale));
+}
+
+void append_translate(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+{
+    const auto [t, t_inverse] = parse_translate(ins);
+    transform *= t;
+    inverse_transform = t_inverse * inverse_transform;
+    assert(compare(transform * inverse_transform, AffineSpace::identity()));
+}
+
+void append_rotation(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+{
+    const auto [t, t_inverse] = parse_rotation(ins);
+    transform *= t;
+    inverse_transform = t_inverse * inverse_transform;
+    assert(compare(transform * inverse_transform, AffineSpace::identity()));
+}
+
+void append_scale(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+{
+    const auto [t, t_inverse] = parse_scale(ins);
+    transform *= t;
+    inverse_transform = t_inverse * inverse_transform;
+    assert(compare(transform * inverse_transform, AffineSpace::identity()));
+}
+
 class Token
 {
     std::string m_data;
@@ -220,7 +274,7 @@ private:
 
 private:
     std::unordered_map<std::string, std::shared_ptr<Material>> m_materials;
-    Scene::PrimitiveContainer m_geometry;
+    Scene::PrimitiveContainer                                  m_geometry;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -584,21 +638,6 @@ void FileParser::parse_scene_parameters(const std::string&         body,
     }
 }
 
-std::pair<AffineSpace, AffineSpace> parse_translate(std::istream& ins)
-{
-    Vector3 translate;
-    ins >> translate;
-    return std::make_pair(AffineSpace::translate(translate), AffineSpace::translate(-translate));
-}
-
-void append_translate(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
-{
-    const auto [t, t_inverse] = parse_translate(ins);
-    transform *= t;
-    inverse_transform = t_inverse * inverse_transform;
-    assert(compare(transform * inverse_transform, AffineSpace::identity()));
-}
-
 void FileParser::parse_sphere(const std::string&         body,
                               const LineNumberContainer& line_numbers,
                               int                        line_number_character_offset)
@@ -607,8 +646,8 @@ void FileParser::parse_sphere(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    AffineSpace transform{AffineSpace::identity()};
-    AffineSpace inverse_transform{AffineSpace::identity()};
+    AffineSpace               transform{ AffineSpace::identity() };
+    AffineSpace               inverse_transform{ AffineSpace::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -629,42 +668,22 @@ void FileParser::parse_sphere(const std::string&         body,
                 LOG_ERROR("Material '", material_name, "' not found\n");
             }
         } else if (word == "translate") {
-            Vector3 translate;
-            ins >> translate;
-            transform *= AffineSpace::translate(translate);
-            inverse_transform = AffineSpace::translate(-translate) * inverse_transform;
-            //inverse_transform *= AffineSpace::translate(-translate);
+            append_translate(ins, transform, inverse_transform);
         } else if (word == "rotate") {
-            Vector3 axis;
-            ins >> axis;
-            Degrees degrees{0};
-            ins >> degrees;
-
-            // TODO: have the rotate functions take an Angle
-            transform *= AffineSpace::rotate(axis, to_radians(degrees));
-            inverse_transform = AffineSpace::rotate(axis, -to_radians(degrees)) * inverse_transform;
-            //inverse_transform *= AffineSpace::rotate(axis, -to_radians(degrees));
+            append_rotation(ins, transform, inverse_transform);
         } else if (word == "scale") {
-            Vector3 scale;
-            ins >> scale;
-            transform *= AffineSpace::scale(scale);
-            inverse_transform = AffineSpace::scale(1.0f/scale) * inverse_transform;
-            //inverse_transform *= AffineSpace::scale(1.0f/scale);
+            append_scale(ins, transform, inverse_transform);
         } else {
-            throw ParsingException("Unknown material_lambertian attribute: " + word,
+            throw ParsingException("Unknown sphere attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
         }
     }
 
     assert(material);
-    // TODO: near comparison
-    //const auto t = transform * inverse_transform;
-    //assert(transform * inverse_transform == AffineSpace::identity());
 
-    auto sphere_shape = std::make_shared<Sphere>(transform, inverse_transform);
+    auto sphere_shape     = std::make_shared<Sphere>(transform, inverse_transform);
     auto sphere_primitive = std::make_shared<GeometricPrimitive>(sphere_shape, material);
     m_geometry.push_back(sphere_primitive);
-
 }
 
 void FileParser::parse_sphere_light(const std::string&         body,

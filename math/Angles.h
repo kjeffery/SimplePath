@@ -2,6 +2,8 @@
 
 /// @author Keith Jeffery
 
+#include "../base/Constants.h"
+
 #include <cmath>
 #include <istream>
 #include <numbers>
@@ -15,6 +17,10 @@ class Degrees;
 class Angle
 {
 public:
+    explicit constexpr Angle(NoInitType) noexcept
+    {
+    }
+
     constexpr Angle() noexcept
     : m_radians(0.0f)
     {
@@ -38,6 +44,10 @@ private:
 class Radians
 {
 public:
+    explicit constexpr Radians(NoInitType) noexcept
+    {
+    }
+
     explicit constexpr Radians(float f) noexcept
     : m_value(f)
     {
@@ -65,6 +75,10 @@ private:
 class Degrees
 {
 public:
+    explicit constexpr Degrees(NoInitType) noexcept
+    {
+    }
+
     explicit constexpr Degrees(float f) noexcept
     : m_value(f)
     {

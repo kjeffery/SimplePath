@@ -252,7 +252,10 @@ inline LinearSpace3x3& operator/=(LinearSpace3x3& a, const LinearSpace3x3& b)
 /// Comparison Operators
 ////////////////////////////////////////////////////////////////////////////////
 
-//inline bool operator==(const LinearSpace3x3& a, const LinearSpace3x3& b) = default;
+inline bool compare(const LinearSpace3x3& a, const LinearSpace3x3& b) noexcept
+{
+    return compare(a.col0(), b.col0()) && compare(a.col1(), b.col1()) && compare(a.col2(), b.col2());
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Blending

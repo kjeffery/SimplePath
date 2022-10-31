@@ -217,4 +217,15 @@ inline float erfinv(float a) noexcept
     return r;
 }
 
+// This function is adapted from Burkhard Stubert's page, "Comparing Two Floating-Point Numbers"
+// https://embeddeduse.com/2019/08/26/qt-compare-two-floats/
+inline bool float_compare(const float a, const float b) noexcept
+{
+    constexpr float epsilon = 1.0e-05f;
+    if (std::abs(a - b) <= epsilon) {
+        return true;
+    }
+    return std::abs(a - b) <= (epsilon * std::max(std::abs(a), std::abs(b)));
+}
+
 } // namespace sp

@@ -601,6 +601,12 @@ inline bool operator!=(const BaseVector3<type>& a, const BaseVector3<type>& b) n
     return (_mm_movemask_ps(_mm_cmpneq_ps(a.m128, b.m128)) & 7) != 0;
 }
 
+template <VectorType type>
+inline bool compare(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
+{
+    return float_compare(a.x, b.x) && float_compare(a.y, b.y) && float_compare(a.z, b.z);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// Euclidean Space Operators
 ////////////////////////////////////////////////////////////////////////////////

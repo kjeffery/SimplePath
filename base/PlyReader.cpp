@@ -2,9 +2,12 @@
 /// @author Keith Jeffery
 
 #include "Endian.h"
+#include "Logger.h"
 
 #include "../shapes/Triangle.h"
 
+#include <algorithm>
+#include <execution>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -279,7 +282,7 @@ Face read_face(std::istream& ins, const TypeReader& count_reader, const TypeRead
     auto       count_variant = count_reader.read(ins);
     const auto vertex_count  = std::visit([](auto arg) { return static_cast<count_type>(arg); }, count_variant);
     if (vertex_count != 3) {
-        std::cerr << "Encountered a non-triangular face. Skipping\n";
+        LOG_INFO("Encountered a non-triangular face. Skipping");
     }
 
     Face f;
@@ -303,12 +306,19 @@ std::string read_next(std::istream& ins)
     return std::string{};
 }
 
-Mesh read_ply(const std::filesystem::path& file_name)
+Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_to_world)
 {
     using namespace std::literals;
 
     using ReaderPointer   = std::unique_ptr<TypeReader>;
     using AnnotatedReader = std::pair<ReaderPointer, std::string>;
+
+    if (!std::filesystem::exists(file_name)) {
+        throw std::runtime_error("File " + file_name.string() + " does not exit"); // TODO: PlyException
+    }
+    if (!std::filesystem::is_regular_file(file_name)) {
+        throw std::runtime_error("File " + file_name.string() + " is not a regular file"); // TODO: PlyException
+    }
 
     std::ifstream ins(file_name, std::ios::binary);
     ins.exceptions(std::ios_base::badbit);
@@ -364,10 +374,10 @@ Mesh read_ply(const std::filesystem::path& file_name)
                         readers.emplace_back(create_reader(file_type, data_type), property_text[2]);
 
                         if (property_text[2] != "x"sv && property_text[2] != "y"sv && property_text[2] != "z"sv) {
-                            std::cerr << "Unknown property '" << property_text[2] << "'. Skipping.\n";
+                            LOG_INFO("Unknown property '", property_text[2], "'. Skipping.");
                         }
                     } else {
-                        std::cerr << "Unknown property format '" << line << "'. Skipping.\n";
+                        LOG_INFO("Unknown property format '", line, "'. Skipping.");
                     }
                     line = read_next(ins);
                 }
@@ -387,7 +397,7 @@ Mesh read_ply(const std::filesystem::path& file_name)
                         vertex_list_count_data_type = text_to_data_type(property_text[2]);
                         vertex_list_index_data_type = text_to_data_type(property_text[3]);
                     } else {
-                        std::cerr << "Unknown property '" << line << "'. Skipping.\n";
+                        LOG_INFO("Unknown property '", line, "'. Skipping.");
                     }
                     line = read_next(ins);
                 }
@@ -395,7 +405,7 @@ Mesh read_ply(const std::filesystem::path& file_name)
                 // No more properties to read.
                 continue;
             } else {
-                std::cerr << "Unknown element '" << element_text[1] << "'. Skipping.\n";
+                LOG_INFO("Unknown element '", element_text[1], "'. Skipping.");
             }
         }
         line = read_next(ins);
@@ -429,6 +439,18 @@ Mesh read_ply(const std::filesystem::path& file_name)
         vertices.emplace_back(x, y, z);
     }
 
+    BBox3 bounds;
+    std::for_each(std::execution::unseq, vertices.cbegin(), vertices.cend(), [&bounds](const auto& p) {
+        bounds.extend(p);
+    });
+    LOG_DEBUG(file_name,
+              " ply file has a bounds of ",
+              bounds.get_lower(),
+              ' ',
+              bounds.get_upper(),
+              " with a center of ",
+              center(bounds));
+
     std::vector<std::size_t> vertex_indices;
     std::vector<Face>        faces;
     // TODO: If we end up splitting quads in the future, we may want to make this reserve twice as big.
@@ -447,8 +469,8 @@ Mesh read_ply(const std::filesystem::path& file_name)
 
         // TODO: it should be easy to support quads and split them here.
         if (vertex_count != 3) {
-            std::cerr << "Encountered a non-triangular face. Skipping\n";
-            for (std::uint64_t i = 0; i < vertex_count; ++i) {
+            LOG_INFO("Encountered a non-triangular face. Skipping");
+            for (std::uint64_t v = 0; v < vertex_count; ++v) {
                 vertex_index_type_reader->read(ins);
             }
             continue;
@@ -466,8 +488,8 @@ Mesh read_ply(const std::filesystem::path& file_name)
         const Vector3 edge0 = vertices.at(f.vertex_indices[1]) - vertices.at(f.vertex_indices[0]);
         const Vector3 edge1 = vertices.at(f.vertex_indices[2]) - vertices.at(f.vertex_indices[0]);
         f.face_normal       = Normal3{ cross(edge0, edge1) };
-        if (sqr_length(f.face_normal) < std::numeric_limits<float>::epsilon()) {
-            std::cerr << "Encountered zero-area face. Skipping\n";
+        if (sqr_length(f.face_normal) == 0.0f) {
+            LOG_INFO("Encountered zero-area face. Skipping");
             continue;
         }
         f.face_normal = normalize(f.face_normal);
@@ -491,7 +513,7 @@ Mesh read_ply(const std::filesystem::path& file_name)
         }
     }
 
-    return Mesh{ std::move(vertex_indices), std::move(vertices), std::move(vertex_normals) };
+    return Mesh{ std::move(vertex_indices), std::move(vertices), std::move(vertex_normals), object_to_world };
 }
 
 } // namespace sp

@@ -579,7 +579,7 @@ void FileParser::parse_material_glossy(const std::string&         body,
         } else if (word == "diffuse") {
             ins >> color;
         } else if (word == "roughness") {
-            ins >> color;
+            ins >> roughness;
         } else if (word == "ior") {
             ins >> ior;
         } else {

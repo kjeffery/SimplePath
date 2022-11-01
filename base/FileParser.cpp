@@ -200,13 +200,12 @@ public:
         m_parse_function_lookup.try_emplace("environment_light", &FileParser::parse_environment_light);
         m_parse_function_lookup.try_emplace("instance", &FileParser::parse_instance);
         m_parse_function_lookup.try_emplace("material_lambertian", &FileParser::parse_material_lambertian);
-        m_parse_function_lookup.try_emplace("material_layered", &FileParser::parse_material_layered);
+        m_parse_function_lookup.try_emplace("material_clearcoat", &FileParser::parse_material_clearcoat);
         m_parse_function_lookup.try_emplace("material_transmissive_dielectric",
                                             &FileParser::parse_material_transmissive_dielectric);
         m_parse_function_lookup.try_emplace("mesh", &FileParser::parse_mesh);
         m_parse_function_lookup.try_emplace("perspective_camera", &FileParser::parse_perspective_camera);
         m_parse_function_lookup.try_emplace("plane", &FileParser::parse_plane);
-        m_parse_function_lookup.try_emplace("primitive", &FileParser::parse_primitive);
         m_parse_function_lookup.try_emplace("scene_parameters", &FileParser::parse_scene_parameters);
         m_parse_function_lookup.try_emplace("sphere", &FileParser::parse_sphere);
         m_parse_function_lookup.try_emplace("sphere_light", &FileParser::parse_sphere_light);
@@ -231,12 +230,11 @@ private:
     void parse_environment_light(const std::string&, const LineNumberContainer&, int);
     void parse_instance(const std::string&, const LineNumberContainer&, int);
     void parse_material_lambertian(const std::string&, const LineNumberContainer&, int);
-    void parse_material_layered(const std::string&, const LineNumberContainer&, int);
+    void parse_material_clearcoat(const std::string&, const LineNumberContainer&, int);
     void parse_material_transmissive_dielectric(const std::string&, const LineNumberContainer&, int);
     void parse_mesh(const std::string&, const LineNumberContainer&, int);
     void parse_perspective_camera(const std::string&, const LineNumberContainer&, int);
     void parse_plane(const std::string&, const LineNumberContainer&, int);
-    void parse_primitive(const std::string&, const LineNumberContainer&, int);
     void parse_scene_parameters(const std::string&, const LineNumberContainer&, int);
     void parse_sphere(const std::string&, const LineNumberContainer&, int);
     void parse_sphere_light(const std::string&, const LineNumberContainer&, int);
@@ -250,13 +248,12 @@ private:
     static constexpr std::string_view valid_top_level_types[] = {
         "environment_light"sv,
         "instance"sv,
+        "material_clearcoat"sv,
         "material_lambertian"sv,
-        "material_layered"sv,
         "material_transmissive_dielectric"sv,
         "mesh"sv,
         "perspective_camera"sv,
         "plane"sv,
-        "primitive"sv,
         "scene_parameters"sv,
         "sphere"sv,
         "sphere_light"sv
@@ -522,9 +519,6 @@ void FileParser::parse_material_lambertian(const std::string&         body,
     std::string name;
     RGB         albedo;
 
-    // name: "base"
-    // diffuse: 0.1 0.2 0.8
-
     for (Token token; ins;) {
         ins >> token;
         if (ins.eof()) {
@@ -544,7 +538,10 @@ void FileParser::parse_material_lambertian(const std::string&         body,
         }
     }
 
-    // auto insertion_result = m_materials.try_emplace(name, DiffuseMaterial{ albedo });
+    if (name.empty()) {
+        throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
+    }
+
     auto material         = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
     auto insertion_result = m_materials.try_emplace(name, std::move(material));
     if (!insertion_result.second) {
@@ -553,10 +550,66 @@ void FileParser::parse_material_lambertian(const std::string&         body,
     }
 }
 
-void FileParser::parse_material_layered(const std::string&         body,
-                                        const LineNumberContainer& line_numbers,
-                                        int                        line_number_character_offset)
+void FileParser::parse_material_clearcoat(const std::string&         body,
+                                          const LineNumberContainer& line_numbers,
+                                          int                        line_number_character_offset)
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    // base: "material0"
+    // ior: 1.5
+    // color: 1.0 0.8 0.8
+
+    std::string               name;
+    std::shared_ptr<Material> base;
+    float                     ior   = 1.5f;
+    RGB                       color = RGB::white();
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "name") {
+            ins >> name;
+            name = trim(name, '"');
+        } else if (word == "base") {
+            std::string material_name;
+            ins >> material_name;
+            material_name = trim(material_name, '"');
+            if (auto m = m_materials.find(material_name); m != m_materials.end()) {
+                base = m->second;
+            } else {
+                LOG_ERROR("Material '", material_name, "' not found\n");
+            }
+        } else if (word == "color") {
+            ins >> color;
+        } else if (word == "ior") {
+            ins >> ior;
+        } else {
+            throw ParsingException("Unknown material_clearcoat attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    if (name.empty()) {
+        throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
+    }
+    if (!base) {
+        throw ParsingException("Clearcoat material needs a base material",
+                               line_numbers[line_number_character_offset + ins.tellg()]);
+    }
+
+    auto material         = std::make_unique<ClearcoatMaterial>(base, ior, color);
+    auto insertion_result = m_materials.try_emplace(name, std::move(material));
+    if (!insertion_result.second) {
+        throw ParsingException("Material " + name + " already exists",
+                               line_numbers[line_number_character_offset + ins.tellg()]);
+    }
 }
 
 void FileParser::parse_material_transmissive_dielectric(const std::string&         body,
@@ -672,12 +725,6 @@ void FileParser::parse_perspective_camera(const std::string&         body,
 void FileParser::parse_plane(const std::string&         body,
                              const LineNumberContainer& line_numbers,
                              int                        line_number_character_offset)
-{
-}
-
-void FileParser::parse_primitive(const std::string&         body,
-                                 const LineNumberContainer& line_numbers,
-                                 int                        line_number_character_offset)
 {
 }
 
@@ -834,7 +881,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     // clang-format on
     parse_pass(pass_types0, cleaned_ins, line_numbers);
 
-    // Parse non-layered materials, lights, and cameras.
+    // Parse non-clearcoat materials, lights, and cameras.
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
@@ -842,21 +889,18 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
         "environment_light",
         "material_lambertian",
         "material_transmissive_dielectric",
-        "mesh",
         "perspective_camera",
-        "plane",
-        "sphere",
         "sphere_light"
     };
     // clang-format on
     parse_pass(pass_types1, cleaned_ins, line_numbers);
 
-    // Parse layered materials (after "basic" materials have been parsed).
+    // Parse clearcoat materials (after "basic" materials have been parsed).
     cleaned_ins.clear();
     cleaned_ins.seekg(post_version_offset);
     // clang-format off
     const StringSet pass_types2 = {
-        "material_layered"
+        "material_clearcoat"
     };
     // clang-format on
     parse_pass(pass_types2, cleaned_ins, line_numbers);
@@ -867,7 +911,9 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     // clang-format off
     const StringSet pass_types3 = {
         "instance",
-        "primitive"
+        "mesh",
+        "plane",
+        "sphere"
     };
     // clang-format on
     parse_pass(pass_types3, cleaned_ins, line_numbers);

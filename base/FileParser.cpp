@@ -621,7 +621,11 @@ void FileParser::parse_mesh(const std::string&         body,
     auto       mesh     = std::make_shared<Mesh>(read_ply(path, transform));
     const auto num_tris = mesh->get_num_triangles();
     for (std::size_t i = 0; i < num_tris; ++i) {
-        auto tri           = std::make_shared<Triangle>(mesh, i);
+        auto tri = std::make_shared<Triangle>(mesh, i);
+
+        // This is a little dumb: our meshes are composed of a single material, but we're storing a pointer to that
+        // material in every triangle primitive. It seems like we should just be able to query the mesh object, but our
+        // primitives are not set up that way.
         auto tri_primitive = std::make_shared<GeometricPrimitive>(tri, material);
         m_geometry.push_back(tri_primitive);
     }

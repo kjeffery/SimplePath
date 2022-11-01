@@ -74,8 +74,8 @@ std::pair<AffineSpace, AffineSpace> parse_rotation(std::istream& ins)
     ins >> degrees;
 
     // TODO: have the rotate functions take an Angle
-    return std::make_pair(
-        AffineSpace::rotate(axis, to_radians(degrees)), AffineSpace::rotate(axis, -to_radians(degrees)));
+    return std::make_pair(AffineSpace::rotate(axis, to_radians(degrees)),
+                          AffineSpace::rotate(axis, -to_radians(degrees)));
 }
 
 std::pair<AffineSpace, AffineSpace> parse_scale(std::istream& ins)
@@ -275,6 +275,7 @@ private:
 private:
     std::unordered_map<std::string, std::shared_ptr<Material>> m_materials;
     Scene::PrimitiveContainer                                  m_geometry;
+    Scene::LightContainer                                      m_lights;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -414,7 +415,7 @@ Scene FileParser::parse(std::istream& ins)
     scene.image_width      = m_image_width;
     scene.image_height     = m_image_height;
     return scene;
-#else
+#elif 0
     Scene::PrimitiveContainer geometry;
 
     auto plane_shape0     = std::make_shared<Plane>(AffineSpace::translate(Vector3{ 0.0f, 0.0f, 0.0f }),
@@ -434,7 +435,8 @@ Scene FileParser::parse(std::istream& ins)
     // auto mesh0 = std::make_shared<Mesh>(read_ply("lucy.ply"));
     // auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/cow.ply"));
     // auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/cow.binary.ply"));
-    auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/bunny/reconstruction/bun_zipper.ply"));
+    auto mesh0 = std::make_shared<Mesh>(
+        read_ply("ply_files/bunny/reconstruction/bun_zipper.ply", AffineSpace::scale(Vector3{ 10.0f, 10.0f, 10.0f })));
     // auto mesh0 = std::make_shared<Mesh>(read_ply("ply_files/octahedron.ply"));
     const auto num_tris0 = mesh0->get_num_triangles();
     for (std::size_t i = 0; i < num_tris0; ++i) {
@@ -449,6 +451,17 @@ Scene FileParser::parse(std::istream& ins)
     lights.push_back(env_light);
 
     Scene scene{ geometry.begin(), geometry.end(), lights.begin(), lights.end() };
+
+    scene.m_camera         = std::move(m_camera);
+    scene.output_file_name = std::move(m_output_file_name);
+    scene.image_width      = m_image_width;
+    scene.image_height     = m_image_height;
+    return scene;
+#else
+    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
+    m_lights.push_back(env_light);
+
+    Scene scene{ m_geometry.begin(), m_geometry.end(), m_lights.begin(), m_lights.end() };
 
     scene.m_camera         = std::move(m_camera);
     scene.output_file_name = std::move(m_output_file_name);
@@ -557,6 +570,61 @@ void FileParser::parse_mesh(const std::string&         body,
                             const LineNumberContainer& line_numbers,
                             int                        line_number_character_offset)
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    std::filesystem::path     path;
+    AffineSpace               transform{ AffineSpace::identity() };
+    AffineSpace               inverse_transform{ AffineSpace::identity() };
+    std::shared_ptr<Material> material;
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "material") {
+            std::string material_name;
+            ins >> material_name;
+            material_name = trim(material_name, '"');
+            if (auto m = m_materials.find(material_name); m != m_materials.end()) {
+                material = m->second;
+            } else {
+                LOG_ERROR("Material '", material_name, "' not found\n");
+            }
+        } else if (word == "file") {
+            ins >> path;
+            if (path.extension() != ".ply") {
+                LOG_ERROR("Unable to open file format for ",
+                          path.extension(),
+                          " on line ",
+                          line_number_character_offset + ins.tellg());
+                return;
+            }
+        } else if (word == "translate") {
+            append_translate(ins, transform, inverse_transform);
+        } else if (word == "rotate") {
+            append_rotation(ins, transform, inverse_transform);
+        } else if (word == "scale") {
+            append_scale(ins, transform, inverse_transform);
+        } else {
+            throw ParsingException("Unknown mesh attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    assert(material);
+
+    auto       mesh     = std::make_shared<Mesh>(read_ply(path, transform));
+    const auto num_tris = mesh->get_num_triangles();
+    for (std::size_t i = 0; i < num_tris; ++i) {
+        auto tri           = std::make_shared<Triangle>(mesh, i);
+        auto tri_primitive = std::make_shared<GeometricPrimitive>(tri, material);
+        m_geometry.push_back(tri_primitive);
+    }
 }
 
 void FileParser::parse_perspective_camera(const std::string&         body,

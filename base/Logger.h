@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #include <type_traits>
 
 namespace sp {
@@ -33,6 +34,7 @@ public:
     template <typename... Args>
     void log_fatal(const char* const file, int line, Args&&... args)
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         std::cerr << "Fatal error [" << file << ':' << line << "]: ";
         (std::cerr << ... << args) << '\n';
         std::exit(EXIT_FAILURE);
@@ -41,6 +43,7 @@ public:
     template <typename... Args>
     void log_error(const char* const file, int line, Args&&... args)
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         std::cerr << "Error [" << file << ':' << line << "]: ";
         (std::cerr << ... << args) << '\n';
     }
@@ -49,6 +52,7 @@ public:
     void log_warning(const char* const file, int line, Args&&... args)
     {
         if (is_enabled(LoggingLevel::warning)) {
+            std::lock_guard<std::mutex> lock(m_mutex);
             std::cout << "Warning [" << file << ':' << line << "]: ";
             (std::cout << ... << args) << '\n';
         }
@@ -58,6 +62,7 @@ public:
     void log_info(const char* const file, int line, Args&&... args)
     {
         if (is_enabled(LoggingLevel::info)) {
+            std::lock_guard<std::mutex> lock(m_mutex);
             std::cout << "Info [" << file << ':' << line << "]: ";
             (std::cout << ... << args) << '\n';
         }
@@ -67,6 +72,7 @@ public:
     void log_debug(const char* const file, int line, Args&&... args)
     {
         if (is_enabled(LoggingLevel::debug)) {
+            std::lock_guard<std::mutex> lock(m_mutex);
             std::cout << "Debug [" << file << ':' << line << "]: ";
             (std::cout << ... << args) << '\n';
         }
@@ -82,6 +88,7 @@ private:
     }
 
     static LoggingLevel s_log_level;
+    mutable std::mutex  m_mutex;
 };
 
 } // namespace sp

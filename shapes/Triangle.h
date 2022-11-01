@@ -7,6 +7,7 @@
 #include "../math/Vector3.h"
 
 #include <array>
+#include <execution>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -16,11 +17,25 @@ namespace sp {
 class Mesh
 {
 public:
-    Mesh(std::vector<std::size_t> indices, std::vector<Point3> vertices, std::vector<Normal3> normals)
+    Mesh(std::vector<std::size_t> indices,
+         std::vector<Point3>      vertices,
+         std::vector<Normal3>     normals,
+         const AffineSpace&       object_to_world)
     : m_indices(std::move(indices))
     , m_vertices(std::move(vertices))
     , m_normals(std::move(normals))
     {
+        std::transform(std::execution::par_unseq,
+                       m_vertices.cbegin(),
+                       m_vertices.cend(),
+                       m_vertices.begin(),
+                       [&object_to_world](auto& v) { return object_to_world(v); });
+
+        std::transform(std::execution::par_unseq,
+                       m_normals.cbegin(),
+                       m_normals.cend(),
+                       m_normals.begin(),
+                       [&object_to_world](auto& n) { return object_to_world(n); });
     }
 
     Mesh(Mesh&&)                 = default;
@@ -124,7 +139,7 @@ private:
 
         // Use the barycentric coordinates to interpolate our normal.
         const float alpha = 1.0f - beta - gamma;
-        //const Normal3 normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
+        // const Normal3 normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
         const Normal3 normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
 
         isect.m_point  = ray(t);

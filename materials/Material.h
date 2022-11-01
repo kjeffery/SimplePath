@@ -542,8 +542,8 @@ private:
             // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
             // techniques.
 #if 1
-            const auto mis_weight = balance_heuristic(weights[selected_index], inner_product);
-            const RGB result_color = mis_weight * values[selected_index];
+            const auto mis_weight   = balance_heuristic(weights[selected_index], inner_product);
+            const RGB  result_color = mis_weight * values[selected_index];
 #else
             RGB result_color = RGB::black();
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
@@ -574,7 +574,7 @@ private:
 class ClearcoatMaterial : public Material
 {
 public:
-    explicit ClearcoatMaterial(std::unique_ptr<Material> base, float ior, RGB specular_color = RGB::white())
+    explicit ClearcoatMaterial(std::shared_ptr<Material> base, float ior, RGB specular_color = RGB::white())
     : m_ior(ior)
     , m_specular_color(specular_color)
     , m_base(std::move(base))
@@ -624,7 +624,7 @@ private:
 
     float                     m_ior;
     RGB                       m_specular_color;
-    std::unique_ptr<Material> m_base;
+    std::shared_ptr<Material> m_base;
 };
 
 class LambertianMaterial : public OneSampleMaterial
@@ -651,17 +651,10 @@ inline OneSampleMaterial create_lambertian_material(RGB albedo)
     return OneSampleMaterial{ std::move(bxdfs) };
 };
 
-inline ClearcoatMaterial create_clearcoat_material(RGB albedo, float ior, RGB reflection = RGB::white())
+inline ClearcoatMaterial
+create_clearcoat_material(std::shared_ptr<Material> base, float ior, RGB reflection = RGB::white())
 {
-#if 0
-    OneSampleMaterial::BxDFContainer bxdfs;
-    bxdfs.emplace_back(new SpecularReflectionBRDF{ reflection });
-    bxdfs.emplace_back(new LambertianBRDF{ albedo });
-    return OneSampleMaterial{ std::move(bxdfs) };
-#else
-    auto base = std::make_unique<LambertianMaterial>(albedo);
-    return ClearcoatMaterial{ std::move(base), ior, reflection };
-#endif
+    return ClearcoatMaterial{ base, ior, reflection };
 };
 
 // TODO: anisotropic version

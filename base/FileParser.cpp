@@ -200,6 +200,7 @@ public:
         m_parse_function_lookup.try_emplace("environment_light", &FileParser::parse_environment_light);
         m_parse_function_lookup.try_emplace("instance", &FileParser::parse_instance);
         m_parse_function_lookup.try_emplace("material_lambertian", &FileParser::parse_material_lambertian);
+        m_parse_function_lookup.try_emplace("material_glossy", &FileParser::parse_material_glossy);
         m_parse_function_lookup.try_emplace("material_clearcoat", &FileParser::parse_material_clearcoat);
         m_parse_function_lookup.try_emplace("material_transmissive_dielectric",
                                             &FileParser::parse_material_transmissive_dielectric);
@@ -230,6 +231,7 @@ private:
     void parse_environment_light(const std::string&, const LineNumberContainer&, int);
     void parse_instance(const std::string&, const LineNumberContainer&, int);
     void parse_material_lambertian(const std::string&, const LineNumberContainer&, int);
+    void parse_material_glossy(const std::string&, const LineNumberContainer&, int);
     void parse_material_clearcoat(const std::string&, const LineNumberContainer&, int);
     void parse_material_transmissive_dielectric(const std::string&, const LineNumberContainer&, int);
     void parse_mesh(const std::string&, const LineNumberContainer&, int);
@@ -249,6 +251,7 @@ private:
         "environment_light"sv,
         "instance"sv,
         "material_clearcoat"sv,
+        "material_glossy"sv,
         "material_lambertian"sv,
         "material_transmissive_dielectric"sv,
         "mesh"sv,
@@ -550,16 +553,59 @@ void FileParser::parse_material_lambertian(const std::string&         body,
     }
 }
 
+void FileParser::parse_material_glossy(const std::string&         body,
+                                       const LineNumberContainer& line_numbers,
+                                       int                        line_number_character_offset)
+{
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    std::string name;
+    RGB         color;
+    float       roughness = 0.5f;
+    float       ior       = 1.5f;
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "name") {
+            ins >> name;
+            name = trim(name, '"');
+        } else if (word == "diffuse") {
+            ins >> color;
+        } else if (word == "roughness") {
+            ins >> color;
+        } else if (word == "ior") {
+            ins >> ior;
+        } else {
+            throw ParsingException("Unknown material_glossy attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    if (name.empty()) {
+        throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
+    }
+
+    auto material         = std::make_unique<OneSampleMaterial>(create_beckmann_glossy_material(color, roughness, ior));
+    auto insertion_result = m_materials.try_emplace(name, std::move(material));
+    if (!insertion_result.second) {
+        throw ParsingException("Material " + name + " already exists",
+                               line_numbers[line_number_character_offset + ins.tellg()]);
+    }
+}
+
 void FileParser::parse_material_clearcoat(const std::string&         body,
                                           const LineNumberContainer& line_numbers,
                                           int                        line_number_character_offset)
 {
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
-
-    // base: "material0"
-    // ior: 1.5
-    // color: 1.0 0.8 0.8
 
     std::string               name;
     std::shared_ptr<Material> base;
@@ -604,7 +650,7 @@ void FileParser::parse_material_clearcoat(const std::string&         body,
                                line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material         = std::make_unique<ClearcoatMaterial>(base, ior, color);
+    auto material         = std::make_unique<ClearcoatMaterial>(create_clearcoat_material(base, ior, color));
     auto insertion_result = m_materials.try_emplace(name, std::move(material));
     if (!insertion_result.second) {
         throw ParsingException("Material " + name + " already exists",
@@ -887,6 +933,7 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     // clang-format off
     const StringSet pass_types1 = {
         "environment_light",
+        "material_glossy",
         "material_lambertian",
         "material_transmissive_dielectric",
         "perspective_camera",

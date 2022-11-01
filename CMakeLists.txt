@@ -40,7 +40,12 @@ set(SOURCES
         base/Endian.h
         base/FileParser.cpp
         base/FileParser.h
+        base/Logger.cpp
+        base/Logger.h
+        base/PlyReader.cpp
+        base/PlyReader.h
         base/ProgressBar.h
+        base/RunningStats.h
         base/Scene.h
         base/SmartToRawPointerIterator.h
         base/Tile.h
@@ -71,6 +76,7 @@ set(SOURCES
         shapes/Primitive.h
         shapes/Shape.h
         shapes/Sphere.h
+        shapes/Triangle.h
 )
 
 add_executable(SimplePath ${SOURCES})

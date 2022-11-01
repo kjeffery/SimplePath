@@ -772,6 +772,47 @@ void FileParser::parse_plane(const std::string&         body,
                              const LineNumberContainer& line_numbers,
                              int                        line_number_character_offset)
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    AffineSpace               transform{ AffineSpace::identity() };
+    AffineSpace               inverse_transform{ AffineSpace::identity() };
+    std::shared_ptr<Material> material;
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "material") {
+            std::string material_name;
+            ins >> material_name;
+            material_name = trim(material_name, '"');
+            if (auto m = m_materials.find(material_name); m != m_materials.end()) {
+                material = m->second;
+            } else {
+                LOG_ERROR("Material '", material_name, "' not found\n");
+            }
+        } else if (word == "translate") {
+            append_translate(ins, transform, inverse_transform);
+        } else if (word == "rotate") {
+            append_rotation(ins, transform, inverse_transform);
+        } else if (word == "scale") {
+            append_scale(ins, transform, inverse_transform);
+        } else {
+            throw ParsingException("Unknown plane attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    assert(material);
+
+    auto plane_shape     = std::make_shared<Plane>(transform, inverse_transform);
+    auto plane_primitive = std::make_shared<GeometricPrimitive>(plane_shape, material);
+    m_geometry.push_back(plane_primitive);
 }
 
 void FileParser::parse_scene_parameters(const std::string&         body,

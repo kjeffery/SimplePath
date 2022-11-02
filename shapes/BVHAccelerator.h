@@ -9,7 +9,9 @@
 
 #include "../math/BBox.h"
 
+#include <algorithm>
 #include <concepts>
+#include <execution>
 #include <iterator>
 #include <vector>
 
@@ -172,14 +174,16 @@ private:
     static auto partition(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
     {
         // Put all of the elements that are totally to the left in place
-        const auto left = std::partition(first, last, [absolute_split_location, dimension](const auto& a) {
-          return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
-        });
+        const auto left =
+            std::partition(std::execution::par_unseq, first, last, [absolute_split_location, dimension](const auto& a) {
+                return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
+            });
 
         // Put all of the elements that are totally to the left in place
-        const auto right = std::partition(left, last, [absolute_split_location, dimension](const auto& a) {
-          return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
-        });
+        const auto right =
+            std::partition(std::execution::par_unseq, left, last, [absolute_split_location, dimension](const auto& a) {
+                return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
+            });
         return std::make_pair(left, right);
     }
 
@@ -208,10 +212,10 @@ private:
         const auto                num_elements = std::distance(first, last);
 
         BBox3 bounds;
-        for (Iterator it = first; it != last; ++it) {
-            assert((*it)->is_bounded());
-            bounds = merge(bounds, (*it)->get_world_bounds());
-        }
+        std::for_each(std::execution::unseq, first, last, [&bounds](const auto& prim) {
+            assert(prim->is_bounded());
+            bounds = merge(bounds, prim->get_world_bounds());
+        });
 
         if (num_elements <= k_max_leaf_elements) {
             result.reset(new NodeLeaf{ bounds, first, last });

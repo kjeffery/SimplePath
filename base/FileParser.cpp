@@ -256,15 +256,16 @@ private:
     static_assert(std::ranges::is_sorted(valid_top_level_types), "We binary search this data: it needs to be sorted");
 #endif
 
+    using MaterialMap = std::unordered_map<std::string, std::shared_ptr<Material>, StringHash, std::equal_to<>>;
+
     int                     m_image_width  = 256;
     int                     m_image_height = 256;
     std::filesystem::path   m_output_file_name;
     std::unique_ptr<Camera> m_camera;
 
-private:
-    std::unordered_map<std::string, std::shared_ptr<Material>> m_materials;
-    Scene::PrimitiveContainer                                  m_geometry;
-    Scene::LightContainer                                      m_lights;
+    MaterialMap               m_materials;
+    Scene::PrimitiveContainer m_geometry;
+    Scene::LightContainer     m_lights;
 };
 
 Scene FileParser::parse(std::istream& ins)
@@ -274,7 +275,7 @@ Scene FileParser::parse(std::istream& ins)
     try {
         ins.exceptions(std::ios::badbit);
         parse_passes(ins);
-    } catch (const ParsingException& e) {
+    } catch (const ParsingException&) {
         throw;
     } catch (const std::exception& e) {
         std::throw_with_nested(ParsingException("Unexpected file parsing error: "s + e.what()));
@@ -398,7 +399,7 @@ void FileParser::parse_material_lambertian(const std::string&         body,
         throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material         = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
+    auto material                  = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
     const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
     if (!success) {
         throw ParsingException("Material " + name + " already exists",
@@ -445,7 +446,7 @@ void FileParser::parse_material_glossy(const std::string&         body,
         throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material         = std::make_unique<OneSampleMaterial>(create_beckmann_glossy_material(color, roughness, ior));
+    auto material = std::make_unique<OneSampleMaterial>(create_beckmann_glossy_material(color, roughness, ior));
     const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
     if (!success) {
         throw ParsingException("Material " + name + " already exists",
@@ -503,7 +504,7 @@ void FileParser::parse_material_clearcoat(const std::string&         body,
                                line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material         = std::make_unique<ClearcoatMaterial>(create_clearcoat_material(base, ior, color));
+    auto material                  = std::make_unique<ClearcoatMaterial>(create_clearcoat_material(base, ior, color));
     const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
     if (!success) {
         throw ParsingException("Material " + name + " already exists",

@@ -107,6 +107,17 @@ struct Uninitialized
     }
 };
 
+struct StringHash
+{
+    using is_transparent = void; // enables heterogeneous lookup
+
+    std::size_t operator()(std::string_view sv) const
+    {
+        std::hash<std::string_view> hasher;
+        return hasher(sv);
+    }
+};
+
 // An iword index for determining if we're doing pretty printing.
 extern int k_pretty_print_key;
 } // namespace sp

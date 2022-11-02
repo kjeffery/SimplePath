@@ -399,8 +399,8 @@ void FileParser::parse_material_lambertian(const std::string&         body,
     }
 
     auto material         = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
-    auto insertion_result = m_materials.try_emplace(name, std::move(material));
-    if (!insertion_result.second) {
+    const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
+    if (!success) {
         throw ParsingException("Material " + name + " already exists",
                                line_numbers[line_number_character_offset + ins.tellg()]);
     }
@@ -446,8 +446,8 @@ void FileParser::parse_material_glossy(const std::string&         body,
     }
 
     auto material         = std::make_unique<OneSampleMaterial>(create_beckmann_glossy_material(color, roughness, ior));
-    auto insertion_result = m_materials.try_emplace(name, std::move(material));
-    if (!insertion_result.second) {
+    const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
+    if (!success) {
         throw ParsingException("Material " + name + " already exists",
                                line_numbers[line_number_character_offset + ins.tellg()]);
     }
@@ -504,8 +504,8 @@ void FileParser::parse_material_clearcoat(const std::string&         body,
     }
 
     auto material         = std::make_unique<ClearcoatMaterial>(create_clearcoat_material(base, ior, color));
-    auto insertion_result = m_materials.try_emplace(name, std::move(material));
-    if (!insertion_result.second) {
+    const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
+    if (!success) {
         throw ParsingException("Material " + name + " already exists",
                                line_numbers[line_number_character_offset + ins.tellg()]);
     }

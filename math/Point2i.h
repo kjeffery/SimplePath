@@ -265,7 +265,7 @@ inline int reduce_max(const Point2i& v) noexcept
 
 inline std::ostream& operator<<(std::ostream& outs, const Point2i& a)
 {
-    if (outs.iword(sp::k_pretty_print_key)) {
+    if (outs.iword(sp::k_pretty_print_key) == 1) {
         return outs << '(' << a.x << ", " << a.y << ')';
     } else {
         // This version is compatible with the input operator.

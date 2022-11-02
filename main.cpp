@@ -26,6 +26,10 @@
 
 namespace fs = std::filesystem;
 
+namespace sp {
+int k_pretty_print_key;
+} // namespace sp
+
 sp::Scene parse_scene_file(std::string_view file_name)
 {
     using namespace std::literals;
@@ -88,14 +92,14 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
     // sp::MandelbrotIntegrator     integrator(scene.image_width, scene.image_height);
     // sp::BruteForceIntegrator     integrator;
     // sp::BruteForceIntegratorIterative integrator;
-    // sp::BruteForceIntegratorIterativeRR integrator;
-    sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
-                                                          scene.max_depth,
-                                                          scene.image_width,
-                                                          scene.image_height);
-    sp::ColumnMajorTileScheduler               scheduler{ scene.image_width, scene.image_height, num_passes };
-    sp::ProgressBar                            progress_bar(scheduler.get_num_tiles() * num_passes);
-    std::vector<std::jthread>                  threads;
+    sp::BruteForceIntegratorIterativeRR integrator;
+    //    sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
+    //                                                          scene.max_depth,
+    //                                                          scene.image_width,
+    //                                                          scene.image_height);
+    sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
+    sp::ProgressBar              progress_bar(scheduler.get_num_tiles() * num_passes, "tiles");
+    std::vector<std::jthread>    threads;
     threads.reserve(num_threads);
 
     for (int i = 0; i < num_threads; ++i) {
@@ -139,10 +143,19 @@ std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
     return std::make_tuple(a);
 }
 
+void pretty_print_callback(std::ios::event event, std::ios_base& b, int idx)
+{
+    if (event == std::ios::copyfmt_event) {
+        b.iword(sp::k_pretty_print_key) = 1;
+    }
+}
+
 void enable_pretty_printing(std::ostream& outs)
 {
     // Enable pretty-printing of our types.
+    sp::k_pretty_print_key             = std::ios_base::xalloc();
     outs.iword(sp::k_pretty_print_key) = 1;
+    outs.register_callback(&pretty_print_callback, sp::k_pretty_print_key);
 }
 
 void print_usage(std::string_view exe_name)

@@ -635,7 +635,7 @@ inline int max_dim(const BaseVector3<type>& a) noexcept
 template <VectorType type>
 inline std::ostream& operator<<(std::ostream& outs, const BaseVector3<type>& a)
 {
-    if (outs.iword(sp::k_pretty_print_key)) {
+    if (outs.iword(sp::k_pretty_print_key) == 1) {
         return outs << '(' << a.x << ", " << a.y << ", " << a.z << ')';
     } else {
         // This version is compatible with the input operator.

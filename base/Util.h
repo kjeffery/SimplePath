@@ -108,5 +108,5 @@ struct Uninitialized
 };
 
 // An iword index for determining if we're doing pretty printing.
-const int k_pretty_print_key = std::ios_base::xalloc();
+extern int k_pretty_print_key;
 } // namespace sp

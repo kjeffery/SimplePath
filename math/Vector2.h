@@ -492,7 +492,7 @@ inline bool operator!=(const BaseVector2<type>& a, const BaseVector2<type>& b) n
 template <VectorType type>
 inline std::ostream& operator<<(std::ostream& outs, const BaseVector2<type>& a)
 {
-    if (outs.iword(sp::k_pretty_print_key)) {
+    if (outs.iword(sp::k_pretty_print_key) == 1) {
         return outs << '(' << a.x << ", " << a.y << ')';
     } else {
         // This version is compatible with the input operator.

@@ -425,9 +425,10 @@ public:
         return result;
     }
 
-    [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wi) const
+    [[nodiscard]] float pdf(const Vector3& wo, const Vector3& wi, const Normal3& shading_normal) const
     {
-        return pdf_impl(wo, wi);
+        const auto onb = ONB::from_v(Vector3{ shading_normal });
+        return pdf_impl(onb.to_onb(wo), onb.to_onb(wi));
     }
 
     [[nodiscard]] MaterialSampleResult
@@ -436,9 +437,14 @@ public:
         return sample_impl(wo_local, onb_local, sampler);
     }
 
+    [[nodiscard]] float pdf_local_space(const Vector3& wo_local, const Vector3& wi_local) const
+    {
+        return pdf_impl(wo_local, wi_local);
+    }
+
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
-    virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                               = 0;
+    virtual float                pdf_impl(const Vector3& wo_local, const Vector3& wi_local) const                   = 0;
 };
 
 // This is based on Veach and Guibas' multiple importance sampling. It's a general material used to hold any number of
@@ -492,9 +498,11 @@ private:
             }
 
             // Normalize the weights
-            for (std::size_t i = 0; i < num_bxdfs; ++i) {
-                weights[i] /= weight_sum;
-            }
+            std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
+              return weight / weight_sum;
+            });
+
+            assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
 
             // Randomly select one BxDF based on sampling each BxDF.
             // Save the results.
@@ -559,10 +567,32 @@ private:
         }
     }
 
-    // TODO: implement when needed
-    float pdf_impl(const Vector3& wo, const Vector3& wi) const override
+    float pdf_impl(const Vector3& wo_local, const Vector3& wi_local) const override
     {
-        return 1.0f;
+        const std::size_t  num_bxdfs = m_bxdfs.size();
+        std::vector<float> weights(num_bxdfs);
+        float              weight_sum{ 0.0f };
+        for (std::size_t i = 0; i < num_bxdfs; ++i) {
+            weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / m_bxdfs[i]->pdf(wo_local, wi_local));
+            weight_sum += weights[i];
+        }
+
+        if (weight_sum == 0.0f) {
+            return 0.0f;
+        }
+
+        std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
+            return weight / weight_sum;
+        });
+
+        assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
+
+        float pdf = 0.0f;
+        for (std::size_t i = 0; i < num_bxdfs; ++i) {
+            pdf += weights[i] * m_bxdfs[i]->pdf(wo_local, wi_local);
+        }
+        assert(pdf <= 1.0f);
+        return pdf;
     }
 
     BxDFContainer m_bxdfs;
@@ -616,10 +646,19 @@ private:
         return MaterialSampleResult{ color, base_result.direction, result_pdf };
     };
 
-    // TODO: implement when needed
-    float pdf_impl(const Vector3& wo, const Vector3& wi) const override
+    float pdf_impl(const Vector3& wo_local, const Vector3& wi_local) const override
     {
-        return 1.0f;
+        constexpr float ior_air = 1.0f;
+
+        const float f = fresnel_dielectric(cos_theta(wo_local), ior_air, m_ior);
+        assert(f >= 0.0f);
+        assert(f <= 1.0f);
+
+        // This is a weighted average of the PDF values. The clearcoat (being a specular delta function) has a PDF of 0.
+        // It does, however, have a chance of being selected based on the Fresnel contribution. So this is really
+        // (f * specular_pdf) + (1.0f - f) * base_pdf
+        // (f * 0.0f) + (1.0f - f) * base_pdf
+        return (1.0f - f) * m_base->pdf_local_space(wo_local, wi_local);
     }
 
     float                     m_ior;
@@ -627,6 +666,7 @@ private:
     std::shared_ptr<Material> m_base;
 };
 
+// TODO: remove?
 class LambertianMaterial : public OneSampleMaterial
 {
 public:

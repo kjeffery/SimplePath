@@ -458,8 +458,8 @@ Scene FileParser::parse(std::istream& ins)
     scene.image_height     = m_image_height;
     return scene;
 #else
-    auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
-    m_lights.push_back(env_light);
+    // auto env_light = std::make_shared<EnvironmentLight>(RGB{ 1.0f, 1.0f, 1.0f });
+    // m_lights.push_back(env_light);
 
     Scene scene{ m_geometry.begin(), m_geometry.end(), m_lights.begin(), m_lights.end() };
 
@@ -503,6 +503,39 @@ void FileParser::parse_environment_light(const std::string&         body,
                                          const LineNumberContainer& line_numbers,
                                          int                        line_number_character_offset)
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    // We have transformations on our environmental light parsing, but we don't use them yet. They serve no purpose when
+    // we are of a uniform radiance.
+    AffineSpace transform{ AffineSpace::identity() };
+    AffineSpace inverse_transform{ AffineSpace::identity() };
+    RGB         radiance = RGB::white();
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "radiance") {
+            ins >> radiance;
+        } else if (word == "translate") {
+            append_translate(ins, transform, inverse_transform);
+        } else if (word == "rotate") {
+            append_rotation(ins, transform, inverse_transform);
+        } else if (word == "scale") {
+            append_scale(ins, transform, inverse_transform);
+        } else {
+            throw ParsingException("Unknown environment light attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    auto env_light = std::make_shared<EnvironmentLight>(radiance);
+    m_lights.push_back(env_light);
 }
 
 void FileParser::parse_instance(const std::string&         body,

@@ -76,6 +76,7 @@ set(SOURCES
         shapes/Primitive.h
         shapes/Shape.h
         shapes/Sphere.h
+        shapes/Triangle.cpp
         shapes/Triangle.h
 )
 

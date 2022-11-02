@@ -143,9 +143,9 @@ private:
 
     RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
     {
-        RGB throughput = RGB::white();
-        RGB L          = RGB::black();
-        RayLimits         limits;
+        RGB       throughput = RGB::white();
+        RGB       L          = RGB::black();
+        RayLimits limits;
 
         for (int depth = 0; depth < scene.max_depth; ++depth) {
             LightIntersection light_intersection;
@@ -160,16 +160,16 @@ private:
                 }
 
                 // Get next direction
-                const auto& wi                = shading_result.direction;
-                const auto  cosine            = std::abs(dot(wi, n));
-                const auto  outgoing_position = ray(limits.m_t_max);
-                const Ray   outgoing_ray{ outgoing_position, wi };
-                ray = outgoing_ray;
+                const auto& wi           = shading_result.direction;
+                const auto  cosine       = std::abs(dot(wi, n));
+                const RGB   contribution = cosine * shading_result.color / shading_result.pdf;
+                throughput *= contribution;
+
+                const auto outgoing_position = ray(limits.m_t_max);
+                const Ray  outgoing_ray{ outgoing_position, wi };
+                ray            = outgoing_ray;
                 limits.m_t_min = get_ray_offset(n, cosine);
                 limits.m_t_max = k_infinite_distance;
-
-                const RGB contribution = cosine * shading_result.color / shading_result.pdf;
-                throughput *= contribution;
             } else if (hit_light) {
                 L += throughput * light_intersection.L;
                 break;
@@ -191,12 +191,12 @@ private:
 
     RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
     {
-        RGB throughput = RGB::white();
-        RGB L          = RGB::black();
+        RGB       throughput = RGB::white();
+        RGB       L          = RGB::black();
+        RayLimits limits;
 
         constexpr float rr_throughput_luminance_cutoff = 0.1f;
         for (int depth = 0; depth < scene.max_depth; ++depth) {
-            RayLimits         limits;
             LightIntersection light_intersection;
             const bool        hit_light = scene.intersect(ray, limits, light_intersection);
             if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
@@ -209,13 +209,9 @@ private:
                 }
 
                 // Get next direction
-                const auto& wi                = shading_result.direction;
-                const auto  cosine            = dot(wi, n);
-                const auto  outgoing_position = ray(limits.m_t_max);
-                const Ray   outgoing_ray{ outgoing_position, wi };
-                ray = outgoing_ray;
-
-                const RGB contribution = cosine * shading_result.color / shading_result.pdf;
+                const auto& wi           = shading_result.direction;
+                const auto  cosine       = std::abs(dot(wi, n));
+                const RGB   contribution = cosine * shading_result.color / shading_result.pdf;
                 throughput *= contribution;
 
                 if (depth >= scene.min_depth) {
@@ -231,6 +227,12 @@ private:
                         }
                     }
                 }
+
+                const auto outgoing_position = ray(limits.m_t_max);
+                const Ray  outgoing_ray{ outgoing_position, wi };
+                ray            = outgoing_ray;
+                limits.m_t_min = get_ray_offset(n, cosine);
+                limits.m_t_max = k_infinite_distance;
             } else if (hit_light) {
                 L += throughput * light_intersection.L;
                 break;

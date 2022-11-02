@@ -31,6 +31,12 @@ public:
         s_log_level = level;
     }
 
+    static bool is_enabled(LoggingLevel level)
+    {
+        using underlying_type = std::underlying_type_t<LoggingLevel>;
+        return static_cast<underlying_type>(s_log_level) >= static_cast<underlying_type>(level);
+    }
+
     template <typename... Args>
     void log_fatal(const char* const file, int line, Args&&... args)
     {
@@ -80,12 +86,6 @@ public:
 
 private:
     Logger() = default;
-
-    static bool is_enabled(LoggingLevel level)
-    {
-        using underlying_type = std::underlying_type_t<LoggingLevel>;
-        return static_cast<underlying_type>(s_log_level) >= static_cast<underlying_type>(level);
-    }
 
     static LoggingLevel s_log_level;
     mutable std::mutex  m_mutex;

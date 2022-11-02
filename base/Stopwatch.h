@@ -10,6 +10,17 @@ namespace sp {
 
 class Stopwatch
 {
+    using centiseconds_type = std::chrono::duration<std::int64_t, std::ratio<1, 100>>;
+
+    struct TimeResult
+    {
+        std::chrono::days::rep     days;
+        std::chrono::hours::rep    hours;
+        std::chrono::minutes ::rep minutes;
+        std::chrono::seconds::rep  seconds;
+        centiseconds_type::rep     centiseconds;
+    };
+
 public:
     Stopwatch()
     : m_start_time{ clock_type::now() }
@@ -18,7 +29,7 @@ public:
     }
 
     explicit Stopwatch(NoInitType)
-    : m_start_time{ }
+    : m_start_time{}
     , m_end_time{}
     {
     }
@@ -50,10 +61,8 @@ public:
 
 private:
     template <typename Rep, typename Period>
-    static auto split_to_units(std::chrono::duration<Rep, Period> duration)
+    static TimeResult split_to_units(std::chrono::duration<Rep, Period> duration)
     {
-        using centiseconds_type = std::chrono::duration<std::uint64_t, std::ratio<1, 100>>;
-
         const auto days = std::chrono::duration_cast<std::chrono::days>(duration);
         duration -= days;
         const auto hours = std::chrono::duration_cast<std::chrono::hours>(duration);
@@ -63,7 +72,7 @@ private:
         const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
         duration -= seconds;
         const auto centiseconds = std::chrono::duration_cast<centiseconds_type>(duration);
-        return std::make_tuple(days.count(), hours.count(), minutes.count(), seconds.count(), centiseconds.count());
+        return { days.count(), hours.count(), minutes.count(), seconds.count(), centiseconds.count() };
     }
 
     using clock_type = std::chrono::system_clock;

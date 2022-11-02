@@ -236,7 +236,7 @@ private:
     // Sort these for binary search.
     // clang-format off
     //static constexpr std::string valid_top_level_types[] = {
-    static constexpr std::string_view valid_top_level_types[] = {
+    static constexpr auto valid_top_level_types = std::to_array<std::string_view>({
         "environment_light"sv,
         "instance"sv,
         "material_clearcoat"sv,
@@ -249,7 +249,7 @@ private:
         "scene_parameters"sv,
         "sphere"sv,
         "sphere_light"sv
-    };
+    });
     // clang-format on
 
 #if __cpp_lib_constexpr_algorithms >= 201806L

@@ -166,17 +166,6 @@ char consume_character(std::istream& ins, char expected, int line = -1)
     return c;
 }
 
-struct IntermediateSceneRepresentation
-{
-    struct PerspectiveCamera
-    {
-        // Point3  origin;
-        Vector3 lookat;
-        float   fov;
-        float   focal_distance;
-    };
-};
-
 [[nodiscard]] int parse_version(std::istream& ins, int line_number)
 {
     Token token;
@@ -225,8 +214,8 @@ private:
     using StringSet           = std::set<std::string, std::less<>>;
     using ParseFunction       = void (FileParser::*)(const std::string&, const LineNumberContainer&, int);
 
-    IntermediateSceneRepresentation parse_intermediate_scene(std::istream& ins);
-    void                            parse_pass(const StringSet&, std::istream&, const LineNumberContainer&);
+    void parse_passes(std::istream& ins);
+    void parse_pass(const StringSet&, std::istream&, const LineNumberContainer&);
 
     void parse_environment_light(const std::string&, const LineNumberContainer&, int);
     void parse_instance(const std::string&, const LineNumberContainer&, int);
@@ -284,7 +273,7 @@ Scene FileParser::parse(std::istream& ins)
 
     try {
         ins.exceptions(std::ios::badbit);
-        const auto intermediate = parse_intermediate_scene(ins);
+        parse_passes(ins);
     } catch (const ParsingException& e) {
         throw;
     } catch (const std::exception& e) {
@@ -787,7 +776,7 @@ auto file_to_string(std::istream& ins)
     return std::make_pair(file_contents, line_numbers);
 }
 
-IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istream& ins)
+void FileParser::parse_passes(std::istream& ins)
 {
     // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
     // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
@@ -869,8 +858,6 @@ IntermediateSceneRepresentation FileParser::parse_intermediate_scene(std::istrea
     };
     // clang-format on
     parse_pass(pass_types3, cleaned_ins, line_numbers);
-
-    return IntermediateSceneRepresentation{};
 }
 
 } // namespace

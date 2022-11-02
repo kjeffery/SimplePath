@@ -18,10 +18,11 @@ namespace sp {
 class ProgressBar
 {
 public:
-    explicit ProgressBar(unsigned total)
+    explicit ProgressBar(unsigned total, std::string suffix = std::string{})
     : m_last_time(std::chrono::system_clock::now())
     , m_step(0)
     , m_total(total)
+    , m_suffix(std::move(suffix))
     {
     }
 
@@ -57,6 +58,7 @@ public:
                       << std::right << std::setfill(' ') << std::setw(4) << percentage << "% |"
                       << std::left  << std::setfill('-') << std::setw(width) << bar << "| "
                       << step << '/' << m_total
+                      << ' ' << m_suffix
                       << std::flush;
             // clang-format on
         }
@@ -79,6 +81,7 @@ private:
     TimePoint             m_last_time;
     std::atomic<unsigned> m_step;
     unsigned              m_total;
+    std::string           m_suffix;
 };
 
 } // namespace sp

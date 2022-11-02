@@ -6,6 +6,7 @@
 
 #include "../math/Vector3.h"
 
+#include <algorithm>
 #include <array>
 #include <execution>
 #include <memory>
@@ -13,6 +14,10 @@
 #include <vector>
 
 namespace sp {
+
+class Mesh;
+
+void log_extents(const Mesh&, const char* const str);
 
 class Mesh
 {
@@ -25,6 +30,10 @@ public:
     , m_vertices(std::move(vertices))
     , m_normals(std::move(normals))
     {
+        log_extents(*this, "Pre-transform");
+
+        // Unlike other objects, we don't transform the ray at intersection test time: we pre-transform all of our
+        // triangles.
         std::transform(std::execution::par_unseq,
                        m_vertices.cbegin(),
                        m_vertices.cend(),
@@ -36,6 +45,8 @@ public:
                        m_normals.cend(),
                        m_normals.begin(),
                        [&object_to_world](auto& n) { return object_to_world(n); });
+
+        log_extents(*this, "Post-transform");
     }
 
     Mesh(Mesh&&)                 = default;

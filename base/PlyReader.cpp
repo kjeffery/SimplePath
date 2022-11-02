@@ -313,6 +313,8 @@ Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_
     using ReaderPointer   = std::unique_ptr<TypeReader>;
     using AnnotatedReader = std::pair<ReaderPointer, std::string>;
 
+    LOG_DEBUG("Parsing PLY ", file_name);
+
     if (!std::filesystem::exists(file_name)) {
         throw std::runtime_error("File " + file_name.string() + " does not exit"); // TODO: PlyException
     }
@@ -439,18 +441,6 @@ Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_
         vertices.emplace_back(x, y, z);
     }
 
-    BBox3 bounds;
-    std::for_each(std::execution::unseq, vertices.cbegin(), vertices.cend(), [&bounds](const auto& p) {
-        bounds.extend(p);
-    });
-    LOG_DEBUG(file_name,
-              " ply file has a bounds of ",
-              bounds.get_lower(),
-              ' ',
-              bounds.get_upper(),
-              " with a center of ",
-              center(bounds));
-
     std::vector<std::size_t> vertex_indices;
     std::vector<Face>        faces;
     // TODO: If we end up splitting quads in the future, we may want to make this reserve twice as big.
@@ -501,17 +491,24 @@ Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_
 
     // Calculate vertex normals from the face normals.
     std::vector<Normal3> vertex_normals(num_vertices, Normal3{ 0.0f, 0.0f, 0.0f });
-    for (const auto& f : faces) {
+    std::for_each(std::execution::unseq, faces.cbegin(), faces.cend(), [&vertex_normals](const auto& f) {
         for (std::size_t i = 0; i < 3; ++i) {
             vertex_normals.at(f.vertex_indices[i]) += f.face_normal;
         }
-    }
+    });
 
-    for (auto& n : vertex_normals) {
-        if (n != Normal3{ 0.0f, 0.0f, 0.0f }) {
-            n = normalize(n);
-        }
-    }
+    std::transform(std::execution::par_unseq,
+                   vertex_normals.cbegin(),
+                   vertex_normals.cend(),
+                   vertex_normals.begin(),
+                   [](const auto& n) {
+                       if (n != Normal3{ 0.0f, 0.0f, 0.0f }) {
+                           return normalize(n);
+                       } else {
+                           LOG_WARNING("Found invalid normal");
+                           return Normal3{ 0.0f, 1.0f, 0.0f };
+                       }
+                   });
 
     return Mesh{ std::move(vertex_indices), std::move(vertices), std::move(vertex_normals), object_to_world };
 }

@@ -16,6 +16,26 @@ public:
     {
     }
 
+    Point3 sample(const Point3& observer_world, const float u1, const float u2) const noexcept
+    {
+        const Point3  center      = get_object_to_world()(Point3{ 0.0f, 0.0f, 0.0f });
+        const Vector3 to_observer = observer_world - center;
+
+        // TODO: check for observer being inside sphere
+
+        const Vector3 sample = sample_to_cosine_hemisphere(Point2{ u1, u2 });
+        const ONB onb = ONB::from_v(to_observer);
+        return onb.to_world(sample);
+    }
+
+    float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
+    {
+        const Point3  center      = get_object_to_world()(Point3{ 0.0f, 0.0f, 0.0f });
+
+        // TODO: check for observer being inside sphere
+
+    }
+
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
@@ -40,7 +60,7 @@ private:
                 return false;
             }
 
-            const Normal3 n{ madd(t, d, Vector3{o}) / k_radius }; // (o + t * d) / k_radius };
+            const Normal3 n{ madd(t, d, Vector3{ o }) / k_radius }; // (o + t * d) / k_radius };
             isect.m_normal = get_object_to_world()(n);
             isect.m_point  = ray(t);
             limits.m_t_max = t;

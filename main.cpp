@@ -143,7 +143,7 @@ std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
     return std::make_tuple(a);
 }
 
-void pretty_print_callback(std::ios::event event, std::ios_base& b, int idx)
+void pretty_print_callback(std::ios::event event, std::ios_base& b, int)
 {
     if (event == std::ios::copyfmt_event) {
         b.iword(sp::k_pretty_print_key) = 1;

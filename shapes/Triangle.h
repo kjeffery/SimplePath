@@ -167,6 +167,19 @@ private:
 
     BBox3 get_object_bounds() const noexcept override
     {
+        // Vertices are transformed into world bounds at mesh creation.
+        BBox3 bounds;
+        for (std::size_t i = 0; i < 3; ++i) {
+            const Point3& p = m_mesh->m_vertices[m_indices[i]];
+            bounds.extend(get_world_to_object()(p));
+        }
+        return bounds;
+    }
+
+    BBox3 get_world_bounds_impl() const noexcept override
+    {
+        // Vertices are already transformed into world bounds at mesh creation.
+
         BBox3 bounds;
         for (std::size_t i = 0; i < 3; ++i) {
             const Point3& p = m_mesh->m_vertices[m_indices[i]];

@@ -295,7 +295,7 @@ private:
     MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
     {
         // TODO: cosine-weighted hemispherical sampling
-        const auto sp = sample_to_hemisphere(sampler.get_next_2D());
+        const auto sp = sample_to_uniform_hemisphere(sampler.get_next_2D());
         return { m_albedo, Vector3{ sp }, uniform_hemisphere_pdf() };
     }
 

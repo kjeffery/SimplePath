@@ -90,7 +90,12 @@ plane {
     translate: 0.0 0.329874 0.0
 }
 
-environment_light {
-    rotate: 0.0 1.0 0.0 45.0
-    radiance: 1.0 1.0 1.3
+#environment_light {
+    #rotate: 0.0 1.0 0.0 45.0
+    #radiance: 1.0 1.0 1.0
+#}
+
+sphere_light {
+    translate: 0.0 3.0 0.0
+    radiance: 10.0 10.0 10.0
 }

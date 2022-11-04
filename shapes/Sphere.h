@@ -16,8 +16,34 @@ public:
     {
     }
 
-    Point3 sample(const Point3& observer_world, const float u1, const float u2) const noexcept
+    Point3 sample(const Point2& u) const noexcept
     {
+        return get_object_to_world()(sample_to_uniform_sphere(u));
+    }
+
+    Point3 sample(const Point3& observer_world, const Point2& u) const noexcept
+    {
+        const Point3  observer    = get_world_to_object()(observer_world);
+        const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0
+
+        // We're inside the sphere.
+        if (sqr_length(to_observer) <= 1.0f) {
+            return sample(u);
+        }
+
+        const Vector3 sample = sample_to_cosine_hemisphere(u);
+
+        // to_observer is in local space
+        const ONB onb = ONB::from_v(to_observer);
+
+        // So, we have to transform from canonical space to local space to world space.
+        const Point3 local_sample{ onb.to_world(sample) };
+
+        // One must be careful here: the ONB works with vectors, but we need to apply the transformation to a point.
+        // E.g. translating a vector is a no-op.
+        return get_object_to_world()(local_sample);
+
+#if 0
         const Point3  center      = get_object_to_world()(Point3{ 0.0f, 0.0f, 0.0f });
         const Vector3 to_observer = observer_world - center;
 
@@ -26,14 +52,32 @@ public:
         const Vector3 sample = sample_to_cosine_hemisphere(Point2{ u1, u2 });
         const ONB onb = ONB::from_v(to_observer);
         return onb.to_world(sample);
+#endif
     }
 
     float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
     {
-        const Point3  center      = get_object_to_world()(Point3{ 0.0f, 0.0f, 0.0f });
+        const Point3  observer    = get_world_to_object()(observer_world);
+        const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0
+
+        const float sqr_distance = sqr_length(to_observer);
+
+        // We're inside the sphere.
+        if (sqr_distance <= 1.0f) {
+            return uniform_sphere_pdf();
+        }
+
+        const float sin_theta_max2 = 1.0f / sqr_distance;
+        const float cos_theta_max  = std::sqrt(std::max(0.0f, 1.0f - sin_theta_max2));
+        return uniform_code_pdf(cos_theta_max);
+
+#if 0
+        const Point3 center = get_object_to_world()(Point3{ 0.0f, 0.0f, 0.0f });
 
         // TODO: check for observer being inside sphere
 
+        return 0.0f;
+#endif
     }
 
 private:

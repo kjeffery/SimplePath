@@ -66,6 +66,7 @@ set(SOURCES
         math/RGB.h
         math/Ray.h
         math/Sampler.h
+        math/Sampling.cpp
         math/Sampling.h
         math/Vector3.h
         math/VectorType.h

@@ -431,6 +431,12 @@ public:
         return pdf_impl(onb.to_onb(wo), onb.to_onb(wi));
     }
 
+    [[nodiscard]] RGB eval(const Vector3& wo, const Vector3& wi, const Normal3& shading_normal) const
+    {
+        const auto onb = ONB::from_v(Vector3{ shading_normal });
+        return eval_impl(onb.to_onb(wo), onb.to_onb(wi));
+    }
+
     [[nodiscard]] MaterialSampleResult
     sample_local_space(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const
     {
@@ -442,9 +448,15 @@ public:
         return pdf_impl(wo_local, wi_local);
     }
 
+    [[nodiscard]] RGB eval_local_space(const Vector3& wo_local, const Vector3& wi_local) const
+    {
+        return eval_impl(wo_local, wi_local);
+    }
+
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
     virtual float                pdf_impl(const Vector3& wo_local, const Vector3& wi_local) const                   = 0;
+    virtual RGB                  eval_impl(const Vector3& wo_local, const Vector3& wi_local) const                  = 0;
 };
 
 // This is based on Veach and Guibas' multiple importance sampling. It's a general material used to hold any number of
@@ -499,7 +511,7 @@ private:
 
             // Normalize the weights
             std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
-              return weight / weight_sum;
+                return weight / weight_sum;
             });
 
             assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
@@ -548,7 +560,7 @@ private:
             const float inner_product = std::reduce(weights.cbegin(), weights.cend(), 0.0f);
 
             // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
-            // techniques.
+            // techniques. Adding in the other produces fireflies due to low PDF values.
 #if 1
             const auto mis_weight   = balance_heuristic(weights[selected_index], inner_product);
             const RGB  result_color = mis_weight * values[selected_index];
@@ -573,7 +585,7 @@ private:
         std::vector<float> weights(num_bxdfs);
         float              weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / m_bxdfs[i]->pdf(wo_local, wi_local));
+            weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local)); // / m_bxdfs[i]->pdf(wo_local, wi_local));
             weight_sum += weights[i];
         }
 
@@ -593,6 +605,33 @@ private:
         }
         assert(pdf <= 1.0f);
         return pdf;
+    }
+
+    RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    {
+        const std::size_t  num_bxdfs = m_bxdfs.size();
+        std::vector<float> weights(num_bxdfs);
+        float              weight_sum{ 0.0f };
+        for (std::size_t i = 0; i < num_bxdfs; ++i) {
+            weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / m_bxdfs[i]->pdf(wo_local, wi_local));
+            weight_sum += weights[i];
+        }
+
+        if (weight_sum == 0.0f) {
+            return RGB::black();
+        }
+
+        std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
+          return weight / weight_sum;
+        });
+
+        assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
+
+        RGB result = RGB::black();
+        for (std::size_t i = 0; i < num_bxdfs; ++i) {
+            result += weights[i] * m_bxdfs[i]->eval(wo_local, wi_local);
+        }
+        return result;
     }
 
     BxDFContainer m_bxdfs;
@@ -659,6 +698,17 @@ private:
         // (f * specular_pdf) + (1.0f - f) * base_pdf
         // (f * 0.0f) + (1.0f - f) * base_pdf
         return (1.0f - f) * m_base->pdf_local_space(wo_local, wi_local);
+    }
+
+    RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
+    {
+        constexpr float ior_air = 1.0f;
+
+        const float f = fresnel_dielectric(cos_theta(wo_local), ior_air, m_ior);
+        assert(f >= 0.0f);
+        assert(f <= 1.0f);
+
+        return (1.0f - f) * m_base->eval_local_space(wo_local, wi_local);
     }
 
     float                     m_ior;

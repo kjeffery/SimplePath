@@ -78,7 +78,7 @@ public:
 
     bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept
     {
-        return m_accelerator_geometry.intersect_p(ray, limits);
+        return m_accelerator_geometry.intersect_p(ray, limits) || m_accelerator_lights.intersect_p(ray, limits);
     }
 
     template <typename F>

@@ -399,7 +399,7 @@ RGB estimate_direct_mis(const Scene&    scene,
     if (light_pdf == 0.0f) {
         return L_result;
     }
-    const float weight = balance_heuristic(1, bsdf_pdf, 1, light_pdf);
+    const float weight = balance_heuristic(1, material_sample.pdf, 1, light_pdf);
 
     RayLimits material_limits;
     material_limits.m_t_min = get_ray_offset(n, material_sample.direction);

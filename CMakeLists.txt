@@ -35,6 +35,7 @@ set(SOURCES
         Image/Image.h
         Integrators/Integrator.h
         Lights/Light.h
+        Lights/LightSample.h
         base/Array2D.h
         base/Constants.h
         base/Endian.h
@@ -76,6 +77,7 @@ set(SOURCES
         shapes/Plane.h
         shapes/Primitive.h
         shapes/Shape.h
+        shapes/ShapeSample.h
         shapes/Sphere.h
         shapes/Triangle.cpp
         shapes/Triangle.h

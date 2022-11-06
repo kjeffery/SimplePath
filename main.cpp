@@ -145,7 +145,7 @@ void morton_demonstration()
         sp::Image img(in.width(), in.height());
 
         // TODO: Huh. I thought I had iterators on the Array2D class...
-        //std::transform(std::execution::par_unseq, in.cbegin(), in.cend(), img.begin())
+        // std::transform(std::execution::par_unseq, in.cbegin(), in.cend(), img.begin())
         for (sp::Image::size_type y = 0; y < in.height(); ++y) {
             for (sp::Image::size_type x = 0; x < in.width(); ++x) {
                 img(x, y) = sp::to_rgb(in(x, y));
@@ -162,6 +162,29 @@ void morton_demonstration()
         for (unsigned iy = start_y; iy < end_y; ++iy) {
             for (unsigned ix = start_x; ix < end_x; ++ix) {
                 hsv_image(ix, iy) = color;
+            }
+        }
+    };
+
+    auto add_grid = [tile_size](sp::Image& image) {
+        for (int center = 0; center < image.width(); center += tile_size) {
+            const int left  = std::max<int>(0, center - 1);
+            const int right = std::min<int>(image.width(), center + 1);
+
+            for (sp::Image::size_type y = 0; y < image.height(); ++y) {
+                image(left, y)   = sp::RGB{ 0.3f };
+                image(center, y) = sp::RGB{ 0.6f };
+                image(right, y)  = sp::RGB{ 0.3f };
+            }
+        }
+        for (int center = 0; center < image.height(); center += tile_size) {
+            const int top    = std::max<int>(0, center - 1);
+            const int bottom = std::min<int>(image.height(), center + 1);
+
+            for (sp::Image::size_type x = 0; x < image.width(); ++x) {
+                image(x, bottom) = sp::RGB{ 0.3f };
+                image(x, center) = sp::RGB{ 0.6f };
+                image(x, top)    = sp::RGB{ 0.3f };
             }
         }
     };
@@ -194,7 +217,9 @@ void morton_demonstration()
         }
 
         // This would be nicer if GCC 10 supported format.
-        const sp::Image rgb_image = convert_to_rgb(hsv_image);
+        sp::Image rgb_image = convert_to_rgb(hsv_image);
+        add_grid(rgb_image);
+
         std::ostringstream name_stream;
         name_stream << "morton_frames/morton_" << std::setw(4) << std::setfill('0') << frame << ".pfm";
         sp::write(name_stream.str(), rgb_image);

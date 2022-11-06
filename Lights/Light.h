@@ -31,10 +31,10 @@ public:
 
     LightSample sample(const Point3& observer_world, const Normal3& observer_normal, const Point2& u) const noexcept
     {
-        const ShapeSample shape_sample = shape_sample(observer_world, u);
-        const Vector3     to_sample    = shape_sample.m_p - observer_world;
-        const Vector3     wi           = normalize(to_sample);
-        const float       pdf          = shape_pdf(observer_world, wi);
+        const ShapeSample s_sample  = shape_sample(observer_world, u);
+        const Vector3     to_sample = s_sample.m_p - observer_world;
+        const Vector3     wi        = normalize(to_sample);
+        const float       pdf       = shape_pdf(observer_world, wi);
 
         RayLimits limits;
         limits.m_t_min = get_ray_offset(observer_normal, wi);
@@ -42,11 +42,14 @@ public:
 
         const Ray              occlusion_ray{ observer_world, wi };
         const VisibilityTester visibility_tester{ limits, occlusion_ray };
-        const RGB              radiance = L(shape_sample.m_p, shape_sample.m_n, -wi);
+        const RGB              radiance = L(s_sample.m_p, s_sample.m_n, -wi);
         return { radiance, pdf, visibility_tester };
     }
 
-    float pdf(const Point3& observer_world, const Vector3& wi) const noexcept;
+    float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
+    {
+        return shape_pdf(observer_world, wi);
+    }
 
     RGB L(const Point3& p, const Normal3& n, const Vector3& w) const noexcept
     {
@@ -60,7 +63,7 @@ protected:
     }
 
 private:
-    virtual LightSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept = 0;
+    virtual ShapeSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept = 0;
     virtual float       shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept  = 0;
 
     RGB m_radiance;
@@ -107,8 +110,9 @@ private:
 
     ShapeSample shape_sample(const Point3&, const Point2& u) const noexcept override
     {
-        const Point3 p = sample_to_uniform_sphere(u);
-        const Normal3 n = -Normal3{p};
+        const Point3  p = sample_to_uniform_sphere(u);
+        const Normal3 n = -Normal3{ p };
+        return { p, n };
     }
 
     float shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept override

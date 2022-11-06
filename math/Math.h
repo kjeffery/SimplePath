@@ -84,6 +84,11 @@ inline float balance_heuristic(float p, float inner_product) noexcept
     return w;
 }
 
+inline float balance_heuristic(int nf, float f_pdf, int ng, float g_pdf) noexcept
+{
+    return balance_heuristic(nf, f_pdf, nf * f_pdf + ng * g_pdf);
+}
+
 template <typename T>
 requires std::is_integral_v<T>
 constexpr bool is_power_of_two(T v) noexcept
@@ -186,8 +191,8 @@ inline float rsqrt(const float x) noexcept
 // Taken from https://stackoverflow.com/a/49743348 and modified to fit my own selfish needs.
 inline float erfinv(float a) noexcept
 {
-    float p;
-    float r;
+    float       p;
+    float       r;
     const float t = std::log(madd(a, 0.0f - a, 1.0f));
     // clang-format off
     if (std::abs(t) > 6.125f) { // maximum ulp error = 2.35793

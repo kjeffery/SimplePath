@@ -50,7 +50,9 @@ private:
 
 inline float get_ray_offset(const Normal3& n, const float cos_d) noexcept
 {
-    assert(cos_d != 0.0f);
+    if (cos_d == 0.0f) {
+        return k_ray_epsilon; // Meh. What are you going to do?
+    }
     const float h = k_ray_epsilon / cos_d;
     return h;
 }

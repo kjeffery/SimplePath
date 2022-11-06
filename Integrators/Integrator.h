@@ -337,4 +337,169 @@ private:
     mutable StatsDepthContainer m_stats;
 };
 
+RGB estimate_direct(const Scene&    scene,
+                    const Light&    light,
+                    const Point3&   p,
+                    const Normal3&  n,
+                    const Vector3&  wo,
+                    Sampler&        sampler,
+                    const Material& material)
+{
+    RGB L_result = RGB::black();
+
+    const LightSample light_sample = light.sample(p, n, sampler.get_next_2D());
+    if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
+        return L_result;
+    }
+
+    if (scene.intersect_p(light_sample.m_tester.m_ray, light_sample.m_tester.m_limits)) {
+        // Occluded: we're in shadow
+        return L_result;
+    }
+
+    return light_sample.m_L / light_sample.m_pdf;
+}
+
+RGB estimate_direct_mis(const Scene&    scene,
+                        const Light&    light,
+                        const Point3&   p,
+                        const Normal3&  n,
+                        const Vector3&  wo,
+                        Sampler&        sampler,
+                        const Material& material)
+{
+    RGB L_result = RGB::black();
+
+    const LightSample light_sample = light.sample(p, n, sampler.get_next_2D());
+    if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
+        return L_result;
+    }
+
+    if (scene.intersect_p(light_sample.m_tester.m_ray, light_sample.m_tester.m_limits)) {
+        // Occluded: we're in shadow
+        return L_result;
+    }
+
+    const Vector3& wi        = light_sample.m_tester.m_ray.get_direction();
+    const RGB      bsdf_eval = material.eval(wo, wi, n);
+
+    float bsdf_pdf;
+    if (bsdf_eval != RGB::black()) {
+        bsdf_pdf           = material.pdf(wo, wi, n);
+        const float weight = balance_heuristic(1, light_sample.m_pdf, 1, bsdf_pdf);
+        L_result += bsdf_eval * light_sample.m_L * (std::abs(dot(wi, n) * weight / light_sample.m_pdf));
+    }
+
+    const MaterialSampleResult material_sample = material.sample(wo, n, sampler);
+    if (material_sample.pdf == 0.0f || material_sample.color == RGB::black()) {
+        return L_result;
+    }
+
+    const float light_pdf = light.pdf(p, material_sample.direction);
+    if (light_pdf == 0.0f) {
+        return L_result;
+    }
+    const float weight = balance_heuristic(1, bsdf_pdf, 1, light_pdf);
+
+    RayLimits material_limits;
+    material_limits.m_t_min = get_ray_offset(n, material_sample.direction);
+    material_limits.m_t_max = k_infinite_distance;
+    const Ray material_ray{ p, material_sample.direction };
+    if (LightIntersection light_intersection; scene.intersect(material_ray, material_limits, light_intersection)) {
+        L_result += material_sample.color * light_intersection.L * std::abs(dot(material_sample.direction, n)) *
+                    weight / material_sample.pdf;
+    }
+
+    return L_result;
+}
+
+class BruteForceIntegratorIterativeRRNEE : public Integrator
+{
+private:
+    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    {
+        return do_integrate(ray, scene, sampler);
+    }
+
+    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    {
+        RGB       throughput = RGB::white();
+        RGB       L          = RGB::black();
+        RayLimits limits;
+
+        constexpr float rr_throughput_luminance_cutoff = 0.1f;
+        for (int depth = 0; depth < scene.max_depth; ++depth) {
+            LightIntersection light_intersection;
+            const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+            if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
+                assert(geometry_intersection.m_material);
+
+                const Vector3  wo = -ray.get_direction();
+                const Normal3& n  = geometry_intersection.m_normal;
+
+                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
+                    break;
+                }
+
+#if 0
+                scene.for_each_light(
+                    [&L, &scene, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
+                        L += throughput * estimate_direct(scene,
+                                                          light,
+                                                          ray.get_origin(),
+                                                          n,
+                                                          wo,
+                                                          sampler,
+                                                          *geometry_intersection.m_material);
+                    });
+#else
+                scene.for_each_light(
+                    [&L, &scene, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
+                        L += throughput * estimate_direct_mis(scene,
+                                                              light,
+                                                              ray.get_origin(),
+                                                              n,
+                                                              wo,
+                                                              sampler,
+                                                              *geometry_intersection.m_material);
+                    });
+#endif
+
+                // Get next direction
+                const auto  outgoing_position = ray(limits.m_t_max);
+                const auto& wi                = shading_result.direction;
+                const auto  cosine            = std::abs(dot(wi, n));
+                const RGB   contribution      = cosine * shading_result.color / shading_result.pdf;
+                throughput *= contribution;
+
+                if (depth >= scene.min_depth) {
+                    const float lum = relative_luminance(throughput);
+                    if (lum < rr_throughput_luminance_cutoff) {
+                        // q is the probability of continuing
+                        const float q = std::max(0.05f, lum / rr_throughput_luminance_cutoff);
+                        assert(q < 1.0f);
+                        if (sampler.get_next_1D() < q) {
+                            throughput /= q;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                const Ray outgoing_ray{ outgoing_position, wi };
+                ray            = outgoing_ray;
+                limits.m_t_min = get_ray_offset(n, cosine);
+                limits.m_t_max = k_infinite_distance;
+            } else if (hit_light) {
+                L += throughput * light_intersection.L;
+                break;
+            } else {
+                break;
+            }
+        }
+        return L;
+    }
+};
+
 } // namespace sp

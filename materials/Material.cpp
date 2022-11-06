@@ -122,12 +122,13 @@ Vector3 BeckmannDistribution::sample_wh_impl(const Vector3& wo, Sampler& sampler
         } else {
             // Compute _tan2Theta_ and _phi_ for anisotropic Beckmann
             // distribution
-            const float log_sample = std::log(1 - sampler.get_next_1D());
+            const float log_sample = std::log(1.0f - sampler.get_next_1D());
             assert(!std::isinf(log_sample));
+            const float u1 = sampler.get_next_1D();
             phi = std::atan(
                 m_alpha_y / m_alpha_x *
-                std::tan(2.0f * std::numbers::pi_v<float> * sampler.get_next_1D() + 0.5f * std::numbers::pi_v<float>));
-            if (sampler.get_next_1D() > 0.5f) {
+                std::tan(2.0f * std::numbers::pi_v<float> * u1 + 0.5f * std::numbers::pi_v<float>));
+            if (u1 > 0.5f) {
                 phi += std::numbers::pi_v<float>;
             }
             const float sin_phi  = std::sin(phi);

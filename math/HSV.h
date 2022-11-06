@@ -4,6 +4,8 @@
 
 #include "RGB.h"
 
+#include "../math/Angles.h"
+
 #include <cassert>
 #include <cstdint>
 #include <ostream>
@@ -26,11 +28,19 @@ struct HSV
     {
     }
 
+    constexpr HSV(Degrees ih, float is, float iv) noexcept
+    : h(ih.as_float() / 360.0f)
+    , s(is)
+    , v(iv)
+    {
+    }
+
     constexpr HSV(float ih, float is, float iv) noexcept
     : h(ih)
     , s(is)
     , v(iv)
     {
+        assert(ih <= 1.0f);
     }
 
     float h;
@@ -129,10 +139,10 @@ inline RGB to_rgb(const HSV& hsv) noexcept
     assert(hsv.v >= 0.0f);
     assert(hsv.v <= 1.0f);
 
-    const float C = hsv.v * hsv.s;
+    const float C      = hsv.v * hsv.s;
     const auto  hprime = static_cast<int>(std::floor(hsv.h * 6.0f));
-    const float X = C * (1.0f - std::abs(std::fmod(hprime, 2.0f) - 1.0f));
-    const float M = hsv.v - C;
+    const float X      = C * (1.0f - std::abs(std::fmod(hprime, 2.0f) - 1.0f));
+    const float M      = hsv.v - C;
     switch (hprime % 6) {
     case 0:
         return RGB{ C, X, 0 };

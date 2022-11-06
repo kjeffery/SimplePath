@@ -39,7 +39,7 @@ concept squarable = requires(T v)
 // clang-format off
 template <typename T>
 requires squarable<T>
-T square(const T& t) noexcept(noexcept(t * t))
+constexpr T square(const T& t) noexcept(noexcept(t * t))
 {
     return t * t;
 }

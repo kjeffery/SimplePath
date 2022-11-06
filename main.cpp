@@ -93,10 +93,11 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
     // sp::BruteForceIntegrator     integrator;
     // sp::BruteForceIntegratorIterative integrator;
     sp::BruteForceIntegratorIterativeRR integrator;
-    //    sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
-    //                                                          scene.max_depth,
-    //                                                          scene.image_width,
-    //                                                          scene.image_height);
+    // sp::BruteForceIntegratorIterativeRRNEE integrator;
+    //     sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
+    //                                                           scene.max_depth,
+    //                                                           scene.image_width,
+    //                                                           scene.image_height);
     sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
     sp::ProgressBar              progress_bar(scheduler.get_num_tiles() * num_passes, "tiles");
     std::vector<std::jthread>    threads;
@@ -121,6 +122,83 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
     stopwatch.stop();
     std::cout << "\nElapsed time: ";
     stopwatch.print(std::cout);
+}
+
+void morton_demonstration()
+{
+    constexpr unsigned tile_size          = 32u;
+    constexpr unsigned num_tiles_1D       = 16u;
+    constexpr unsigned num_tiles          = sp::square(num_tiles_1D);
+    constexpr unsigned num_pixels_1D      = tile_size * num_tiles_1D;
+    constexpr unsigned num_pixels         = sp::square(num_pixels_1D);
+    constexpr unsigned frames_to_activate = 2u;
+    constexpr unsigned frames_to_fade     = 50u;
+    constexpr unsigned total_frames       = frames_to_activate * num_tiles + frames_to_fade;
+    constexpr float    min_saturation     = 0.0f;
+
+    constexpr sp::HSV base_color{ sp::Degrees{ 240.0f }, min_saturation, 1.0f };
+    constexpr sp::HSV hit_color{ sp::Degrees{ 240.0f }, 1.0f, 1.0f };
+
+    sp::Array2D<sp::HSV> hsv_image(num_pixels_1D, num_pixels_1D, base_color);
+
+    auto convert_to_rgb = [](const sp::Array2D<sp::HSV>& in) {
+        sp::Image img(in.width(), in.height());
+
+        // TODO: Huh. I thought I had iterators on the Array2D class...
+        //std::transform(std::execution::par_unseq, in.cbegin(), in.cend(), img.begin())
+        for (sp::Image::size_type y = 0; y < in.height(); ++y) {
+            for (sp::Image::size_type x = 0; x < in.width(); ++x) {
+                img(x, y) = sp::to_rgb(in(x, y));
+            }
+        }
+        return img;
+    };
+
+    auto set_tile_color = [&hsv_image, tile_size](unsigned x, unsigned y, const sp::HSV& color) {
+        const auto start_x = x * tile_size;
+        const auto start_y = y * tile_size;
+        const auto end_x   = start_x + tile_size;
+        const auto end_y   = start_y + tile_size;
+        for (unsigned iy = start_y; iy < end_y; ++iy) {
+            for (unsigned ix = start_x; ix < end_x; ++ix) {
+                hsv_image(ix, iy) = color;
+            }
+        }
+    };
+
+    for (unsigned frame = 0; frame < total_frames; ++frame) {
+        for (unsigned tile = 0; tile < num_tiles; ++tile) {
+            const unsigned activation_frame = frames_to_activate * tile;
+            if (frame < activation_frame) {
+                continue;
+            }
+
+            const auto [x, y] = sp::morton_decode(tile);
+
+            if (frame == activation_frame) {
+                set_tile_color(x, y, hit_color);
+            } else {
+                assert(activation_frame < frame);
+
+                float saturation = min_saturation;
+                if (frame - activation_frame <= frames_to_fade) {
+                    const unsigned frames_past_expiration = frame - activation_frame;
+                    saturation = min_saturation + (1.0f - static_cast<float>(frames_past_expiration) /
+                                                              static_cast<float>(frames_to_fade));
+                }
+
+                sp::HSV color = hit_color;
+                color.s       = saturation;
+                set_tile_color(x, y, color);
+            }
+        }
+
+        // This would be nicer if GCC 10 supported format.
+        const sp::Image rgb_image = convert_to_rgb(hsv_image);
+        std::ostringstream name_stream;
+        name_stream << "morton_frames/morton_" << std::setw(4) << std::setfill('0') << frame << ".pfm";
+        sp::write(name_stream.str(), rgb_image);
+    }
 }
 
 template <typename First, typename... Rest>
@@ -175,6 +253,9 @@ int main(const int argc, const char* const argv[])
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
+
+    morton_demonstration();
+    return EXIT_SUCCESS;
 
     std::string file_path;
     try {

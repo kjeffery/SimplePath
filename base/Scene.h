@@ -60,8 +60,9 @@ public:
           PrimitiveIterator shapes_last,
           LightIterator     lights_first,
           LightIterator     lights_last)
-    : m_accelerator_geometry{ internal::create_acceleration_structure(shapes_first, shapes_last) }
-    , m_accelerator_lights{ lights_first, lights_last }
+    : m_lights(lights_first, lights_last)
+    , m_accelerator_geometry{ internal::create_acceleration_structure(shapes_first, shapes_last) }
+    , m_accelerator_lights{ internal::create_acceleration_structure(lights_first, lights_last) }
     {
     }
 
@@ -80,6 +81,12 @@ public:
         return m_accelerator_geometry.intersect_p(ray, limits);
     }
 
+    template <typename F>
+    void for_each_light(F f) const
+    {
+        std::for_each(m_lights.cbegin(), m_lights.cend(), [f](const auto& light_pointer) { f(*light_pointer); });
+    }
+
     // TODO: variables
     int                  image_width  = 800;
     int                  image_height = 600;
@@ -92,6 +99,8 @@ public:
     std::unique_ptr<Camera> m_camera;
 
 private:
+    LightContainer m_lights;
+
     ListAccelerator m_accelerator_geometry;
     ListAccelerator m_accelerator_lights;
 };

@@ -167,26 +167,44 @@ void morton_demonstration()
     };
 
     auto add_grid = [tile_size](sp::Image& image) {
-        for (int center = 0; center < image.width(); center += tile_size) {
-            const int left  = std::max<int>(0, center - 1);
-            const int right = std::min<int>(image.width(), center + 1);
+        sp::Image result(image.width(), image.height());
+        for (int i = 0; i <= image.width(); i += tile_size) {
+            const int left  = std::max<int>(0, i- 1);
+            const int right = std::min<int>(image.width() - 1, i);
 
             for (sp::Image::size_type y = 0; y < image.height(); ++y) {
-                image(left, y)   = sp::RGB{ 0.3f };
-                image(center, y) = sp::RGB{ 0.6f };
-                image(right, y)  = sp::RGB{ 0.3f };
+                result(left, y)  = max(sp::RGB{ 0.3f }, result(left, y));
+                result(right, y) = max(sp::RGB{ 0.3f }, result(right, y));
             }
         }
-        for (int center = 0; center < image.height(); center += tile_size) {
-            const int top    = std::max<int>(0, center - 1);
-            const int bottom = std::min<int>(image.height(), center + 1);
+        for (int i = 0; i <= image.height(); i += tile_size) {
+            const int top    = std::max<int>(0, i - 1);
+            const int bottom = std::min<int>(image.height() - 1, i);
 
             for (sp::Image::size_type x = 0; x < image.width(); ++x) {
-                image(x, bottom) = sp::RGB{ 0.3f };
-                image(x, center) = sp::RGB{ 0.6f };
-                image(x, top)    = sp::RGB{ 0.3f };
+                result(x, bottom) = max(sp::RGB{ 0.3f }, result(x, bottom));
+                result(x, top)    = max(sp::RGB{ 0.3f }, result(x, top));
             }
         }
+        const int center_x = image.width() / 2;
+        const int center_y = image.height() / 2;
+        for (int x = 0; x < image.width(); ++x) {
+            result(x, center_y)     = max(sp::RGB{ 0.7f }, result(x, center_y));
+            result(x, center_y - 1) = max(sp::RGB{ 0.7f }, result(x, center_y - 1));
+        }
+        for (int y = 0; y < image.height(); ++y) {
+            result(center_x, y)     = max(sp::RGB{ 0.7f }, result(center_x, y));
+            result(center_x - 1, y) = max(sp::RGB{ 0.7f }, result(center_x - 1, y));
+        }
+
+        for (sp::Image::size_type y = 0; y < image.height(); ++y) {
+            for (sp::Image::size_type x = 0; x < image.width(); ++x) {
+                const float alpha = sp::relative_luminance(result(x, y));
+                result(x, y)      = result(x, y) * alpha + image(x, y) * (1.0f - alpha);
+            }
+        }
+
+        return result;
     };
 
     for (unsigned frame = 0; frame < total_frames; ++frame) {
@@ -218,7 +236,7 @@ void morton_demonstration()
 
         // This would be nicer if GCC 10 supported format.
         sp::Image rgb_image = convert_to_rgb(hsv_image);
-        add_grid(rgb_image);
+        rgb_image           = add_grid(rgb_image);
 
         std::ostringstream name_stream;
         name_stream << "morton_frames/morton_" << std::setw(4) << std::setfill('0') << frame << ".pfm";

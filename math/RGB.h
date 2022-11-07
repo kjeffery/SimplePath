@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <istream>
 #include <ostream>
+#include <utility>
 
 namespace sp {
 
@@ -170,6 +171,11 @@ inline RGB operator/(RGB a, const RGB& b) noexcept
 inline RGB operator/(RGB a, float b) noexcept
 {
     return a /= b;
+}
+
+inline RGB max(const RGB& a, const RGB& b) noexcept
+{
+    return { std::max(a.r, b.r), std::max(a.g, b.g), std::max(a.b, b.b) };
 }
 
 template <>

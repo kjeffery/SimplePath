@@ -15,6 +15,11 @@
 
 namespace sp {
 
+bool occluded(const VisibilityTester& tester, const Scene& scene)
+{
+    return scene.intersect_p(tester.m_ray, tester.m_limits);
+}
+
 class Integrator
 {
 public:
@@ -239,6 +244,47 @@ private:
             } else {
                 break;
             }
+        }
+        return L;
+    }
+};
+
+class DirectLightingIntegrator : public Integrator
+{
+private:
+    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    {
+        return do_integrate(ray, scene, sampler);
+    }
+
+    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    {
+        RGB       throughput = RGB::white();
+        RGB       L          = RGB::black();
+        RayLimits limits;
+
+        LightIntersection light_intersection;
+        const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+
+        if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
+            scene.for_each_light([&ray, &scene, &L, &geometry_intersection, &sampler](const Light& light) {
+                const LightSample light_sample =
+                    light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
+                if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
+                    return;
+                }
+
+                const Vector3  wo = -ray.get_direction();
+                const Normal3& n  = geometry_intersection.m_normal;
+                const Vector3& wi = light_sample.m_tester.m_ray.get_direction();
+                const RGB      f  = geometry_intersection.m_material->eval(wo, wi, n);
+
+                if (f != RGB::black() && !occluded(light_sample.m_tester, scene)) {
+                    L += f * light_sample.m_L * std::abs(dot(wi, n)) / light_sample.m_pdf;
+                }
+            });
+        } else if (hit_light) {
+            L += throughput * light_intersection.L;
         }
         return L;
     }

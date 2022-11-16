@@ -27,7 +27,7 @@
 namespace fs = std::filesystem;
 
 namespace sp {
-int k_pretty_print_key;
+int k_pretty_print_key = -1;
 } // namespace sp
 
 sp::Scene parse_scene_file(std::string_view file_name)
@@ -93,11 +93,12 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
     // sp::BruteForceIntegrator     integrator;
     // sp::BruteForceIntegratorIterative integrator;
     sp::BruteForceIntegratorIterativeRR integrator;
-    // sp::BruteForceIntegratorIterativeRRNEE integrator;
-    //     sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
-    //                                                           scene.max_depth,
-    //                                                           scene.image_width,
-    //                                                           scene.image_height);
+    // sp::DirectLightingIntegrator integrator;
+    //  sp::BruteForceIntegratorIterativeRRNEE integrator;
+    //      sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
+    //                                                            scene.max_depth,
+    //                                                            scene.image_width,
+    //                                                            scene.image_height);
     sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
     sp::ProgressBar              progress_bar(scheduler.get_num_tiles() * num_passes, "tiles");
     std::vector<std::jthread>    threads;
@@ -169,7 +170,7 @@ void morton_demonstration()
     auto add_grid = [tile_size](sp::Image& image) {
         sp::Image result(image.width(), image.height());
         for (int i = 0; i <= image.width(); i += tile_size) {
-            const int left  = std::max<int>(0, i- 1);
+            const int left  = std::max<int>(0, i - 1);
             const int right = std::min<int>(image.width() - 1, i);
 
             for (sp::Image::size_type y = 0; y < image.height(); ++y) {
@@ -274,7 +275,12 @@ void pretty_print_callback(std::ios::event event, std::ios_base& b, int)
 void enable_pretty_printing(std::ostream& outs)
 {
     // Enable pretty-printing of our types.
-    sp::k_pretty_print_key             = std::ios_base::xalloc();
+
+    // Maybe a bit of abuse of call_once? We don't care much about thread-safety here, we just want to allocate our
+    // key once.
+    static std::once_flag xalloc_flag;
+    std::call_once(xalloc_flag, []() { sp::k_pretty_print_key = std::ios_base::xalloc(); });
+
     outs.iword(sp::k_pretty_print_key) = 1;
     outs.register_callback(&pretty_print_callback, sp::k_pretty_print_key);
 }
@@ -288,6 +294,7 @@ int main(const int argc, const char* const argv[])
 {
     using namespace std::literals;
     enable_pretty_printing(std::cout);
+    enable_pretty_printing(std::cerr);
 
     unsigned int num_threads       = std::thread::hardware_concurrency();
     unsigned int num_pixel_samples = 1u;
@@ -296,9 +303,6 @@ int main(const int argc, const char* const argv[])
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
-
-    morton_demonstration();
-    return EXIT_SUCCESS;
 
     std::string file_path;
     try {

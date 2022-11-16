@@ -316,6 +316,7 @@ void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, co
             assert(m_parse_function_lookup.contains(word));
             auto fn = m_parse_function_lookup[word];
             (this->*fn)(body, line_numbers, offset);
+            LOG_FLUSH();
         }
     }
 }
@@ -742,6 +743,14 @@ void FileParser::parse_sphere(const std::string&         body,
     assert(material);
 
     auto sphere_shape     = std::make_shared<Sphere>(transform, inverse_transform);
+
+#if 0
+    Sampler sampler = Sampler::create_new_set(42, 512);
+    for (int i = 0; i < 512; ++i) {
+        const auto s = sphere_shape->sample(Point3{-10.0f, -10.0f, 10.0f}, sampler.get_next_2D());
+        std::cerr << s << '\n';
+    }
+#endif
     auto sphere_primitive = std::make_shared<GeometricPrimitive>(sphere_shape, material);
     m_geometry.push_back(sphere_primitive);
 }
@@ -750,6 +759,37 @@ void FileParser::parse_sphere_light(const std::string&         body,
                                     const LineNumberContainer& line_numbers,
                                     int                        line_number_character_offset)
 {
+    std::istringstream ins(body);
+    ins.exceptions(std::ios::badbit);
+
+    AffineSpace transform{ AffineSpace::identity() };
+    AffineSpace inverse_transform{ AffineSpace::identity() };
+    RGB         radiance = RGB::white();
+
+    for (Token token; ins;) {
+        ins >> token;
+        if (ins.eof()) {
+            break;
+        }
+        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+        const std::string& word = token;
+        if (word == "radiance") {
+            ins >> radiance;
+        } else if (word == "translate") {
+            append_translate(ins, transform, inverse_transform);
+        } else if (word == "rotate") {
+            append_rotation(ins, transform, inverse_transform);
+        } else if (word == "scale") {
+            append_scale(ins, transform, inverse_transform);
+        } else {
+            throw ParsingException("Unknown environment light attribute: " + word,
+                                   line_numbers[line_number_character_offset + ins.tellg()]);
+        }
+    }
+
+    auto sphere_light = std::make_shared<SphereLight>(radiance, transform, inverse_transform);
+    m_lights.push_back(sphere_light);
 }
 
 // Returns the contents of the file with blank lines and comments stripped as well as an array which tells us which line

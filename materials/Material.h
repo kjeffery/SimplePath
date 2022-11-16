@@ -716,24 +716,6 @@ private:
     std::shared_ptr<Material> m_base;
 };
 
-// TODO: remove?
-class LambertianMaterial : public OneSampleMaterial
-{
-public:
-    explicit LambertianMaterial(RGB albedo)
-    : OneSampleMaterial{ build(albedo) }
-    {
-    }
-
-private:
-    static OneSampleMaterial::BxDFContainer build(RGB albedo)
-    {
-        OneSampleMaterial::BxDFContainer bxdfs;
-        bxdfs.emplace_back(new LambertianBRDF{ albedo });
-        return bxdfs;
-    }
-};
-
 inline OneSampleMaterial create_lambertian_material(RGB albedo)
 {
     OneSampleMaterial::BxDFContainer bxdfs;

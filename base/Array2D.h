@@ -194,7 +194,7 @@ private:
 
         static bool allocators_equal(const allocator_type& a, const allocator_type& b) noexcept
         {
-            return allocator_traits::is_always_equal || a == b;
+            return typename allocator_traits::is_always_equal::value_type() || a == b;
         }
 
         Impl& operator=(const Impl& other)
@@ -209,7 +209,7 @@ private:
             // !propagate |
             // -----------+--------------+--------------+
 
-            constexpr bool propagate = allocator_traits::propagate_on_container_copy_assignment;
+            constexpr bool propagate = typename allocator_traits::propagate_on_container_copy_assignment::value_type();
             const bool     realloc   = (propagate && !allocators_equal(*this, other)) ||
                                  (m_width != other.m_width || m_height != other.m_height);
 
@@ -243,7 +243,8 @@ private:
 
         Impl& operator=(Impl&& other) // TODO: noexcept clause
         {
-            if constexpr (allocator_traits::propagate_on_container_move_assignment) {
+            constexpr bool propagate = typename allocator_traits::propagate_on_container_move_assignment::value_type();
+            if constexpr (propagate) {
                 destroy();
                 allocator_traits::deallocate(this->get_allocator(), m_data, memory_size(m_width, m_height));
 
@@ -267,7 +268,7 @@ private:
 
                     m_width  = other.m_width;
                     m_height = other.m_height;
-                    m_data   = allocator_traits::allocate(m_impl.get_allocator(), memory_size(m_width, m_height));
+                    m_data   = allocator_traits::allocate(this->get_allocator(), memory_size(m_width, m_height));
 
                     for (size_type y = 0; y < m_height; ++y) {
                         for (size_type x = 0; x < m_width; ++x) {
@@ -304,7 +305,8 @@ private:
             // No-op
         }
 
-        void swap(Impl& other) noexcept(!allocator_traits::propagate_on_container_swap) // TODO: or the swap is noexcept
+        // TODO: or the swap is noexcept
+        void swap(Impl& other) noexcept(!typename allocator_traits::propagate_on_container_swap::value_type())
         {
             std::swap(m_width, other.m_width);
             std::swap(m_height, other.m_height);

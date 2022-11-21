@@ -40,17 +40,36 @@ public:
     }
 
     template <typename T, typename... Args>
-    [[nodiscard]] T* allocate(Args&&... args)
+    [[nodiscard]] T* arena_new(Args&&... args)
     requires(std::is_trivially_destructible_v<T>)
     {
-        return raw_allocate<T>(std::forward<Args>(args)...);
+        T* const mem = allocate<T>();
+        return new (mem) T(std::forward<Args>(args)...);
     }
 
     template <typename T, typename... Args>
-    [[nodiscard]] DestroyingPointer<T> allocate(Args&&... args)
+    [[nodiscard]] DestroyingPointer<T> arena_new(Args&&... args)
     requires(!std::is_trivially_destructible_v<T>)
     {
-        return DestroyingPointer<T>{ raw_allocate<T>(std::forward<Args>(args)...) };
+        T* const mem = allocate<T>();
+        new (mem) T(std::forward<Args>(args)...);
+        return DestroyingPointer<T>{ mem };
+    }
+
+    // This just allocates raw memory: there is no initialization.
+    template <typename T>
+    [[nodiscard]] T* allocate()
+    {
+        if (T* const p = allocate_from_block<T>()) {
+            assert(is_aligned(p, alignof(T)));
+            return p;
+        }
+        new_block<T>();
+        assert(m_block_offset == 0);
+        T* const p = allocate_from_block<T>(); // This should never fail after the call to new_block;
+        assert(p);
+        assert(is_aligned(p, alignof(T)));
+        return p;
     }
 
     template <typename T>
@@ -104,23 +123,8 @@ private:
         std::size_t m_size;
     };
 
-    template <typename T, typename... Args>
-    [[nodiscard]] T* raw_allocate(Args&&... args)
-    {
-        if (T* const p = allocate_from_block<T>(std::forward<Args>(args)...)) {
-            assert(is_aligned(p, alignof(T)));
-            return p;
-        }
-        new_block<T>();
-        assert(m_block_offset == 0);
-        T* const p = allocate_from_block<T>(std::forward<Args>(args)...);
-        assert(p);
-        assert(is_aligned(p, alignof(T)));
-        return p;
-    }
-
-    template <typename T, typename... Args>
-    [[nodiscard]] T* allocate_from_block(Args&&... args)
+    template <typename T>
+    [[nodiscard]] T* allocate_from_block()
     {
         assert(!m_allocated.empty());
 
@@ -134,7 +138,7 @@ private:
         }
 
         m_block_offset = block_offset + space_needed;
-        return new (aligned_mem) T(std::forward<Args>(args)...);
+        return aligned_mem;
     }
 
     template <typename T>
@@ -173,6 +177,26 @@ private:
     std::forward_list<MemoryBlock> m_free;
 
     std::size_t m_block_offset = 0U;
+};
+
+template <typename T>
+class ArenaAllocator
+{
+public:
+    using value_type = T;
+
+    explicit ArenaAllocator(MemoryArena& arena) noexcept
+    : m_arena(std::addressof(arena))
+    {
+    }
+
+    [[nodiscard]] T* allocate(std::size_t n)
+    {
+
+    }
+
+private:
+    MemoryArena* m_arena;
 };
 
 } // namespace sp

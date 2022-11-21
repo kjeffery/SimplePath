@@ -7,8 +7,22 @@
 #include <cassert>
 #include <cstddef>
 #include <forward_list>
+#include <type_traits>
 
 namespace sp {
+
+// Destructs, does not de-allocate.
+template <typename T>
+struct CallDestructor
+{
+    void operator()(T* t) noexcept
+    {
+        t->~T();
+    }
+};
+
+template <typename T>
+using DestroyingPointer = std::unique_ptr<T, CallDestructor<T>>;
 
 // This class is not meant to be thread-safe. Use one per thread.
 class MemoryArena
@@ -26,24 +40,22 @@ public:
     }
 
     template <typename T, typename... Args>
-    T* allocate(Args&&... args)
+    [[nodiscard]] T* allocate(Args&&... args)
+    requires(std::is_trivially_destructible_v<T>)
     {
-        if (T* const p = allocate_from_block<T>(std::forward<Args>(args)...)) {
-            assert(is_aligned(p, alignof(T)));
-            return p;
-        }
-        new_block<T>();
-        assert(m_block_offset == 0);
-        T* const p = allocate_from_block<T>(std::forward<Args>(args)...);
-        assert(p);
-        assert(is_aligned(p, alignof(T)));
-        return p;
+        return raw_allocate<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    [[nodiscard]] DestroyingPointer<T> allocate(Args&&... args)
+    requires(!std::is_trivially_destructible_v<T>)
+    {
+        return DestroyingPointer<T>{ raw_allocate<T>(std::forward<Args>(args)...) };
     }
 
     template <typename T>
-    T* allocate_array(std::size_t n);
+    [[nodiscard]] T* allocate_array(std::size_t n);
 
-    // This does not call destructors: if you need the destructors called, you must do it yourself.
     void release_all() noexcept
     {
         m_free.splice_after(m_free.before_begin(), m_allocated);
@@ -78,8 +90,8 @@ private:
     struct MemoryBlock
     {
         explicit MemoryBlock(std::size_t size)
-        : m_raw_memory{new std::byte[size]}
-        , m_size{size}
+        : m_raw_memory{ new std::byte[size] }
+        , m_size{ size }
         {
         }
 
@@ -88,12 +100,27 @@ private:
             delete[] m_raw_memory;
         }
 
-        std::byte* m_raw_memory;
+        std::byte*  m_raw_memory;
         std::size_t m_size;
     };
 
     template <typename T, typename... Args>
-    T* allocate_from_block(Args&&... args)
+    [[nodiscard]] T* raw_allocate(Args&&... args)
+    {
+        if (T* const p = allocate_from_block<T>(std::forward<Args>(args)...)) {
+            assert(is_aligned(p, alignof(T)));
+            return p;
+        }
+        new_block<T>();
+        assert(m_block_offset == 0);
+        T* const p = allocate_from_block<T>(std::forward<Args>(args)...);
+        assert(p);
+        assert(is_aligned(p, alignof(T)));
+        return p;
+    }
+
+    template <typename T, typename... Args>
+    [[nodiscard]] T* allocate_from_block(Args&&... args)
     {
         assert(!m_allocated.empty());
 
@@ -124,19 +151,19 @@ private:
         m_block_offset = 0;
     }
 
-    char* active_block_start() noexcept
+    [[nodiscard]] char* active_block_start() noexcept
     {
         assert(!m_allocated.empty());
         return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
     }
 
-    const char* active_block_start() const noexcept
+    [[nodiscard]] const char* active_block_start() const noexcept
     {
         assert(!m_allocated.empty());
         return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
     }
 
-    std::size_t active_block_total_size() const noexcept
+    [[nodiscard]] std::size_t active_block_total_size() const noexcept
     {
         assert(!m_allocated.empty());
         return m_allocated.front().m_size;

@@ -28,12 +28,16 @@ public:
     template <typename T, typename... Args>
     T* allocate(Args&&... args)
     {
-        if (T* p = allocate_from_block<T>(std::forward<Args>(args)...)) {
+        if (T* const p = allocate_from_block<T>(std::forward<Args>(args)...)) {
+            assert(is_aligned(p, alignof(T)));
             return p;
         }
         new_block<T>();
         assert(m_block_offset == 0);
-        return allocate_from_block<T>(std::forward<Args>(args)...);
+        T* const p = allocate_from_block<T>(std::forward<Args>(args)...);
+        assert(p);
+        assert(is_aligned(p, alignof(T)));
+        return p;
     }
 
     template <typename T>
@@ -61,6 +65,11 @@ private:
     static char* align_up(const char* const p, const std::size_t multiple) noexcept
     {
         return reinterpret_cast<char*>(round_up_multiple_power_two(reinterpret_cast<std::uintptr_t>(p), multiple));
+    }
+
+    static bool is_aligned(void* p, const std::size_t alignment) noexcept
+    {
+        return reinterpret_cast<std::uintptr_t>(p) % alignment == 0;
     }
 
     // static constexpr std::size_t s_min_block_size = 4096U;

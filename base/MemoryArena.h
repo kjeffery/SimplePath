@@ -18,7 +18,7 @@ public:
     : m_allocated{}
     , m_free{}
     {
-        m_allocated.emplace_front(s_block_size);
+        m_allocated.emplace_front(s_min_block_size);
     }
 
     ~MemoryArena()
@@ -31,7 +31,7 @@ public:
         if (T* p = allocate_from_block<T>(std::forward<Args>(args)...)) {
             return p;
         }
-        new_block(sizeof(T));
+        new_block<T>();
         assert(m_block_offset == 0);
         return allocate_from_block<T>(std::forward<Args>(args)...);
     }
@@ -50,7 +50,7 @@ private:
     static std::size_t round_up_multiple_power_two(std::size_t n, std::size_t multiple) noexcept
     {
         assert(is_power_of_two(multiple));
-        const std::size_t mask = ~(multiple - 1U);
+        const std::size_t mask   = ~(multiple - 1U);
         const std::size_t result = (n + multiple - 1U) & mask;
         assert(result % multiple == 0);
         assert(result >= n);
@@ -63,13 +63,14 @@ private:
         return reinterpret_cast<char*>(round_up_multiple_power_two(reinterpret_cast<std::uintptr_t>(p), multiple));
     }
 
-    //static constexpr std::size_t s_block_size = 4096U;
-    static constexpr std::size_t s_block_size = 64U;
+    // static constexpr std::size_t s_min_block_size = 4096U;
+    static constexpr std::size_t s_min_block_size = 64U;
 
     struct MemoryBlock
     {
         explicit MemoryBlock(std::size_t size)
-        : m_raw_memory(new std::byte[size])
+        : m_raw_memory{new std::byte[size]}
+        , m_size{size}
         {
         }
 
@@ -79,6 +80,7 @@ private:
         }
 
         std::byte* m_raw_memory;
+        std::size_t m_size;
     };
 
     template <typename T, typename... Args>
@@ -86,9 +88,9 @@ private:
     {
         assert(!m_allocated.empty());
 
-        char* const mem = align_up(active_block_start() + m_block_offset, alignof(T));
-        const std::size_t block_offset = mem - active_block_start();
-        const std::size_t space_available = s_block_size - block_offset;
+        char* const       aligned_mem     = align_up(active_block_start() + m_block_offset, alignof(T));
+        const std::size_t block_offset    = aligned_mem - active_block_start();
+        const std::size_t space_available = active_block_total_size() - block_offset;
         const std::size_t space_needed    = sizeof(T);
 
         if (space_available < space_needed) {
@@ -96,16 +98,16 @@ private:
         }
 
         m_block_offset = block_offset + space_needed;
-        return new (mem) T(std::forward<Args>(args)...);
+        return new (aligned_mem) T(std::forward<Args>(args)...);
     }
 
-    void new_block(std::size_t size)
+    template <typename T>
+    void new_block()
     {
-        size = std::max(size, s_block_size);
-        if (size <= s_block_size && !m_free.empty()) {
-            //auto first = m_free.begin();
-            //auto last = std::next(first);
-            //m_allocated.splice_after(m_allocated.before_begin(), first, last);
+        // This is a little pessimistic, because there's a chance that the memory is already correctly aligned and we're
+        // allocating too much memory, but with a large enough block size, I don't expect this to happen often (at all).
+        const std::size_t size = std::max(sizeof(T) + alignof(T), s_min_block_size);
+        if (!m_free.empty() && size <= m_free.front().m_size) {
             m_allocated.splice_after(m_allocated.before_begin(), m_free, m_free.before_begin(), m_free.begin());
         } else {
             m_allocated.emplace_front(MemoryBlock(size));
@@ -117,6 +119,18 @@ private:
     {
         assert(!m_allocated.empty());
         return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
+    }
+
+    const char* active_block_start() const noexcept
+    {
+        assert(!m_allocated.empty());
+        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
+    }
+
+    std::size_t active_block_total_size() const noexcept
+    {
+        assert(!m_allocated.empty());
+        return m_allocated.front().m_size;
     }
 
     std::forward_list<MemoryBlock> m_allocated;

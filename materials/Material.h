@@ -486,35 +486,36 @@ private:
         } else {
             // TODO: thread-local memory arena
             std::vector<MaterialSampleResult> results(num_bxdfs);
-            std::vector<float>                weights(num_bxdfs);
+            std::vector<float>                selection_weights(num_bxdfs);
 
             // We first use _weights_ to store the potential contributions in order to importance-select our BxDF.
             // We sample each BxDF to find a potential contribution from that BxDF. We will only end up using one of
             // these values, but use the others to importance-sample our primary BxDF.
 
-            // We keep a running total of the weights so that we can normalize them into a proper discrete probability
-            // mass function.
+            // We keep a running total of the selection_weights so that we can normalize them into a proper discrete
+            // probability mass function.
             float weight_sum = 0.0f;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 results[i] = m_bxdfs[i]->sample(wo_local, onb_local, sampler);
                 if (results[i].pdf == 0.0f) {
-                    weights[i] = 0.0f;
+                    selection_weights[i] = 0.0f;
                     continue;
                 }
-                weights[i] = relative_luminance(results[i].color) / results[i].pdf;
-                weight_sum += weights[i];
+                selection_weights[i] = relative_luminance(results[i].color / results[i].pdf);
+                weight_sum += selection_weights[i];
             }
 
             if (weight_sum == 0.0f) {
                 return results.front();
             }
 
-            // Normalize the weights
-            std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
-                return weight / weight_sum;
-            });
+            // Normalize the selection_weights
+            std::transform(selection_weights.cbegin(),
+                           selection_weights.cend(),
+                           selection_weights.begin(),
+                           [weight_sum](float weight) { return weight / weight_sum; });
 
-            assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
+            assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
 
             // Randomly select one BxDF based on sampling each BxDF.
             // Save the results.
@@ -522,11 +523,11 @@ private:
             float       running_cdf = 0.0f;
             std::size_t selected_index;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
-                if (weights[i] + running_cdf > u) {
+                if (selection_weights[i] + running_cdf > u) {
                     selected_index = i;
                     break;
                 }
-                running_cdf += weights[i];
+                running_cdf += selection_weights[i];
             }
 
             // In pure mathematics, this wouldn't happen, but we're using IEEE-754 ;)
@@ -538,44 +539,60 @@ private:
 
             std::vector<RGB> values(num_bxdfs);
 
-            // Save off our resulting PDF before we overwrite weights...
-            const float result_pdf = results[selected_index].pdf * weights[selected_index];
+            std::vector<float> pdfs(num_bxdfs);
+            const Vector3&     wi_local = results[selected_index].direction;
 
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
                 // the eval function, which will give us incorrect results.
                 if (i == selected_index) {
-                    values[i]  = results[i].color;
-                    weights[i] = results[i].pdf;
-                    continue;
+                    values[i] = results[i].color;
+                    pdfs[i]   = results[i].pdf;
+                } else {
+                    const auto eval_color = m_bxdfs[i]->eval(wo_local, wi_local);
+                    const auto eval_pdf   = m_bxdfs[i]->pdf(wo_local, wi_local);
+                    values[i]             = eval_color;
+                    pdfs[i]               = eval_pdf;
                 }
-                const auto eval_color = m_bxdfs[i]->eval(wo_local, results[selected_index].direction);
-                const auto eval_pdf   = m_bxdfs[i]->pdf(wo_local, results[selected_index].direction);
-                values[i]             = eval_color;
-                weights[i]            = eval_pdf;
             }
 
-            // We're using one sample for each type, so our inner product is just the sum of all weights (as opposed to
-            // the inner product of weights and sample counts).
-            const float inner_product = std::reduce(weights.cbegin(), weights.cend(), 0.0f);
+            // We're using one sample for each type, so our inner product is just the sum of all pdfs (as opposed to
+            // the inner product of pdfs and sample counts).
+            const float inner_product = std::reduce(pdfs.cbegin(), pdfs.cend(), 0.0f);
 
             // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
             // techniques. Adding in the other produces fireflies due to low PDF values.
-#if 1
-            const auto mis_weight   = balance_heuristic(weights[selected_index], inner_product);
+#if 0
+            const auto mis_weight   = balance_heuristic(pdfs[selected_index], inner_product);
             const RGB  result_color = mis_weight * values[selected_index];
+            const float result_pdf = results[selected_index].pdf * selection_weights[selected_index];
 #else
-            RGB result_color = RGB::black();
+#if DEBUG_MODE
+            float mis_weight_sum = 0.0f;
+#endif
+            RGB   result_color = RGB::black();
+            float result_pdf   = 0.0f;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
-                const auto mis_weight = balance_heuristic(weights[i], inner_product);
-                result_color += mis_weight * values[i];
+                if (pdfs[i] > 0.0f) {
+                    const auto mis_weight = balance_heuristic(pdfs[i], inner_product);
+#if DEBUG_MODE
+                    mis_weight_sum += mis_weight;
+#endif
+
+                    result_color += mis_weight * values[i];
+                    result_pdf += pdfs[i] * selection_weights[i];
+                }
             }
+#if DEBUG_MODE
+            assert(float_compare(mis_weight_sum, 1.0f));
+#endif
+            // result_color /= static_cast<float>(num_bxdfs);
 #endif
 
             // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
             // above) so that we can use return value optimization (RVO). We return a temporary above, so we want to be
             // consistent.
-            return MaterialSampleResult{ result_color, results[selected_index].direction, result_pdf };
+            return MaterialSampleResult{ result_color, wi_local, result_pdf };
         }
     }
 
@@ -585,7 +602,8 @@ private:
         std::vector<float> weights(num_bxdfs);
         float              weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local)); // / m_bxdfs[i]->pdf(wo_local, wi_local));
+            weights[i] =
+                relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local)); // / m_bxdfs[i]->pdf(wo_local, wi_local));
             weight_sum += weights[i];
         }
 
@@ -622,7 +640,7 @@ private:
         }
 
         std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
-          return weight / weight_sum;
+            return weight / weight_sum;
         });
 
         assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
@@ -662,13 +680,12 @@ private:
         assert(f >= 0.0f);
         assert(f <= 1.0f);
 
-        const auto specular_wi{ specular_reflection_local(wo_local) };
-        const RGB  specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
-
         // Importance sample the specular layer based on the Fresnel contribution.
         const float u = sampler.get_next_1D();
         if (u < f) {
-            const float specular_pdf = f; // Our old pdf is 1.0, so this is a multiplication against 1.
+            const auto  specular_wi{ specular_reflection_local(wo_local) };
+            const RGB   specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
+            const float specular_pdf          = f; // Our old pdf is 1.0, so this is a multiplication against 1.
             return MaterialSampleResult{ specular_color_result, specular_wi, specular_pdf };
         }
 

@@ -117,11 +117,15 @@ private:
 
         ~MemoryBlock()
         {
-            delete[] m_raw_memory;
         }
 
-        std::byte*  m_raw_memory;
-        std::size_t m_size;
+        MemoryBlock(MemoryBlock&&)                 = default;
+        MemoryBlock(const MemoryBlock&)            = delete;
+        MemoryBlock& operator=(MemoryBlock&&)      = default;
+        MemoryBlock& operator=(const MemoryBlock&) = delete;
+
+        std::unique_ptr<std::byte[]> m_raw_memory;
+        std::size_t                  m_size;
     };
 
     template <typename T>
@@ -154,10 +158,7 @@ private:
             // Move one item from the free list to the front of the allocated list.
             // The splice_after parameters are a little unusual, in that it moves the range (first, last) (open
             // interval), so we have to bookend our node iterator.
-            m_allocated.splice_after(m_allocated.before_begin(),
-                                     m_free,
-                                     m_free.before_begin(),
-                                     std::next(m_free.begin()));
+            m_allocated.splice_after(m_allocated.before_begin(), m_free, m_free.before_begin());
         } else {
             m_allocated.emplace_front(MemoryBlock(size));
         }
@@ -167,13 +168,13 @@ private:
     [[nodiscard]] char* active_block_start() noexcept
     {
         assert(!m_allocated.empty());
-        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
+        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory.get());
     }
 
     [[nodiscard]] const char* active_block_start() const noexcept
     {
         assert(!m_allocated.empty());
-        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
+        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory.get());
     }
 
     [[nodiscard]] std::size_t active_block_total_size() const noexcept

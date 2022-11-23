@@ -110,7 +110,7 @@ private:
     struct MemoryBlock
     {
         explicit MemoryBlock(std::size_t size)
-        : m_raw_memory{ new std::byte[size] }
+        : m_raw_memory(new std::byte[size])
         , m_size{ size }
         {
         }
@@ -119,9 +119,23 @@ private:
         {
         }
 
-        MemoryBlock(MemoryBlock&&)                 = default;
+        MemoryBlock(MemoryBlock&& other) noexcept
+        : m_raw_memory(std::move(other.m_raw_memory))
+        , m_size(other.m_size)
+        {
+            other.m_size = 0UL;
+        }
+
         MemoryBlock(const MemoryBlock&)            = delete;
-        MemoryBlock& operator=(MemoryBlock&&)      = default;
+        MemoryBlock& operator=(MemoryBlock&& other) noexcept
+        {
+            if (this != std::addressof(other)) {
+                m_raw_memory = std::move(other.m_raw_memory);
+                m_size = other.m_size;
+                other.m_size = 0UL;
+            }
+        }
+
         MemoryBlock& operator=(const MemoryBlock&) = delete;
 
         std::unique_ptr<std::byte[]> m_raw_memory;

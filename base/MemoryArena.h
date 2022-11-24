@@ -110,36 +110,40 @@ private:
     struct MemoryBlock
     {
         explicit MemoryBlock(std::size_t size)
-        : m_raw_memory(new std::byte[size])
+        : m_raw_memory{ new std::byte[size] }
         , m_size{ size }
         {
         }
 
         ~MemoryBlock()
         {
+            delete[] m_raw_memory;
         }
 
         MemoryBlock(MemoryBlock&& other) noexcept
-        : m_raw_memory(std::move(other.m_raw_memory))
+        : m_raw_memory(other.m_raw_memory)
         , m_size(other.m_size)
         {
-            other.m_size = 0UL;
+            other.m_size       = 0UL;
+            other.m_raw_memory = nullptr;
         }
 
-        MemoryBlock(const MemoryBlock&)            = delete;
+        MemoryBlock(const MemoryBlock&) = delete;
+
         MemoryBlock& operator=(MemoryBlock&& other) noexcept
         {
             if (this != std::addressof(other)) {
-                m_raw_memory = std::move(other.m_raw_memory);
-                m_size = other.m_size;
-                other.m_size = 0UL;
+                m_raw_memory       = other.m_raw_memory;
+                m_size             = other.m_size;
+                other.m_size       = 0UL;
+                other.m_raw_memory = nullptr;
             }
         }
 
         MemoryBlock& operator=(const MemoryBlock&) = delete;
 
-        std::unique_ptr<std::byte[]> m_raw_memory;
-        std::size_t                  m_size;
+        std::byte*  m_raw_memory;
+        std::size_t m_size;
     };
 
     template <typename T>
@@ -182,13 +186,13 @@ private:
     [[nodiscard]] char* active_block_start() noexcept
     {
         assert(!m_allocated.empty());
-        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory.get());
+        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
     }
 
     [[nodiscard]] const char* active_block_start() const noexcept
     {
         assert(!m_allocated.empty());
-        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory.get());
+        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
     }
 
     [[nodiscard]] std::size_t active_block_total_size() const noexcept

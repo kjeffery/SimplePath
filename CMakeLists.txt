@@ -30,6 +30,7 @@ else()
 endif(MSVC)
 
 set(SOURCES
+        UnitTests.cpp
         Cameras/Camera.h
         Image/Image.cpp
         Image/Image.h

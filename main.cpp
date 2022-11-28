@@ -1,6 +1,9 @@
 ///@author Keith Jeffery
 
+#include "UnitTests.h"
+
 #include "base/FileParser.h"
+#include "base/MemoryArena.h"
 #include "base/not_null.h"
 #include "base/ProgressBar.h"
 #include "base/Stopwatch.h"
@@ -52,7 +55,6 @@ sp::Sampler get_pixel_sampler(std::uint32_t x, std::uint32_t y)
     return sp::Sampler::create_new_sequence((x << 16u) | y);
 }
 
-// TODO: should this be a member of Scene?
 void render_thread(sp::Image&            image,
                    const unsigned        num_pixel_samples,
                    const sp::Scene&      scene,
@@ -60,6 +62,8 @@ void render_thread(sp::Image&            image,
                    sp::TileScheduler&    scheduler,
                    sp::ProgressBar&      progress_bar)
 {
+    sp::MemoryArena arena;
+
     while (auto scheduled_tile = scheduler.get_next_tile()) {
         const auto& tile = scheduled_tile->tile;
         // The tile iterators iterate over the entire collection of pixels for a full tile, regardless of clipping. We
@@ -68,11 +72,12 @@ void render_thread(sp::Image&            image,
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
             auto sampler = get_pixel_sampler(p.x, p.y);
             for (unsigned i = 0; i < num_pixel_samples; ++i) {
+                arena.release_all();
                 const auto       sample = sampler.get_next_2D();
                 const sp::Point2 pixel_coords{ p.x + sample.x, p.y + sample.y };
                 const sp::Ray    ray = scene.m_camera->generate_ray(pixel_coords.x, pixel_coords.y);
                 // std::osyncstream(std::cout) << ray << '\n';
-                image(p.x, p.y) += integrator.integrate(ray, scene, sampler, pixel_coords);
+                image(p.x, p.y) += integrator.integrate(ray, scene, arena, sampler, pixel_coords);
             }
             image(p.x, p.y) /= num_pixel_samples;
         }
@@ -298,6 +303,7 @@ int main(const int argc, const char* const argv[])
 
     unsigned int num_threads       = std::thread::hardware_concurrency();
     unsigned int num_pixel_samples = 1u;
+    bool         run_unit_tests    = false;
 
     if (argc == 1) {
         print_usage(argv[0]);
@@ -329,6 +335,8 @@ int main(const int argc, const char* const argv[])
                 }
                 std::tie(num_pixel_samples) = parse_args<unsigned>(argv + i + 1);
                 i += num_args;
+            } else if (arg == "--test"sv) {
+                run_unit_tests = true;
             }
         }
     } catch (const std::exception& e) {
@@ -345,6 +353,11 @@ int main(const int argc, const char* const argv[])
         constexpr unsigned default_num_threads = 4u;
         std::cout << "Unable to determine thread count. Arbitrary choosing " << default_num_threads << ".\n";
         num_threads = default_num_threads;
+    }
+
+    if (run_unit_tests) {
+        run_tests();
+        return EXIT_SUCCESS;
     }
 
     try {

@@ -25,14 +25,21 @@ class Integrator
 public:
     virtual ~Integrator() = default;
 
-    [[nodiscard]] RGB integrate(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2& pixel_coords) const
+    [[nodiscard]] RGB integrate(const Ray&    ray,
+                                const Scene&  scene,
+                                MemoryArena&  arena,
+                                Sampler&      sampler,
+                                const Point2& pixel_coords) const
     {
-        return integrate_impl(ray, scene, sampler, pixel_coords);
+        return integrate_impl(ray, scene, arena, sampler, pixel_coords);
     }
 
 private:
-    virtual RGB
-    integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2& pixel_coords) const = 0;
+    virtual RGB integrate_impl(const Ray&    ray,
+                               const Scene&  scene,
+                               MemoryArena&  arena,
+                               Sampler&      sampler,
+                               const Point2& pixel_coords) const = 0;
 };
 
 // A simple test integrator that ignores the ray direction and simply uses the x and y values.
@@ -46,7 +53,11 @@ public:
     }
 
 private:
-    RGB integrate_impl(const Ray& ray, const Scene&, Sampler&, const Point2& pixel_coords) const override
+    RGB integrate_impl(const Ray& ray,
+                       const Scene&,
+                       MemoryArena& arena,
+                       Sampler&,
+                       const Point2& pixel_coords) const override
     {
         constexpr float x0 = -2.0f;
         constexpr float x1 = +1.0f;
@@ -99,12 +110,16 @@ private:
 class BruteForceIntegrator : public Integrator
 {
 private:
-    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    RGB integrate_impl(const Ray&   ray,
+                       const Scene& scene,
+                       MemoryArena& arena,
+                       Sampler&     sampler,
+                       const Point2&) const override
     {
-        return do_integrate(ray, scene, sampler, 0);
+        return do_integrate(ray, scene, arena, sampler, 0);
     }
 
-    RGB do_integrate(const Ray& ray, const Scene& scene, Sampler& sampler, int depth) const
+    RGB do_integrate(const Ray& ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, int depth) const
     {
         if (depth >= scene.max_depth) {
             return RGB::black();
@@ -117,7 +132,7 @@ private:
             const Vector3  wo = -ray.get_direction();
             const Normal3& n  = geometry_intersection.m_normal;
 
-            const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+            const auto shading_result = geometry_intersection.m_material->sample(arena, wo, n, sampler);
             if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                 return RGB::black();
             }
@@ -128,7 +143,7 @@ private:
             const auto  outgoing_position = ray(limits.m_t_max);
             const Ray   outgoing_ray{ outgoing_position, wi };
 
-            return do_integrate(outgoing_ray, scene, sampler, depth + 1) * cosine * shading_result.color /
+            return do_integrate(outgoing_ray, scene, arena, sampler, depth + 1) * cosine * shading_result.color /
                    shading_result.pdf;
         } else if (hit_light) {
             return light_intersection.L;
@@ -141,12 +156,16 @@ private:
 class BruteForceIntegratorIterative : public Integrator
 {
 private:
-    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    RGB integrate_impl(const Ray&   ray,
+                       const Scene& scene,
+                       MemoryArena& arena,
+                       Sampler&     sampler,
+                       const Point2&) const override
     {
-        return do_integrate(ray, scene, sampler);
+        return do_integrate(ray, scene, arena, sampler);
     }
 
-    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const
     {
         RGB       throughput = RGB::white();
         RGB       L          = RGB::black();
@@ -159,7 +178,7 @@ private:
                 const Vector3  wo = -ray.get_direction();
                 const Normal3& n  = geometry_intersection.m_normal;
 
-                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                const auto shading_result = geometry_intersection.m_material->sample(arena, wo, n, sampler);
                 if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                     break;
                 }
@@ -189,12 +208,16 @@ private:
 class BruteForceIntegratorIterativeRR : public Integrator
 {
 private:
-    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    RGB integrate_impl(const Ray&   ray,
+                       const Scene& scene,
+                       MemoryArena& arena,
+                       Sampler&     sampler,
+                       const Point2&) const override
     {
-        return do_integrate(ray, scene, sampler);
+        return do_integrate(ray, scene, arena, sampler);
     }
 
-    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const
     {
         RGB       throughput = RGB::white();
         RGB       L          = RGB::black();
@@ -208,7 +231,7 @@ private:
                 const Vector3  wo = -ray.get_direction();
                 const Normal3& n  = geometry_intersection.m_normal;
 
-                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                const auto shading_result = geometry_intersection.m_material->sample(arena, wo, n, sampler);
                 if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                     break;
                 }
@@ -252,12 +275,16 @@ private:
 class DirectLightingIntegrator : public Integrator
 {
 private:
-    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    RGB integrate_impl(const Ray&   ray,
+                       const Scene& scene,
+                       MemoryArena& arena,
+                       Sampler&     sampler,
+                       const Point2&) const override
     {
-        return do_integrate(ray, scene, sampler);
+        return do_integrate(ray, scene, arena, sampler, 0);
     }
 
-    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, int depth) const
     {
         RGB       throughput = RGB::white();
         RGB       L          = RGB::black();
@@ -267,7 +294,7 @@ private:
         const bool        hit_light = scene.intersect(ray, limits, light_intersection);
 
         if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
-            scene.for_each_light([&ray, &scene, &L, &geometry_intersection, &sampler](const Light& light) {
+            scene.for_each_light([&ray, &scene, &arena, &L, &geometry_intersection, &sampler](const Light& light) {
                 const LightSample light_sample =
                     light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
                 if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
@@ -277,12 +304,16 @@ private:
                 const Vector3  wo = -ray.get_direction();
                 const Normal3& n  = geometry_intersection.m_normal;
                 const Vector3& wi = light_sample.m_tester.m_ray.get_direction();
-                const RGB      f  = geometry_intersection.m_material->eval(wo, wi, n);
+                const RGB      f  = geometry_intersection.m_material->eval(arena, wo, wi, n);
 
                 if (f != RGB::black() && !occluded(light_sample.m_tester, scene)) {
                     L += f * light_sample.m_L * std::abs(dot(wi, n)) / light_sample.m_pdf;
                 }
             });
+            // TODO: specular recursion
+            // if (depth < scene.max_depth) {
+            // if ()
+            //}
         } else if (hit_light) {
             L += throughput * light_intersection.L;
         }
@@ -310,12 +341,17 @@ public:
     }
 
 private:
-    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2& pixel_coords) const override
+    RGB integrate_impl(const Ray&    ray,
+                       const Scene&  scene,
+                       MemoryArena&  arena,
+                       Sampler&      sampler,
+                       const Point2& pixel_coords) const override
     {
-        return do_integrate(ray, scene, sampler, pixel_coords);
+        return do_integrate(ray, scene, arena, sampler, pixel_coords);
     }
 
-    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler, const Point2& pixel_coords) const
+    RGB
+    do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, const Point2& pixel_coords) const
     {
         RGB throughput = RGB::white();
         RGB L          = RGB::black();
@@ -329,7 +365,7 @@ private:
                 const Vector3  wo = -ray.get_direction();
                 const Normal3& n  = geometry_intersection.m_normal;
 
-                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                const auto shading_result = geometry_intersection.m_material->sample(arena, wo, n, sampler);
                 if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                     break;
                 }
@@ -407,6 +443,7 @@ RGB estimate_direct(const Scene&    scene,
 }
 
 RGB estimate_direct_mis(const Scene&    scene,
+                        MemoryArena&    arena,
                         const Light&    light,
                         const Point3&   p,
                         const Normal3&  n,
@@ -427,16 +464,16 @@ RGB estimate_direct_mis(const Scene&    scene,
     }
 
     const Vector3& wi        = light_sample.m_tester.m_ray.get_direction();
-    const RGB      bsdf_eval = material.eval(wo, wi, n);
+    const RGB      bsdf_eval = material.eval(arena, wo, wi, n);
 
     float bsdf_pdf;
     if (bsdf_eval != RGB::black()) {
-        bsdf_pdf           = material.pdf(wo, wi, n);
+        bsdf_pdf           = material.pdf(arena, wo, wi, n);
         const float weight = balance_heuristic(1, light_sample.m_pdf, 1, bsdf_pdf);
         L_result += bsdf_eval * light_sample.m_L * (std::abs(dot(wi, n) * weight / light_sample.m_pdf));
     }
 
-    const MaterialSampleResult material_sample = material.sample(wo, n, sampler);
+    const MaterialSampleResult material_sample = material.sample(arena, wo, n, sampler);
     if (material_sample.pdf == 0.0f || material_sample.color == RGB::black()) {
         return L_result;
     }
@@ -462,12 +499,16 @@ RGB estimate_direct_mis(const Scene&    scene,
 class BruteForceIntegratorIterativeRRNEE : public Integrator
 {
 private:
-    RGB integrate_impl(const Ray& ray, const Scene& scene, Sampler& sampler, const Point2&) const override
+    RGB integrate_impl(const Ray&   ray,
+                       const Scene& scene,
+                       MemoryArena& arena,
+                       Sampler&     sampler,
+                       const Point2&) const override
     {
-        return do_integrate(ray, scene, sampler);
+        return do_integrate(ray, scene, arena, sampler);
     }
 
-    RGB do_integrate(Ray ray, const Scene& scene, Sampler& sampler) const
+    RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const
     {
         RGB       throughput = RGB::white();
         RGB       L          = RGB::black();
@@ -483,7 +524,7 @@ private:
                 const Vector3  wo = -ray.get_direction();
                 const Normal3& n  = geometry_intersection.m_normal;
 
-                const auto shading_result = geometry_intersection.m_material->sample(wo, n, sampler);
+                const auto shading_result = geometry_intersection.m_material->sample(arena, wo, n, sampler);
                 if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                     break;
                 }
@@ -500,16 +541,17 @@ private:
                                                           *geometry_intersection.m_material);
                     });
 #else
-                scene.for_each_light(
-                    [&L, &scene, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
-                        L += throughput * estimate_direct_mis(scene,
-                                                              light,
-                                                              ray.get_origin(),
-                                                              n,
-                                                              wo,
-                                                              sampler,
-                                                              *geometry_intersection.m_material);
-                    });
+                scene.for_each_light([&L, &scene, &arena, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](
+                                         const Light& light) {
+                    L += throughput * estimate_direct_mis(scene,
+                                                          arena,
+                                                          light,
+                                                          ray.get_origin(),
+                                                          n,
+                                                          wo,
+                                                          sampler,
+                                                          *geometry_intersection.m_material);
+                });
 #endif
 
                 // Get next direction

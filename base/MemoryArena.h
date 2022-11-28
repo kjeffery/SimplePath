@@ -218,9 +218,11 @@ public:
     using value_type = T;
 
     using is_always_equal                        = std::false_type;
-    using propagate_on_container_copy_assignment = std::true_type;
-    using propagate_on_container_move_assignment = std::true_type;
-    using propagate_on_container_swap            = std::true_type;
+
+    // I don't care if things are allocated from the same arena. They aren't deallocated anyway.
+    using propagate_on_container_copy_assignment = std::false_type;
+    using propagate_on_container_move_assignment = std::false_type;
+    using propagate_on_container_swap            = std::false_type;
 
     template <typename U>
     friend class ArenaAllocator;
@@ -229,6 +231,11 @@ public:
     : m_arena(std::addressof(arena))
     {
     }
+
+    ArenaAllocator(ArenaAllocator&&)                 = default;
+    ArenaAllocator(const ArenaAllocator&)            = default;
+    ArenaAllocator& operator=(ArenaAllocator&&)      = default;
+    ArenaAllocator& operator=(const ArenaAllocator&) = default;
 
     template <typename U>
     constexpr ArenaAllocator(const ArenaAllocator<U>& other) noexcept

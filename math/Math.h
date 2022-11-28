@@ -96,6 +96,41 @@ constexpr bool is_power_of_two(T v) noexcept
     return v > 0 && !(v & (v - T{ 1 }));
 }
 
+template <typename T>
+concept unsigned_32 = std::unsigned_integral<T> && sizeof(T) == 4;
+
+template <typename T>
+concept unsigned_64 = std::unsigned_integral<T> && sizeof(T) == 8;
+
+template <typename T>
+constexpr T round_up_to_power_of_two(T v) noexcept
+requires unsigned_32<T>
+{
+    --v;
+    v |= v >> 1UL;
+    v |= v >> 2UL;
+    v |= v >> 4UL;
+    v |= v >> 8UL;
+    v |= v >> 16UL;
+    ++v;
+    return v;
+}
+
+template <typename T>
+constexpr T round_up_to_power_of_two(T v) noexcept
+requires unsigned_64<T>
+{
+    --v;
+    v |= v >> 1UL;
+    v |= v >> 2UL;
+    v |= v >> 4UL;
+    v |= v >> 8UL;
+    v |= v >> 16UL;
+    v |= v >> 32UL;
+    ++v;
+    return v;
+}
+
 #if defined(__AVX2__) || defined(__ARM_NEON)
 inline float madd(float a, float b, float c) noexcept
 {

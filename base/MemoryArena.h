@@ -10,6 +10,8 @@
 #include <memory>
 #include <type_traits>
 
+#define USE_ARENA_ALLOCATOR 1
+
 namespace sp {
 
 inline bool is_aligned(void* p, const std::size_t alignment) noexcept
@@ -208,12 +210,14 @@ private:
     std::size_t m_min_block_size = s_default_min_block_size;
 };
 
+#if USE_ARENA_ALLOCATOR
 template <typename T>
 class ArenaAllocator
 {
 public:
     using value_type = T;
 
+    using is_always_equal                        = std::false_type;
     using propagate_on_container_copy_assignment = std::true_type;
     using propagate_on_container_move_assignment = std::true_type;
     using propagate_on_container_swap            = std::true_type;
@@ -247,5 +251,46 @@ public:
 private:
     MemoryArena* m_arena;
 };
+
+#else
+template <typename T>
+class ArenaAllocator
+{
+public:
+    using value_type = T;
+
+    using is_always_equal                        = std::true_type;
+    using propagate_on_container_copy_assignment = std::false_type;
+    using propagate_on_container_move_assignment = std::false_type;
+    using propagate_on_container_swap            = std::false_type;
+
+    template <typename U>
+    friend class ArenaAllocator;
+
+    explicit ArenaAllocator(MemoryArena&) noexcept
+    {
+    }
+
+    template <typename U>
+    constexpr ArenaAllocator(const ArenaAllocator<U>&) noexcept
+    {
+    }
+
+    [[nodiscard]] T* allocate(std::size_t n)
+    {
+        return static_cast<T*>(::operator new(n * sizeof(T)));
+    }
+
+    void deallocate(T* p, std::size_t) noexcept
+    {
+        ::operator delete(p);
+    }
+
+    friend bool operator==(const ArenaAllocator&, const ArenaAllocator&) = default;
+
+private:
+    MemoryArena* m_arena;
+};
+#endif
 
 } // namespace sp

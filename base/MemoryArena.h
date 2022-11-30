@@ -102,9 +102,9 @@ private:
         return result;
     }
 
-    static char* align_up(const char* const p, const std::size_t multiple) noexcept
+    static std::byte* align_up(const std::byte* const p, const std::size_t multiple) noexcept
     {
-        return reinterpret_cast<char*>(round_up_multiple_power_two(reinterpret_cast<std::uintptr_t>(p), multiple));
+        return reinterpret_cast<std::byte*>(round_up_multiple_power_two(reinterpret_cast<std::uintptr_t>(p), multiple));
     }
 
     static constexpr std::size_t s_default_min_block_size = 4096U;
@@ -140,6 +140,7 @@ private:
                 other.m_size       = 0UL;
                 other.m_raw_memory = nullptr;
             }
+            return *this;
         }
 
         MemoryBlock& operator=(const MemoryBlock&) = delete;
@@ -153,18 +154,31 @@ private:
     {
         assert(!m_allocated.empty());
 
-        char* const aligned_mem = align_up(active_block_start() + m_block_offset, alignof(T));
+        const std::size_t block_size = active_block_total_size();
+        if (m_block_offset >= block_size) {
+            return nullptr;
+        }
+
+        std::byte* const aligned_mem = align_up(active_block_start() + m_block_offset, alignof(T));
         assert(is_aligned(aligned_mem, alignof(T)));
 
-        const std::size_t block_offset    = aligned_mem - active_block_start();
-        const std::size_t space_available = active_block_total_size() - block_offset;
-        const std::size_t space_needed    = sizeof(T) * n;
+        // Start                m_block_offset           aligned_mem             End
+        // +---------------------------+--------------------+---------------------+
+        // |                           |                    |                     |
+        // +---------------------------+--------------------+---------------------+
+
+        const std::size_t aligned_block_offset = aligned_mem - active_block_start();
+        const std::size_t space_available      = block_size - aligned_block_offset;
+        const std::size_t space_needed         = sizeof(T) * n;
+
+        assert(aligned_mem >= active_block_start());
+        assert(aligned_block_offset >= m_block_offset);
 
         if (space_available < space_needed) {
             return nullptr;
         }
 
-        m_block_offset = block_offset + space_needed;
+        m_block_offset = aligned_block_offset + space_needed;
         return reinterpret_cast<T*>(aligned_mem);
     }
 
@@ -180,21 +194,21 @@ private:
             // interval), so we have to bookend our node iterator.
             m_allocated.splice_after(m_allocated.before_begin(), m_free, m_free.before_begin());
         } else {
-            m_allocated.emplace_front(MemoryBlock(size));
+            m_allocated.emplace_front(size);
         }
         m_block_offset = 0;
     }
 
-    [[nodiscard]] char* active_block_start() noexcept
+    [[nodiscard]] std::byte* active_block_start() noexcept
     {
         assert(!m_allocated.empty());
-        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
+        return m_allocated.front().m_raw_memory;
     }
 
-    [[nodiscard]] const char* active_block_start() const noexcept
+    [[nodiscard]] const std::byte* active_block_start() const noexcept
     {
         assert(!m_allocated.empty());
-        return reinterpret_cast<char*>(m_allocated.front().m_raw_memory);
+        return m_allocated.front().m_raw_memory;
     }
 
     [[nodiscard]] std::size_t active_block_total_size() const noexcept

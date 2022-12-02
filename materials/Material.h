@@ -456,17 +456,20 @@ public:
     }
 
     [[nodiscard]] float
-    pdf(MemoryArena& arena, const Vector3& wo, const Vector3& wi, const Normal3& shading_normal) const
+    pdf(MemoryArena& arena, const Vector3& wo, const Vector3& wi, const Normal3& shading_normal, Sampler& sampler) const
     {
         const auto onb = ONB::from_v(Vector3{ shading_normal });
-        return pdf_impl(arena, onb.to_onb(wo), onb.to_onb(wi));
+        return pdf_impl(arena, onb.to_onb(wo), onb.to_onb(wi), onb, sampler);
     }
 
-    [[nodiscard]] RGB
-    eval(MemoryArena& arena, const Vector3& wo, const Vector3& wi, const Normal3& shading_normal) const
+    [[nodiscard]] RGB eval(MemoryArena&   arena,
+                           const Vector3& wo,
+                           const Vector3& wi,
+                           const Normal3& shading_normal,
+                           Sampler&       sampler) const
     {
         const auto onb = ONB::from_v(Vector3{ shading_normal });
-        return eval_impl(arena, onb.to_onb(wo), onb.to_onb(wi));
+        return eval_impl(arena, onb.to_onb(wo), onb.to_onb(wi), onb, sampler);
     }
 
     [[nodiscard]] MaterialSampleResult
@@ -475,21 +478,37 @@ public:
         return sample_impl(arena, wo_local, onb_local, sampler);
     }
 
-    [[nodiscard]] float pdf_local_space(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const
+    [[nodiscard]] float pdf_local_space(MemoryArena&   arena,
+                                        const Vector3& wo_local,
+                                        const Vector3& wi_local,
+                                        const ONB&     onb_local,
+                                        Sampler&       sampler) const
     {
-        return pdf_impl(arena, wo_local, wi_local);
+        return pdf_impl(arena, wo_local, wi_local, onb_local, sampler);
     }
 
-    [[nodiscard]] RGB eval_local_space(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const
+    [[nodiscard]] RGB eval_local_space(MemoryArena&   arena,
+                                       const Vector3& wo_local,
+                                       const Vector3& wi_local,
+                                       const ONB&     onb_local,
+                                       Sampler&       sampler) const
     {
-        return eval_impl(arena, wo_local, wi_local);
+        return eval_impl(arena, wo_local, wi_local, onb_local, sampler);
     }
 
 private:
     virtual MaterialSampleResult
     sample_impl(MemoryArena& arena, const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
-    virtual float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const     = 0;
-    virtual RGB   eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const    = 0;
+    virtual float pdf_impl(MemoryArena&   arena,
+                           const Vector3& wo_local,
+                           const Vector3& wi_local,
+                           const ONB&     onb_local,
+                           Sampler&       sampler) const                                                         = 0;
+    virtual RGB   eval_impl(MemoryArena&   arena,
+                            const Vector3& wo_local,
+                            const Vector3& wi_local,
+                            const ONB&     onb_local,
+                            Sampler&       sampler) const                                                        = 0;
 };
 
 // This is based on Veach and Guibas' multiple importance sampling. It's a general material used to hold any number of
@@ -625,7 +644,11 @@ private:
         }
     }
 
-    float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    float pdf_impl(MemoryArena&   arena,
+                   const Vector3& wo_local,
+                   const Vector3& wi_local,
+                   const ONB&     onb_local,
+                   Sampler&       sampler) const override
     {
         const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
 
@@ -637,7 +660,11 @@ private:
         return pdf;
     }
 
-    RGB eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    RGB eval_impl(MemoryArena&   arena,
+                  const Vector3& wo_local,
+                  const Vector3& wi_local,
+                  const ONB&     onb_local,
+                  Sampler&       sampler) const override
     {
         const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
 
@@ -699,7 +726,11 @@ private:
         return MaterialSampleResult{ color, base_result.direction, result_pdf };
     };
 
-    float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    float pdf_impl(MemoryArena&   arena,
+                   const Vector3& wo_local,
+                   const Vector3& wi_local,
+                   const ONB&     onb_local,
+                   Sampler&       sampler) const override
     {
         constexpr float ior_air = 1.0f;
 
@@ -711,10 +742,14 @@ private:
         // It does, however, have a chance of being selected based on the Fresnel contribution. So this is really
         // (f * specular_pdf) + (1.0f - f) * base_pdf
         // (f * 0.0f) + (1.0f - f) * base_pdf
-        return (1.0f - f) * m_base->pdf_local_space(arena, wo_local, wi_local);
+        return (1.0f - f) * m_base->pdf_local_space(arena, wo_local, wi_local, onb_local, sampler);
     }
 
-    RGB eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    RGB eval_impl(MemoryArena&   arena,
+                  const Vector3& wo_local,
+                  const Vector3& wi_local,
+                  const ONB&     onb_local,
+                  Sampler&       sampler) const override
     {
         constexpr float ior_air = 1.0f;
 
@@ -722,7 +757,7 @@ private:
         assert(f >= 0.0f);
         assert(f <= 1.0f);
 
-        return (1.0f - f) * m_base->eval_local_space(arena, wo_local, wi_local);
+        return (1.0f - f) * m_base->eval_local_space(arena, wo_local, wi_local, onb_local, sampler);
     }
 
     float                     m_ior;

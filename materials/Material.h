@@ -349,7 +349,6 @@ private:
         return 0;
     }
 
-private:
     RGB m_r;
 };
 
@@ -718,8 +717,7 @@ private:
         assert(f <= 1.0f);
 
         // Importance sample the specular layer based on the Fresnel contribution.
-        const float u = sampler.get_next_1D();
-        if (u < f) {
+        if (const float u = sampler.get_next_1D(); u < f) {
             const auto  specular_wi{ specular_reflection_local(wo_local) };
             const RGB   specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
             const float specular_pdf          = f; // Our old pdf is 1.0, so this is a multiplication against 1.

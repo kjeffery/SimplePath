@@ -22,6 +22,9 @@
 #include <utility>
 
 namespace sp {
+template <typename T>
+using ArenaVector = std::vector<T, ArenaAllocator<T>>;
+
 constexpr bool same_hemisphere(const Vector3& a, const Vector3& b)
 {
     return a.y * b.y > 0.0f;
@@ -496,8 +499,8 @@ private:
             ArenaAllocator<MaterialSampleResult> allocator_msr(arena);
             ArenaAllocator<float>                allocator_float(arena);
 
-            std::vector<MaterialSampleResult, ArenaAllocator<MaterialSampleResult>> results(num_bxdfs, allocator_msr);
-            std::vector<float, ArenaAllocator<float>> selection_weights(num_bxdfs, allocator_float);
+            ArenaVector<MaterialSampleResult> results(num_bxdfs, allocator_msr);
+            ArenaVector<float>                selection_weights(num_bxdfs, allocator_float);
 
             // We first use _weights_ to store the potential contributions in order to importance-select our BxDF.
             // We sample each BxDF to find a potential contribution from that BxDF. We will only end up using one of
@@ -549,11 +552,11 @@ private:
             // Go through each BxDF and calculate the multiple-importance sampling weight.
             // Here we're reusing _weights_ to store the PDFs from the sampling results.
 
-            ArenaAllocator<RGB>                   allocator_rgb(arena);
-            std::vector<RGB, ArenaAllocator<RGB>> values(num_bxdfs, allocator_rgb);
+            ArenaAllocator<RGB> allocator_rgb(arena);
+            ArenaVector<RGB>    values(num_bxdfs, allocator_rgb);
 
-            std::vector<float, ArenaAllocator<float>> pdfs(num_bxdfs, allocator_float);
-            const Vector3&                            wi_local = results[selected_index].direction;
+            ArenaVector<float> pdfs(num_bxdfs, allocator_float);
+            const Vector3&     wi_local = results[selected_index].direction;
 
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
@@ -613,8 +616,8 @@ private:
     {
         const std::size_t num_bxdfs = m_bxdfs.size();
 
-        ArenaAllocator<float>                     allocator_float(arena);
-        std::vector<float, ArenaAllocator<float>> selection_weights(num_bxdfs, allocator_float);
+        ArenaAllocator<float> allocator_float(arena);
+        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
 
         float weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
@@ -651,8 +654,8 @@ private:
     {
         const std::size_t num_bxdfs = m_bxdfs.size();
 
-        ArenaAllocator<float>                     allocator_float(arena);
-        std::vector<float, ArenaAllocator<float>> selection_weights(num_bxdfs, allocator_float);
+        ArenaAllocator<float> allocator_float(arena);
+        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
 
         float weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {

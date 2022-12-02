@@ -6,13 +6,13 @@
 
 /// @author Keith Jeffery
 
+#include "../base/Logger.h"
 #include "../base/MemoryArena.h"
 #include "../math/ONB.h"
 #include "../math/RGB.h"
 #include "../math/Sampler.h"
 #include "../math/Sampling.h"
 #include "../math/Vector3.h"
-#include "../base/Logger.h"
 
 #include <algorithm>
 #include <array>
@@ -510,10 +510,10 @@ private:
                 results[i] = m_bxdfs[i]->sample(wo_local, onb_local, sampler);
                 if (results[i].pdf == 0.0f) {
                     selection_weights[i] = 0.0f;
-                    continue;
+                } else {
+                    selection_weights[i] = relative_luminance(results[i].color / results[i].pdf);
+                    weight_sum += selection_weights[i];
                 }
-                selection_weights[i] = relative_luminance(results[i].color / results[i].pdf);
-                weight_sum += selection_weights[i];
             }
 
             if (weight_sum == 0.0f) {
@@ -521,7 +521,8 @@ private:
             }
 
             // Normalize the selection_weights
-            std::transform(selection_weights.cbegin(),
+            std::transform(std::execution::unseq,
+                           selection_weights.cbegin(),
                            selection_weights.cend(),
                            selection_weights.begin(),
                            [weight_sum](float weight) { return weight / weight_sum; });
@@ -582,8 +583,8 @@ private:
 #if DEBUG_MODE
             float mis_weight_sum = 0.0f;
 #endif
-            RGB   result_color   = RGB::black();
-            float result_pdf     = 0.0f;
+            RGB   result_color = RGB::black();
+            float result_pdf   = 0.0f;
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 if (pdfs[i] > 0.0f) {
                     const auto mis_weight = balance_heuristic(pdfs[i], inner_product);
@@ -613,28 +614,35 @@ private:
         const std::size_t num_bxdfs = m_bxdfs.size();
 
         ArenaAllocator<float>                     allocator_float(arena);
-        std::vector<float, ArenaAllocator<float>> weights(num_bxdfs, allocator_float);
+        std::vector<float, ArenaAllocator<float>> selection_weights(num_bxdfs, allocator_float);
 
         float weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            weights[i] =
-                relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local)); // / m_bxdfs[i]->pdf(wo_local, wi_local));
-            weight_sum += weights[i];
+            const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
+            if (pdf == 0.0f) {
+                selection_weights[i] = 0.0f;
+            } else {
+                selection_weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
+                weight_sum += selection_weights[i];
+            }
         }
 
         if (weight_sum == 0.0f) {
             return 0.0f;
         }
 
-        std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
-            return weight / weight_sum;
-        });
+        // Normalize the selection_weights
+        std::transform(std::execution::unseq,
+                       selection_weights.cbegin(),
+                       selection_weights.cend(),
+                       selection_weights.begin(),
+                       [weight_sum](float weight) { return weight / weight_sum; });
 
-        assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
+        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
 
         float pdf = 0.0f;
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            pdf += weights[i] * m_bxdfs[i]->pdf(wo_local, wi_local);
+            pdf += selection_weights[i] * m_bxdfs[i]->pdf(wo_local, wi_local);
         }
         return pdf;
     }
@@ -644,32 +652,35 @@ private:
         const std::size_t num_bxdfs = m_bxdfs.size();
 
         ArenaAllocator<float>                     allocator_float(arena);
-        std::vector<float, ArenaAllocator<float>> weights(num_bxdfs, allocator_float);
+        std::vector<float, ArenaAllocator<float>> selection_weights(num_bxdfs, allocator_float);
 
         float weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
             const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
             if (pdf == 0.0f) {
-                weights[i] = 0.0f;
+                selection_weights[i] = 0.0f;
             } else {
-                weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
+                selection_weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
+                weight_sum += selection_weights[i];
             }
-            weight_sum += weights[i];
         }
 
         if (weight_sum == 0.0f) {
             return RGB::black();
         }
 
-        std::transform(weights.cbegin(), weights.cend(), weights.begin(), [weight_sum](float weight) {
-            return weight / weight_sum;
-        });
+        // Normalize the selection_weights
+        std::transform(std::execution::unseq,
+                       selection_weights.cbegin(),
+                       selection_weights.cend(),
+                       selection_weights.begin(),
+                       [weight_sum](float weight) { return weight / weight_sum; });
 
-        assert(float_compare(std::accumulate(weights.cbegin(), weights.cend(), 0.0f), 1.0f));
+        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
 
         RGB result = RGB::black();
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            result += weights[i] * m_bxdfs[i]->eval(wo_local, wi_local);
+            result += selection_weights[i] * m_bxdfs[i]->eval(wo_local, wi_local);
         }
         return result;
     }

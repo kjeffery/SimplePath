@@ -12,6 +12,7 @@
 #include "../math/Sampler.h"
 #include "../math/Sampling.h"
 #include "../math/Vector3.h"
+#include "../base/Logger.h"
 
 #include <algorithm>
 #include <array>
@@ -297,13 +298,15 @@ private:
     MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const override
     {
         // TODO: cosine-weighted hemispherical sampling
-        const auto sp = sample_to_uniform_hemisphere(sampler.get_next_2D());
+        auto sp = sample_to_uniform_hemisphere(sampler.get_next_2D());
+        if (wo_local.y < 0.0f) {
+            sp.y *= 1.0f;
+        }
         return { m_albedo, Vector3{ sp }, uniform_hemisphere_pdf() };
     }
 
     RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
     {
-        assert(same_hemisphere(wo_local, wi_local));
         return m_albedo;
     }
 
@@ -633,7 +636,6 @@ private:
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
             pdf += weights[i] * m_bxdfs[i]->pdf(wo_local, wi_local);
         }
-        assert(pdf <= 1.0f);
         return pdf;
     }
 
@@ -646,7 +648,12 @@ private:
 
         float weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / m_bxdfs[i]->pdf(wo_local, wi_local));
+            const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
+            if (pdf == 0.0f) {
+                weights[i] = 0.0f;
+            } else {
+                weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
+            }
             weight_sum += weights[i];
         }
 

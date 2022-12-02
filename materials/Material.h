@@ -604,12 +604,12 @@ private:
                 // the eval function, which will give us incorrect results.
                 if (i == selected_index) {
                     values[i] = result.color;
-                    pdfs[i]   = result.pdf;
+                    pdfs[i]   = result.pdf * selection_weights[i];
                 } else {
                     const auto eval_color = m_bxdfs[i]->eval(wo_local, wi_local);
                     const auto eval_pdf   = m_bxdfs[i]->pdf(wo_local, wi_local);
                     values[i]             = eval_color;
-                    pdfs[i]               = eval_pdf;
+                    pdfs[i]               = eval_pdf * selection_weights[i];
                 }
             }
 
@@ -630,7 +630,7 @@ private:
 #endif
 
                     result_color += mis_weight * values[i];
-                    result_pdf += pdfs[i] * selection_weights[i];
+                    result_pdf += pdfs[i];
                 }
             }
 #if DEBUG_MODE

@@ -117,36 +117,13 @@ private:
         {
         }
 
-        ~MemoryBlock()
-        {
-            delete[] m_raw_memory;
-        }
+        MemoryBlock(MemoryBlock&& other) noexcept            = default;
+        MemoryBlock(const MemoryBlock&)                      = delete;
+        MemoryBlock& operator=(MemoryBlock&& other) noexcept = default;
+        MemoryBlock& operator=(const MemoryBlock&)           = delete;
 
-        MemoryBlock(MemoryBlock&& other) noexcept
-        : m_raw_memory(other.m_raw_memory)
-        , m_size(other.m_size)
-        {
-            other.m_size       = 0UL;
-            other.m_raw_memory = nullptr;
-        }
-
-        MemoryBlock(const MemoryBlock&) = delete;
-
-        MemoryBlock& operator=(MemoryBlock&& other) noexcept
-        {
-            if (this != std::addressof(other)) {
-                m_raw_memory       = other.m_raw_memory;
-                m_size             = other.m_size;
-                other.m_size       = 0UL;
-                other.m_raw_memory = nullptr;
-            }
-            return *this;
-        }
-
-        MemoryBlock& operator=(const MemoryBlock&) = delete;
-
-        std::byte*  m_raw_memory;
-        std::size_t m_size;
+        std::unique_ptr<std::byte[]> m_raw_memory;
+        std::size_t                 m_size;
     };
 
     template <typename T>
@@ -164,12 +141,12 @@ private:
         // +---------------------------+--------------------+---------------------+
 
         const std::size_t aligned_block_offset = aligned_mem - active_block_start();
-        const std::size_t block_size = active_block_total_size();
+        const std::size_t block_size           = active_block_total_size();
         if (block_size < aligned_block_offset) {
             return nullptr;
         }
-        const std::size_t space_available      = block_size - aligned_block_offset;
-        const std::size_t space_needed         = sizeof(T) * n;
+        const std::size_t space_available = block_size - aligned_block_offset;
+        const std::size_t space_needed    = sizeof(T) * n;
 
         assert(aligned_mem >= active_block_start());
         assert(aligned_block_offset >= m_block_offset);
@@ -187,8 +164,8 @@ private:
     {
         // This is a little pessimistic, because there's a chance that the memory is already correctly aligned and we're
         // allocating too much memory, but with a large enough block size, I don't expect this to happen often (at all).
-        const std::size_t size = std::max(sizeof(T) * n + alignof(T), m_min_block_size);
-        if (!m_free.empty() && size <= m_free.front().m_size) {
+        if (const std::size_t size = std::max(sizeof(T) * n + alignof(T), m_min_block_size);
+            !m_free.empty() && size <= m_free.front().m_size) {
             // Move one item from the free list to the front of the allocated list.
             // The splice_after parameters are a little unusual, in that it moves the range (first, last) (open
             // interval), so we have to bookend our node iterator.
@@ -202,13 +179,13 @@ private:
     [[nodiscard]] std::byte* active_block_start() noexcept
     {
         assert(!m_allocated.empty());
-        return m_allocated.front().m_raw_memory;
+        return m_allocated.front().m_raw_memory.get();
     }
 
     [[nodiscard]] const std::byte* active_block_start() const noexcept
     {
         assert(!m_allocated.empty());
-        return m_allocated.front().m_raw_memory;
+        return m_allocated.front().m_raw_memory.get();
     }
 
     [[nodiscard]] std::size_t active_block_total_size() const noexcept
@@ -231,7 +208,7 @@ class ArenaAllocator
 public:
     using value_type = T;
 
-    using is_always_equal                        = std::false_type;
+    using is_always_equal = std::false_type;
 
     // I don't care if things are allocated from the same arena. They aren't deallocated anyway.
     using propagate_on_container_copy_assignment = std::false_type;
@@ -246,10 +223,10 @@ public:
     {
     }
 
-    ArenaAllocator(ArenaAllocator&&)                 = default;
-    ArenaAllocator(const ArenaAllocator&)            = default;
-    ArenaAllocator& operator=(ArenaAllocator&&)      = default;
-    ArenaAllocator& operator=(const ArenaAllocator&) = default;
+    ArenaAllocator(ArenaAllocator&&) noexcept                 = default;
+    ArenaAllocator(const ArenaAllocator&) noexcept            = default;
+    ArenaAllocator& operator=(ArenaAllocator&&) noexcept      = default;
+    ArenaAllocator& operator=(const ArenaAllocator&) noexcept = default;
 
     template <typename U>
     constexpr ArenaAllocator(const ArenaAllocator<U>& other) noexcept
@@ -262,7 +239,7 @@ public:
         return m_arena->allocate<T>(n);
     }
 
-    void deallocate(T*, std::size_t) noexcept
+    void deallocate(T*, std::size_t) const noexcept
     {
         // No-op.
     }

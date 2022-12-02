@@ -3,32 +3,40 @@
 
 #include "base/MemoryArena.h"
 #include "math/Math.h"
+#include "materials/Material.h"
 
 #include <cstdlib>
 #include <iostream>
 
+using namespace sp;
+
 #define UTEST_ASSERT(x)                                                        \
     if (!(x)) {                                                                \
         std::cerr << "Test failed:" __FILE__ << ':' << __LINE__ << '\n' << #x; \
+        assert(false);                                                         \
         exit(EXIT_FAILURE);                                                    \
-    }
+    }                                                                          \
+    struct dummy
 
 #define UTEST_EQUALS(x, y)                                                     \
     if (!(x == y)) {                                                           \
         std::cerr << "Test failed:" __FILE__ << ':' << __LINE__ << '\n' << #x; \
+        assert(false);                                                         \
         exit(EXIT_FAILURE);                                                    \
-    }
+    }                                                                          \
+    struct dummy
 
 #define UTEST_FLOAT_EQUALS(x, y)                                               \
     if (!float_compare(x, y)) {                                                \
         std::cerr << "Test failed:" __FILE__ << ':' << __LINE__ << '\n' << #x; \
+        assert(false);                                                         \
         exit(EXIT_FAILURE);                                                    \
-    }
+    }                                                                          \
+    struct dummy
 
 void do_test_memory_arena(std::size_t size)
 {
-    struct alignas(8) S8
-    {
+    struct alignas(8) S8 {
         explicit S8(int q)
         : x(q)
         {
@@ -37,8 +45,7 @@ void do_test_memory_arena(std::size_t size)
         int x;
     };
 
-    struct alignas(16) S16
-    {
+    struct alignas(16) S16 {
         explicit S16(int q)
         : x(q)
         {
@@ -47,8 +54,7 @@ void do_test_memory_arena(std::size_t size)
         int x;
     };
 
-    struct alignas(32) S32
-    {
+    struct alignas(32) S32 {
         explicit S32(int q)
         : x(q)
         {
@@ -57,8 +63,7 @@ void do_test_memory_arena(std::size_t size)
         int x;
     };
 
-    struct alignas(64) S64
-    {
+    struct alignas(64) S64 {
         explicit S64(int q)
         : x(q)
         {
@@ -103,7 +108,85 @@ void test_memory_arena()
     do_test_memory_arena(8192UL);
 }
 
+void do_test_material(sp::Material& material, const Normal3& normal)
+{
+    constexpr int n_samples = 1024;
+    MemoryArena arena;
+    Sampler sampler = Sampler::create_new_sequence(999);
+
+    ONB onb = ONB::from_v(normal);
+
+    int valid_samples = 0;
+
+    float pdf_sum = 0.0f;
+    for (int sn = 0; sn < n_samples; ++sn) {
+        arena.release_all();
+        const Vector3 wo = onb.to_world(sample_to_uniform_hemisphere(sampler.get_next_2D()));
+        const auto result = material.sample(arena, wo, normal, sampler);
+
+        if (result.pdf > 0.0f && result.color != RGB::black()) {
+            const auto pdf = material.pdf(arena, wo, result.direction, normal);
+            pdf_sum += pdf;
+            const auto color = material.eval(arena, wo, result.direction, normal);
+            UTEST_FLOAT_EQUALS(pdf, result.pdf);
+            UTEST_ASSERT(compare(color, result.color));
+            ++valid_samples;
+        }
+    }
+
+    const float valid_ratio = static_cast<float>(valid_samples) / static_cast<float>(n_samples);
+    LOG_DEBUG("Valid sample percentage: ", valid_ratio * 100.0f);
+    //UTEST_FLOAT_EQUALS((pdf_sum/n_samples) * uniform_hemisphere_pdf(), 1.0f);
+}
+
+void test_lambertian_bxdf()
+{
+    const auto normal = normalize(Normal3{ 1.0f, -1.0f, 1.0f });
+
+    OneSampleMaterial::BxDFContainer bxdfs;
+    bxdfs.emplace_back(new LambertianBRDF{ sp::RGB{ 0.7f, 0.6f, 0.5f }});
+    OneSampleMaterial material{ std::move(bxdfs) };
+    do_test_material(material, normal);
+}
+
+void test_beckmann_bxdf(float roughness)
+{
+    const auto normal = normalize(Normal3{ 1.0f, -1.0f, 1.0f });
+    constexpr float ior = 1.5f;
+
+    OneSampleMaterial::BxDFContainer bxdfs;
+    std::unique_ptr<MicrofacetDistribution> microfacet(new BeckmannDistribution{ roughness });
+    bxdfs.emplace_back(new MicrofacetReflection{ RGB::white(), std::move(microfacet), ior });
+    OneSampleMaterial material{ std::move(bxdfs) };
+    do_test_material(material, normal);
+}
+
+void test_glossy_material()
+{
+//    OneSampleMaterial::BxDFContainer bxdfs;
+//    std::unique_ptr<MicrofacetDistribution> microfacet(new BeckmannDistribution{ roughness });
+//    bxdfs.emplace_back(new MicrofacetReflection{ RGB::white(), std::move(microfacet), ior });
+//    bxdfs.emplace_back(new LambertianBRDF{ color });
+//    return OneSampleMaterial{ std::move(bxdfs) };
+}
+
+void test_materials()
+{
+    test_lambertian_bxdf();
+    test_beckmann_bxdf(0.1f);
+    test_beckmann_bxdf(0.2f);
+    test_beckmann_bxdf(0.3f);
+    test_beckmann_bxdf(0.4f);
+    test_beckmann_bxdf(0.5f);
+    test_beckmann_bxdf(0.6f);
+    test_beckmann_bxdf(0.7f);
+    test_beckmann_bxdf(0.8f);
+    test_beckmann_bxdf(0.9f);
+    test_beckmann_bxdf(1.0f);
+}
+
 void run_tests()
 {
     test_memory_arena();
+    test_materials();
 }

@@ -154,13 +154,9 @@ private:
     {
         assert(!m_allocated.empty());
 
-        const std::size_t block_size = active_block_total_size();
-        if (m_block_offset >= block_size) {
-            return nullptr;
-        }
-
         std::byte* const aligned_mem = align_up(active_block_start() + m_block_offset, alignof(T));
         assert(is_aligned(aligned_mem, alignof(T)));
+        assert(aligned_mem >= active_block_start());
 
         // Start                m_block_offset           aligned_mem             End
         // +---------------------------+--------------------+---------------------+
@@ -168,6 +164,10 @@ private:
         // +---------------------------+--------------------+---------------------+
 
         const std::size_t aligned_block_offset = aligned_mem - active_block_start();
+        const std::size_t block_size = active_block_total_size();
+        if (block_size < aligned_block_offset) {
+            return nullptr;
+        }
         const std::size_t space_available      = block_size - aligned_block_offset;
         const std::size_t space_needed         = sizeof(T) * n;
 

@@ -669,9 +669,25 @@ private:
         const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
 
         const std::size_t num_bxdfs = m_bxdfs.size();
-        RGB               result    = RGB::black();
+
+        ArenaAllocator<float> allocator_float(arena);
+        ArenaVector<float>    pdfs(num_bxdfs, allocator_float);
+
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            result += selection_weights[i] * m_bxdfs[i]->eval(wo_local, wi_local);
+            const auto pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
+            pdfs[i]        = pdf * selection_weights[i];
+        }
+
+        // We're using one sample for each type, so our inner product is just the sum of all pdfs (as opposed to
+        // the inner product of pdfs and sample counts).
+        const float inner_product = std::reduce(std::execution::unseq, pdfs.cbegin(), pdfs.cend(), 0.0f);
+
+        RGB result = RGB::black();
+        for (std::size_t i = 0; i < num_bxdfs; ++i) {
+            if (pdfs[i] > 0.0f) {
+                const auto mis_weight = balance_heuristic(pdfs[i], inner_product);
+                result += mis_weight * m_bxdfs[i]->eval(wo_local, wi_local);
+            }
         }
         return result;
     }

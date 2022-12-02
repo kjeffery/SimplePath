@@ -607,6 +607,12 @@ inline bool compare(const BaseVector3<type>& a, const BaseVector3<type>& b) noex
     return float_compare(a.x, b.x) && float_compare(a.y, b.y) && float_compare(a.z, b.z);
 }
 
+template <VectorType type>
+inline bool compare_epsilon(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
+{
+    return float_compare_epsilon(a.x, b.x) && float_compare_epsilon(a.y, b.y) && float_compare_epsilon(a.z, b.z);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// Euclidean Space Operators
 ////////////////////////////////////////////////////////////////////////////////
@@ -616,15 +622,17 @@ inline int max_dim(const BaseVector3<type>& a) noexcept
 {
     const BaseVector3<type> b = abs(a);
     if (b.x > b.y) {
-        if (b.x > b.z)
+        if (b.x > b.z) {
             return 0;
-        else
+        } else {
             return 2;
+        }
     } else {
-        if (b.y > b.z)
+        if (b.y > b.z) {
             return 1;
-        else
+        } else {
             return 2;
+        }
     }
 }
 
@@ -786,10 +794,11 @@ inline float area(const Vector3& d) noexcept
 inline Vector3 normalize_safe(const Vector3& a) noexcept
 {
     const float d = dot(a, a);
-    if (d == 0.0f) [[unlikely]]
+    if (d == 0.0f) [[unlikely]] {
         return a;
-    else
+    } else {
         return a * rsqrt(d);
+    }
 }
 
 /*! differentiated normalization */

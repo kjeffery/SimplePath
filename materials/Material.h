@@ -598,13 +598,6 @@ private:
             // the inner product of pdfs and sample counts).
             const float inner_product = std::reduce(std::execution::unseq, pdfs.cbegin(), pdfs.cend(), 0.0f);
 
-            // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
-            // techniques. Adding in the other produces fireflies due to low PDF values.
-#if 0
-            const auto mis_weight   = balance_heuristic(pdfs[selected_index], inner_product);
-            const RGB  result_color = mis_weight * values[selected_index];
-            const float result_pdf = result.pdf * selection_weights[selected_index];
-#else
 #if DEBUG_MODE
             float mis_weight_sum = 0.0f;
 #endif
@@ -624,8 +617,6 @@ private:
 #if DEBUG_MODE
             assert(float_compare(mis_weight_sum, 1.0f));
 #endif
-            // result_color /= static_cast<float>(num_bxdfs);
-#endif
 
             // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
             // above) so that we can use return value optimization (RVO). We return a temporary above, so we want to be
@@ -636,36 +627,10 @@ private:
 
     float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
     {
+        const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
+
         const std::size_t num_bxdfs = m_bxdfs.size();
-
-        ArenaAllocator<float> allocator_float(arena);
-        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
-
-        float weight_sum{ 0.0f };
-        for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
-            if (pdf == 0.0f) {
-                selection_weights[i] = 0.0f;
-            } else {
-                selection_weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
-                weight_sum += selection_weights[i];
-            }
-        }
-
-        if (weight_sum == 0.0f) {
-            return 0.0f;
-        }
-
-        // Normalize the selection_weights
-        std::transform(std::execution::unseq,
-                       selection_weights.cbegin(),
-                       selection_weights.cend(),
-                       selection_weights.begin(),
-                       [weight_sum](float weight) { return weight / weight_sum; });
-
-        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
-
-        float pdf = 0.0f;
+        float             pdf       = 0.0f;
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
             pdf += selection_weights[i] * m_bxdfs[i]->pdf(wo_local, wi_local);
         }
@@ -674,36 +639,10 @@ private:
 
     RGB eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
     {
+        const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
+
         const std::size_t num_bxdfs = m_bxdfs.size();
-
-        ArenaAllocator<float> allocator_float(arena);
-        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
-
-        float weight_sum{ 0.0f };
-        for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
-            if (pdf == 0.0f) {
-                selection_weights[i] = 0.0f;
-            } else {
-                selection_weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
-                weight_sum += selection_weights[i];
-            }
-        }
-
-        if (weight_sum == 0.0f) {
-            return RGB::black();
-        }
-
-        // Normalize the selection_weights
-        std::transform(std::execution::unseq,
-                       selection_weights.cbegin(),
-                       selection_weights.cend(),
-                       selection_weights.begin(),
-                       [weight_sum](float weight) { return weight / weight_sum; });
-
-        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
-
-        RGB result = RGB::black();
+        RGB               result    = RGB::black();
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
             result += selection_weights[i] * m_bxdfs[i]->eval(wo_local, wi_local);
         }

@@ -183,9 +183,10 @@ inline bool compare(const RGB& a, const RGB& b) noexcept
     return float_compare(a.r, b.r) && float_compare(a.g, b.g) && float_compare(a.b, b.b);
 }
 
-inline bool compare_epsilon(const RGB& a, const RGB& b) noexcept
+inline bool compare_epsilon(const RGB& a, const RGB& b, const float epsilon) noexcept
 {
-    return float_compare_epsilon(a.r, b.r) && float_compare_epsilon(a.g, b.g) && float_compare_epsilon(a.b, b.b);
+    return float_compare_epsilon(a.r, b.r, epsilon) && float_compare_epsilon(a.g, b.g, epsilon) &&
+           float_compare_epsilon(a.b, b.b, epsilon);
 }
 
 template <>

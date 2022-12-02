@@ -608,9 +608,10 @@ inline bool compare(const BaseVector3<type>& a, const BaseVector3<type>& b) noex
 }
 
 template <VectorType type>
-inline bool compare_epsilon(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
+inline bool compare_epsilon(const BaseVector3<type>& a, const BaseVector3<type>& b, const float epsilon) noexcept
 {
-    return float_compare_epsilon(a.x, b.x) && float_compare_epsilon(a.y, b.y) && float_compare_epsilon(a.z, b.z);
+    return float_compare_epsilon(a.x, b.x, epsilon) && float_compare_epsilon(a.y, b.y, epsilon) &&
+           float_compare_epsilon(a.z, b.z, epsilon);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

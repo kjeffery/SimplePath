@@ -5,6 +5,7 @@
 #include "math.h"
 
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <istream>
 #include <ostream>
@@ -230,3 +231,16 @@ inline std::istream& operator>>(std::istream& ins, RGB& c)
 }
 
 } // namespace sp
+
+namespace std
+{
+inline bool isinf(const sp::RGB& rgb)
+{
+    return isinf(rgb.r) || isinf(rgb.g) || isinf(rgb.b);
+}
+
+inline bool isnan(const sp::RGB& rgb)
+{
+    return isnan(rgb.r) || isnan(rgb.g) || isnan(rgb.b);
+}
+}

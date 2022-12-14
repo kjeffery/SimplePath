@@ -2,7 +2,7 @@
 
 /// @author Keith Jeffery
 
-#include "math.h"
+#include "Math.h"
 
 #include <cassert>
 #include <cstdint>

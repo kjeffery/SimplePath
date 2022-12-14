@@ -62,7 +62,6 @@ set(SOURCES
         math/BBox.h
         math/LinearSpace3x3.h
         math/Math.h
-        math/Matrix4x4.h
         math/ONB.h
         math/Quaternion.h
         math/RGB.h
@@ -89,5 +88,5 @@ add_executable(SimplePath ${SOURCES})
 if (UNIX)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
-    target_link_libraries(SimplePath PRIVATE Threads::Threads atomic)
+    target_link_libraries(SimplePath PRIVATE Threads::Threads atomic tbb)
 endif(UNIX)

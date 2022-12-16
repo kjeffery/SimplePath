@@ -130,6 +130,7 @@ public:
     {
     }
 
+private:
     bool intersect_impl(const Ray&, RayLimits&, Intersection&) const noexcept override
     {
         assert(!"Should not get here");
@@ -161,7 +162,6 @@ public:
         return true;
     }
 
-private:
     ShapeSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept override
     {
         return m_sphere.sample(observer_world, u);

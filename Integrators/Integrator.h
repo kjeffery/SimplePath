@@ -534,7 +534,7 @@ private:
                     [&L, &scene, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
                         L += throughput * estimate_direct(scene,
                                                           light,
-                                                          ray.get_origin(),
+                                                          geometry_intersection.m_point,
                                                           n,
                                                           wo,
                                                           sampler,
@@ -546,7 +546,7 @@ private:
                     L += throughput * estimate_direct_mis(scene,
                                                           arena,
                                                           light,
-                                                          ray.get_origin(),
+                                                          geometry_intersection.m_point,
                                                           n,
                                                           wo,
                                                           sampler,

@@ -7,8 +7,8 @@ scene_parameters {
 }
 
 perspective_camera {
-    origin: 0.0 5.0 -5.0
-    look_at: 0.0 0.0 0.0
+    origin: 0.0 2.0 5.0
+    look_at: 0.0 1.0 0.0
     fov: 45
 }
 
@@ -40,7 +40,10 @@ mesh {
 }
 
 sphere {
-    name: "my sphere"
+    translate: 10.0 0.5 0.0
+    rotate: 0.0 1.0 0.0 45.0
+    scale: 10.0 10.0 10.0
+    material: "material0"
 }
 
 plane {

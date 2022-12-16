@@ -5,6 +5,7 @@
 #include "Math.h"
 
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <istream>
 #include <ostream>
@@ -183,6 +184,12 @@ inline bool compare(const RGB& a, const RGB& b) noexcept
     return float_compare(a.r, b.r) && float_compare(a.g, b.g) && float_compare(a.b, b.b);
 }
 
+inline bool compare_epsilon(const RGB& a, const RGB& b, const float epsilon) noexcept
+{
+    return float_compare_epsilon(a.r, b.r, epsilon) && float_compare_epsilon(a.g, b.g, epsilon) &&
+           float_compare_epsilon(a.b, b.b, epsilon);
+}
+
 template <>
 inline RGB safe_divide(const RGB& a, const float& b) noexcept
 {
@@ -224,3 +231,16 @@ inline std::istream& operator>>(std::istream& ins, RGB& c)
 }
 
 } // namespace sp
+
+namespace std
+{
+inline bool isinf(const sp::RGB& rgb)
+{
+    return isinf(rgb.r) || isinf(rgb.g) || isinf(rgb.b);
+}
+
+inline bool isnan(const sp::RGB& rgb)
+{
+    return isnan(rgb.r) || isnan(rgb.g) || isnan(rgb.b);
+}
+}

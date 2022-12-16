@@ -304,7 +304,7 @@ private:
                 const Vector3  wo = -ray.get_direction();
                 const Normal3& n  = geometry_intersection.m_normal;
                 const Vector3& wi = light_sample.m_tester.m_ray.get_direction();
-                const RGB      f  = geometry_intersection.m_material->eval(arena, wo, wi, n);
+                const RGB      f  = geometry_intersection.m_material->eval(arena, wo, wi, n, sampler);
 
                 if (f != RGB::black() && !occluded(light_sample.m_tester, scene)) {
                     L += f * light_sample.m_L * std::abs(dot(wi, n)) / light_sample.m_pdf;
@@ -464,11 +464,11 @@ RGB estimate_direct_mis(const Scene&    scene,
     }
 
     const Vector3& wi        = light_sample.m_tester.m_ray.get_direction();
-    const RGB      bsdf_eval = material.eval(arena, wo, wi, n);
+    const RGB      bsdf_eval = material.eval(arena, wo, wi, n, sampler);
 
     float bsdf_pdf;
     if (bsdf_eval != RGB::black()) {
-        bsdf_pdf           = material.pdf(arena, wo, wi, n);
+        bsdf_pdf           = material.pdf(arena, wo, wi, n, sampler);
         const float weight = balance_heuristic(1, light_sample.m_pdf, 1, bsdf_pdf);
         L_result += bsdf_eval * light_sample.m_L * (std::abs(dot(wi, n) * weight / light_sample.m_pdf));
     }
@@ -534,7 +534,7 @@ private:
                     [&L, &scene, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
                         L += throughput * estimate_direct(scene,
                                                           light,
-                                                          ray.get_origin(),
+                                                          geometry_intersection.m_point,
                                                           n,
                                                           wo,
                                                           sampler,
@@ -546,7 +546,7 @@ private:
                     L += throughput * estimate_direct_mis(scene,
                                                           arena,
                                                           light,
-                                                          ray.get_origin(),
+                                                          geometry_intersection.m_point,
                                                           n,
                                                           wo,
                                                           sampler,

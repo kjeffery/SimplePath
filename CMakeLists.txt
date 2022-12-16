@@ -30,13 +30,13 @@ else()
 endif(MSVC)
 
 set(SOURCES
-        UnitTests.cpp
         Cameras/Camera.h
         Image/Image.cpp
         Image/Image.h
         Integrators/Integrator.h
         Lights/Light.h
         Lights/LightSample.h
+        UnitTests.cpp
         base/Array2D.h
         base/Constants.h
         base/Endian.h
@@ -65,6 +65,7 @@ set(SOURCES
         math/ONB.h
         math/Quaternion.h
         math/RGB.h
+        math/RSequence.h
         math/Ray.h
         math/Sampler.h
         math/Sampling.cpp

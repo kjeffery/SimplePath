@@ -64,7 +64,7 @@ inline Vector3 sample_to_uniform_cone(const Point2& u, const float cos_theta_max
     return Vector3{ std::cos(phi) * sin_theta, cos_theta, std::sin(phi) * sin_theta };
 }
 
-inline float uniform_code_pdf(const float cos_theta_max) noexcept
+inline float uniform_cone_pdf(const float cos_theta_max) noexcept
 {
     return 1.0f / (2.0f * std::numbers::pi_v<float> * (1.0f - cos_theta_max));
 }

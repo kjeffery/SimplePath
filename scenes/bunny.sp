@@ -97,5 +97,6 @@ plane {
 
 sphere_light {
     translate: 0.0 3.0 0.0
+    scale: 0.1 0.1 0.1
     radiance: 10.0 10.0 10.0
 }

@@ -64,7 +64,7 @@ public:
 
         const float sin_theta_max2 = 1.0f / sqr_distance;
         const float cos_theta_max  = std::sqrt(std::max(0.0f, 1.0f - sin_theta_max2));
-        return uniform_code_pdf(cos_theta_max);
+        return uniform_cone_pdf(cos_theta_max);
     }
 
 private:

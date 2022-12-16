@@ -268,4 +268,12 @@ inline bool float_compare(const float a, const float b) noexcept
     return std::abs(a - b) <= (epsilon * std::max(std::abs(a), std::abs(b)));
 }
 
+// Sometimes we're doing random processes (we are a Monte Carlo process, after all), and the results aren't exact
+// because of noise and not necessarily floating-point precision. In those cases, it's nice to have a little extra
+// wiggle-room.
+inline bool float_compare_epsilon(const float a, const float b, const float epsilon) noexcept
+{
+    return std::abs(a - b) <= epsilon;
+}
+
 } // namespace sp

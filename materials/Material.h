@@ -283,10 +283,28 @@ public:
         return pdf_impl(wo_local, wi_local);
     }
 
+    [[nodiscard]] RGB rho(const Vector3& wo_local, const ONB& onb_local, unsigned n_samples, Sampler& sampler) const
+    {
+        return rho_impl(wo_local, onb_local, n_samples, sampler);
+    }
+
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
     virtual RGB                  eval_impl(const Vector3& wo_local, const Vector3& wi_local) const                  = 0;
     virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                               = 0;
+
+    virtual RGB rho_impl(const Vector3& wo_local, const ONB& onb_local, unsigned n_samples, Sampler& sampler) const
+    {
+        assert(n_samples > 0);
+        auto r = RGB::black();
+        for (unsigned i = 0; i < n_samples; ++i) {
+            auto result = sample(wo_local, onb_local, sampler);
+            if (result.pdf > 0.0f) {
+                r += result.color * abs_cos_theta(result.direction) / result.pdf;
+            }
+        }
+        return r / n_samples;
+    }
 };
 
 class LambertianBRDF : public BRDF
@@ -316,6 +334,11 @@ private:
     float pdf_impl(const Vector3&, const Vector3&) const override
     {
         return uniform_hemisphere_pdf();
+    }
+
+    RGB rho_impl(const Vector3&, const ONB&, unsigned int, Sampler&) const override
+    {
+        return m_albedo * std::numbers::pi_v<float>;
     }
 
     RGB m_albedo;
@@ -433,17 +456,20 @@ public:
     }
 
     [[nodiscard]] float
-    pdf(MemoryArena& arena, const Vector3& wo, const Vector3& wi, const Normal3& shading_normal) const
+    pdf(MemoryArena& arena, const Vector3& wo, const Vector3& wi, const Normal3& shading_normal, Sampler& sampler) const
     {
         const auto onb = ONB::from_v(Vector3{ shading_normal });
-        return pdf_impl(arena, onb.to_onb(wo), onb.to_onb(wi));
+        return pdf_impl(arena, onb.to_onb(wo), onb.to_onb(wi), onb, sampler);
     }
 
-    [[nodiscard]] RGB
-    eval(MemoryArena& arena, const Vector3& wo, const Vector3& wi, const Normal3& shading_normal) const
+    [[nodiscard]] RGB eval(MemoryArena&   arena,
+                           const Vector3& wo,
+                           const Vector3& wi,
+                           const Normal3& shading_normal,
+                           Sampler&       sampler) const
     {
         const auto onb = ONB::from_v(Vector3{ shading_normal });
-        return eval_impl(arena, onb.to_onb(wo), onb.to_onb(wi));
+        return eval_impl(arena, onb.to_onb(wo), onb.to_onb(wi), onb, sampler);
     }
 
     [[nodiscard]] MaterialSampleResult
@@ -452,21 +478,37 @@ public:
         return sample_impl(arena, wo_local, onb_local, sampler);
     }
 
-    [[nodiscard]] float pdf_local_space(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const
+    [[nodiscard]] float pdf_local_space(MemoryArena&   arena,
+                                        const Vector3& wo_local,
+                                        const Vector3& wi_local,
+                                        const ONB&     onb_local,
+                                        Sampler&       sampler) const
     {
-        return pdf_impl(arena, wo_local, wi_local);
+        return pdf_impl(arena, wo_local, wi_local, onb_local, sampler);
     }
 
-    [[nodiscard]] RGB eval_local_space(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const
+    [[nodiscard]] RGB eval_local_space(MemoryArena&   arena,
+                                       const Vector3& wo_local,
+                                       const Vector3& wi_local,
+                                       const ONB&     onb_local,
+                                       Sampler&       sampler) const
     {
-        return eval_impl(arena, wo_local, wi_local);
+        return eval_impl(arena, wo_local, wi_local, onb_local, sampler);
     }
 
 private:
     virtual MaterialSampleResult
     sample_impl(MemoryArena& arena, const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
-    virtual float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const     = 0;
-    virtual RGB   eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const    = 0;
+    virtual float pdf_impl(MemoryArena&   arena,
+                           const Vector3& wo_local,
+                           const Vector3& wi_local,
+                           const ONB&     onb_local,
+                           Sampler&       sampler) const                                                         = 0;
+    virtual RGB   eval_impl(MemoryArena&   arena,
+                            const Vector3& wo_local,
+                            const Vector3& wi_local,
+                            const ONB&     onb_local,
+                            Sampler&       sampler) const                                                        = 0;
 };
 
 // This is based on Veach and Guibas' multiple importance sampling. It's a general material used to hold any number of
@@ -483,6 +525,35 @@ public:
     }
 
 private:
+    ArenaVector<float>
+    get_selection_weights(MemoryArena& arena, const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const
+    {
+        constexpr unsigned rho_evals = 16u;
+        const std::size_t  num_bxdfs = m_bxdfs.size();
+
+        ArenaAllocator<float> allocator_float(arena);
+        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
+
+        // We keep a running total of the selection_weights so that we can normalize them into a proper discrete
+        // probability mass function.
+        float weight_sum = 0.0f;
+        for (std::size_t i = 0; i < num_bxdfs; ++i) {
+            const RGB r          = m_bxdfs[i]->rho(wo_local, onb_local, rho_evals, sampler);
+            selection_weights[i] = relative_luminance(r);
+            weight_sum += selection_weights[i];
+        }
+
+        // Normalize the selection_weights
+        std::transform(std::execution::unseq,
+                       selection_weights.cbegin(),
+                       selection_weights.cend(),
+                       selection_weights.begin(),
+                       [weight_sum](float weight) { return weight / weight_sum; });
+
+        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
+        return selection_weights;
+    }
+
     // This implements Veach and Guibas' one-sample model from _Optimally Combining Sampling Techniques
     // for Monte Carlo Rendering_.
     // Eric Veach and Leonidas J. Guibas
@@ -495,41 +566,9 @@ private:
         if (num_bxdfs == 1) {
             return m_bxdfs.front()->sample(wo_local, onb_local, sampler);
         } else {
-            ArenaAllocator<MaterialSampleResult> allocator_msr(arena);
-            ArenaAllocator<float>                allocator_float(arena);
+            const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
 
-            ArenaVector<MaterialSampleResult> results(num_bxdfs, allocator_msr);
-            ArenaVector<float>                selection_weights(num_bxdfs, allocator_float);
-
-            // We first use _weights_ to store the potential contributions in order to importance-select our BxDF.
-            // We sample each BxDF to find a potential contribution from that BxDF. We will only end up using one of
-            // these values, but use the others to importance-sample our primary BxDF.
-
-            // We keep a running total of the selection_weights so that we can normalize them into a proper discrete
-            // probability mass function.
-            float weight_sum = 0.0f;
-            for (std::size_t i = 0; i < num_bxdfs; ++i) {
-                results[i] = m_bxdfs[i]->sample(wo_local, onb_local, sampler);
-                if (results[i].pdf == 0.0f) {
-                    selection_weights[i] = 0.0f;
-                } else {
-                    selection_weights[i] = relative_luminance(results[i].color / results[i].pdf);
-                    weight_sum += selection_weights[i];
-                }
-            }
-
-            if (weight_sum == 0.0f) {
-                return results.front();
-            }
-
-            // Normalize the selection_weights
-            std::transform(std::execution::unseq,
-                           selection_weights.cbegin(),
-                           selection_weights.cend(),
-                           selection_weights.begin(),
-                           [weight_sum](float weight) { return weight / weight_sum; });
-
-            assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
+            // TODO: wrap Sampler in random interface and use std::discrete_distribution
 
             // Randomly select one BxDF based on sampling each BxDF.
             // Save the results.
@@ -548,26 +587,29 @@ private:
             // Account for numerical precision errors.
             selected_index = std::min(num_bxdfs - 1u, selected_index);
 
+            const auto result = m_bxdfs[selected_index]->sample(wo_local, onb_local, sampler);
+
             // Go through each BxDF and calculate the multiple-importance sampling weight.
             // Here we're reusing _weights_ to store the PDFs from the sampling results.
 
-            ArenaAllocator<RGB> allocator_rgb(arena);
-            ArenaVector<RGB>    values(num_bxdfs, allocator_rgb);
+            ArenaAllocator<RGB>   allocator_rgb(arena);
+            ArenaAllocator<float> allocator_float(arena);
+            ArenaVector<RGB>      values(num_bxdfs, allocator_rgb);
+            ArenaVector<float>    pdfs(num_bxdfs, allocator_float);
 
-            ArenaVector<float> pdfs(num_bxdfs, allocator_float);
-            const Vector3&     wi_local = results[selected_index].direction;
+            const Vector3& wi_local = result.direction;
 
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
                 // the eval function, which will give us incorrect results.
                 if (i == selected_index) {
-                    values[i] = results[i].color;
-                    pdfs[i]   = results[i].pdf;
+                    values[i] = result.color;
+                    pdfs[i]   = result.pdf * selection_weights[i];
                 } else {
                     const auto eval_color = m_bxdfs[i]->eval(wo_local, wi_local);
                     const auto eval_pdf   = m_bxdfs[i]->pdf(wo_local, wi_local);
                     values[i]             = eval_color;
-                    pdfs[i]               = eval_pdf;
+                    pdfs[i]               = eval_pdf * selection_weights[i];
                 }
             }
 
@@ -575,13 +617,6 @@ private:
             // the inner product of pdfs and sample counts).
             const float inner_product = std::reduce(std::execution::unseq, pdfs.cbegin(), pdfs.cend(), 0.0f);
 
-            // As far as I can tell, in the paper, they don't add in the contributions from the additional sampling
-            // techniques. Adding in the other produces fireflies due to low PDF values.
-#if 0
-            const auto mis_weight   = balance_heuristic(pdfs[selected_index], inner_product);
-            const RGB  result_color = mis_weight * values[selected_index];
-            const float result_pdf = results[selected_index].pdf * selection_weights[selected_index];
-#else
 #if DEBUG_MODE
             float mis_weight_sum = 0.0f;
 #endif
@@ -595,13 +630,11 @@ private:
 #endif
 
                     result_color += mis_weight * values[i];
-                    result_pdf += pdfs[i] * selection_weights[i];
+                    result_pdf += pdfs[i];
                 }
             }
 #if DEBUG_MODE
             assert(float_compare(mis_weight_sum, 1.0f));
-#endif
-            // result_color /= static_cast<float>(num_bxdfs);
 #endif
 
             // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
@@ -611,78 +644,50 @@ private:
         }
     }
 
-    float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    float pdf_impl(MemoryArena&   arena,
+                   const Vector3& wo_local,
+                   const Vector3& wi_local,
+                   const ONB&     onb_local,
+                   Sampler&       sampler) const override
     {
+        const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
+
         const std::size_t num_bxdfs = m_bxdfs.size();
-
-        ArenaAllocator<float> allocator_float(arena);
-        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
-
-        float weight_sum{ 0.0f };
-        for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
-            if (pdf == 0.0f) {
-                selection_weights[i] = 0.0f;
-            } else {
-                selection_weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
-                weight_sum += selection_weights[i];
-            }
-        }
-
-        if (weight_sum == 0.0f) {
-            return 0.0f;
-        }
-
-        // Normalize the selection_weights
-        std::transform(std::execution::unseq,
-                       selection_weights.cbegin(),
-                       selection_weights.cend(),
-                       selection_weights.begin(),
-                       [weight_sum](float weight) { return weight / weight_sum; });
-
-        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
-
-        float pdf = 0.0f;
+        float             pdf       = 0.0f;
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
             pdf += selection_weights[i] * m_bxdfs[i]->pdf(wo_local, wi_local);
         }
         return pdf;
     }
 
-    RGB eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    RGB eval_impl(MemoryArena&   arena,
+                  const Vector3& wo_local,
+                  const Vector3& wi_local,
+                  const ONB&     onb_local,
+                  Sampler&       sampler) const override
     {
+        const auto selection_weights = get_selection_weights(arena, wo_local, onb_local, sampler);
+
         const std::size_t num_bxdfs = m_bxdfs.size();
 
         ArenaAllocator<float> allocator_float(arena);
-        ArenaVector<float>    selection_weights(num_bxdfs, allocator_float);
+        ArenaVector<float>    pdfs(num_bxdfs, allocator_float);
 
-        float weight_sum{ 0.0f };
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            const float pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
-            if (pdf == 0.0f) {
-                selection_weights[i] = 0.0f;
-            } else {
-                selection_weights[i] = relative_luminance(m_bxdfs[i]->eval(wo_local, wi_local) / pdf);
-                weight_sum += selection_weights[i];
-            }
+            const auto pdf = m_bxdfs[i]->pdf(wo_local, wi_local);
+            pdfs[i]        = pdf * selection_weights[i];
         }
 
-        if (weight_sum == 0.0f) {
-            return RGB::black();
-        }
-
-        // Normalize the selection_weights
-        std::transform(std::execution::unseq,
-                       selection_weights.cbegin(),
-                       selection_weights.cend(),
-                       selection_weights.begin(),
-                       [weight_sum](float weight) { return weight / weight_sum; });
-
-        assert(float_compare(std::accumulate(selection_weights.cbegin(), selection_weights.cend(), 0.0f), 1.0f));
+        // We're using one sample for each type, so our inner product is just the sum of all pdfs (as opposed to
+        // the inner product of pdfs and sample counts).
+        const float inner_product = std::reduce(std::execution::unseq, pdfs.cbegin(), pdfs.cend(), 0.0f);
 
         RGB result = RGB::black();
         for (std::size_t i = 0; i < num_bxdfs; ++i) {
-            result += selection_weights[i] * m_bxdfs[i]->eval(wo_local, wi_local);
+            if (pdfs[i] > 0.0f) {
+                const auto mis_weight = balance_heuristic(pdfs[i], inner_product);
+                result += mis_weight * m_bxdfs[i]->eval(wo_local, wi_local);
+            }
         }
         return result;
     }
@@ -737,7 +742,11 @@ private:
         return MaterialSampleResult{ color, base_result.direction, result_pdf };
     };
 
-    float pdf_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    float pdf_impl(MemoryArena&   arena,
+                   const Vector3& wo_local,
+                   const Vector3& wi_local,
+                   const ONB&     onb_local,
+                   Sampler&       sampler) const override
     {
         constexpr float ior_air = 1.0f;
 
@@ -749,10 +758,14 @@ private:
         // It does, however, have a chance of being selected based on the Fresnel contribution. So this is really
         // (f * specular_pdf) + (1.0f - f) * base_pdf
         // (f * 0.0f) + (1.0f - f) * base_pdf
-        return (1.0f - f) * m_base->pdf_local_space(arena, wo_local, wi_local);
+        return (1.0f - f) * m_base->pdf_local_space(arena, wo_local, wi_local, onb_local, sampler);
     }
 
-    RGB eval_impl(MemoryArena& arena, const Vector3& wo_local, const Vector3& wi_local) const override
+    RGB eval_impl(MemoryArena&   arena,
+                  const Vector3& wo_local,
+                  const Vector3& wi_local,
+                  const ONB&     onb_local,
+                  Sampler&       sampler) const override
     {
         constexpr float ior_air = 1.0f;
 
@@ -760,7 +773,7 @@ private:
         assert(f >= 0.0f);
         assert(f <= 1.0f);
 
-        return (1.0f - f) * m_base->eval_local_space(arena, wo_local, wi_local);
+        return (1.0f - f) * m_base->eval_local_space(arena, wo_local, wi_local, onb_local, sampler);
     }
 
     float                     m_ior;

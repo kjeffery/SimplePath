@@ -119,7 +119,7 @@ IndentGotoLabels: false
 IndentPPDirectives: None
 IndentRequiresClause: false
 IndentWrappedFunctionNames: false
-#InsertBraces: true
+InsertBraces: true
 KeepEmptyLinesAtTheStartOfBlocks: false
 LambdaBodyIndentation: Signature
 NamespaceIndentation: None
@@ -128,7 +128,7 @@ QualifierAlignment: Left
 ReferenceAlignment: Left
 ReflowComments: true
 RemoveBracesLLVM: false
-#RequiresClausePosition: OwnLine
+RequiresClausePosition: OwnLine
 SeparateDefinitionBlocks: Always
 ShortNamespaceLines: 0
 SortIncludes: CaseInsensitive

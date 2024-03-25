@@ -7,6 +7,7 @@
 #include "SmartToRawPointerIterator.h"
 
 #include "../Cameras/Camera.h"
+#include "../Integrators/Integrator.h"
 #include "../Lights/Light.h"
 #include "../shapes/Aggregate.h"
 #include "../shapes/BVHAccelerator.h"
@@ -87,11 +88,11 @@ public:
         std::for_each(m_lights.cbegin(), m_lights.cend(), [f](const auto& light_pointer) { f(*light_pointer); });
     }
 
-    // TODO: variables
-    int                  image_width  = 800;
-    int                  image_height = 600;
-    static constexpr int min_depth    = 3;
-    static constexpr int max_depth    = 10;
+    int                  image_width{800};
+    int                  image_height{600};
+    int min_depth{3};
+    int max_depth{10};
+    sp::IntegratorType integrator_type{sp::IntegratorType::BruteForceIterative};
 
     std::filesystem::path output_file_name;
 

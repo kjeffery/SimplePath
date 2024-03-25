@@ -30,7 +30,8 @@ using namespace std::literals;
 
 namespace sp {
 
-[[nodiscard]] std::string ParsingException::create_parse_message(const std::string& what_arg, int line_number)
+// TODO: change to parsing struct
+[[nodiscard]] std::string ParsingException::create_parse_message(const std::string& what_arg, const int line_number)
 {
     return what_arg + " on line " + std::to_string(line_number);
 }
@@ -40,18 +41,44 @@ ParsingException::ParsingException(const std::string& what_arg)
 {
 }
 
-ParsingException::ParsingException(const std::string& what_arg, int line_number)
+ParsingException::ParsingException(const std::string& what_arg, const int line_number)
 : std::runtime_error(create_parse_message(what_arg, line_number))
 {
 }
 
-class InternalParsingException : public ParsingException
+class InternalParsingException final : public ParsingException
 {
 public:
     using ParsingException::ParsingException;
 };
 
 namespace {
+
+[[nodiscard]] IntegratorType string_to_integrator_type(std::string_view s)
+{
+    s = trim(s);
+    if (s == "mandelbrot") {
+        return IntegratorType::Mandelbrot;
+    }
+    if (s == "brute_force") {
+        return IntegratorType::BruteForce;
+    }
+    if (s == "brute_force_iterative") {
+        return IntegratorType::BruteForceIterative;
+    }
+    if (s == "brute_force_iterative_rr") {
+        return IntegratorType::BruteForceIterativeRR;
+    }
+    if (s == "brute_force_iterative_rrnee") {
+        return IntegratorType::BruteForceIterativeRRNEE;
+    }
+    if (s == "direct_lighting") {
+        return IntegratorType::DirectLighting;
+    }
+
+    throw ParsingException("Unknown integrator type");
+
+}
 
 [[nodiscard]] bool is_whitespace(char c) noexcept
 {
@@ -258,8 +285,11 @@ private:
 
     using MaterialMap = std::unordered_map<std::string, std::shared_ptr<Material>, StringHash, std::equal_to<>>;
 
-    int                     m_image_width  = 256;
-    int                     m_image_height = 256;
+    int                     m_image_width{512};
+    int                     m_image_height{512};
+    int m_min_depth{3};
+    int m_max_depth{10};
+    IntegratorType m_integrator_type{IntegratorType::BruteForceIterative};
     std::filesystem::path   m_output_file_name;
     std::unique_ptr<Camera> m_camera;
 
@@ -692,6 +722,14 @@ void FileParser::parse_scene_parameters(const std::string&         body,
             ins >> m_image_width;
         } else if (word == "height") {
             ins >> m_image_height;
+        } else if (word == "min_depth") {
+            ins >> m_min_depth;
+        } else if (word == "max_depth") {
+            ins >> m_max_depth;
+        } else if (word == "integrator") {
+            std::string integrator_type;
+            ins >> integrator_type;
+            m_integrator_type = string_to_integrator_type(integrator_type);
         } else {
             throw ParsingException("Unknown scene_parameters attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);

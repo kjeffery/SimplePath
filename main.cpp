@@ -33,6 +33,19 @@ namespace sp {
 int k_pretty_print_key = -1;
 } // namespace sp
 
+auto create_integrator(const sp::IntegratorType type, int image_width, int image_height, int min_depth, int min_height) -> std::unique_ptr<sp::Integrator>
+{
+    switch (type) {
+    case sp::IntegratorType::Mandelbrot: return std::make_unique<sp::MandelbrotIntegrator>(image_width, image_height);
+    case sp::IntegratorType::BruteForce: return std::make_unique<sp::BruteForceIntegrator>();
+    case sp::IntegratorType::BruteForceIterative: return std::make_unique<sp::BruteForceIntegratorIterative>();
+    case sp::IntegratorType::BruteForceIterativeRR: return std::make_unique<sp::BruteForceIntegratorIterativeRR>();
+    case sp::IntegratorType::BruteForceIterativeRRNEE: return std::make_unique<sp::BruteForceIntegratorIterativeRRNEE>();
+    case sp::IntegratorType::DirectLighting: return std::make_unique<sp::DirectLightingIntegrator>();
+    default: return std::make_unique<sp::BruteForceIntegratorIterative>();
+    }
+}
+
 sp::Scene parse_scene_file(std::string_view file_name)
 {
     using namespace std::literals;
@@ -86,7 +99,7 @@ void render_thread(sp::Image&            image,
     }
 }
 
-void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& scene)
+void render(const sp::Integrator& integrator, unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& scene)
 {
     constexpr int num_passes = 1;
 
@@ -94,16 +107,6 @@ void render(unsigned num_threads, unsigned num_pixel_samples, const sp::Scene& s
 
     sp::Image image(scene.image_width, scene.image_height, sp::RGB::black());
 
-    // sp::MandelbrotIntegrator     integrator(scene.image_width, scene.image_height);
-    // sp::BruteForceIntegrator     integrator;
-    // sp::BruteForceIntegratorIterative integrator;
-    sp::BruteForceIntegratorIterativeRR integrator;
-    // sp::DirectLightingIntegrator integrator;
-    //  sp::BruteForceIntegratorIterativeRRNEE integrator;
-    //      sp::BruteForceIntegratorIterativeDynamicRR integrator(scene.min_depth,
-    //                                                            scene.max_depth,
-    //                                                            scene.image_width,
-    //                                                            scene.image_height);
     sp::ColumnMajorTileScheduler scheduler{ scene.image_width, scene.image_height, num_passes };
     sp::ProgressBar              progress_bar(scheduler.get_num_tiles() * num_passes, "tiles");
     std::vector<std::jthread>    threads;

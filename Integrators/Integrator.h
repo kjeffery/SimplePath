@@ -10,12 +10,23 @@
 #include "../math/RGB.h"
 #include "../math/Sampler.h"
 #include "../math/Sampling.h"
+#include "../Lights/Light.h"
 
 #include <iostream> // TODO: temp
 
 namespace sp {
 
-bool occluded(const VisibilityTester& tester, const Scene& scene)
+enum class IntegratorType
+{
+    Mandelbrot,
+    BruteForce,
+    BruteForceIterative,
+    BruteForceIterativeRR,
+    BruteForceIterativeRRNEE,
+    DirectLighting
+};
+
+inline bool occluded(const VisibilityTester& tester, const Scene& scene)
 {
     return scene.intersect_p(tester.m_ray, tester.m_limits);
 }

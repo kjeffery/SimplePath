@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <limits>
+
 ///@author Keith Jeffery
 
 namespace sp {

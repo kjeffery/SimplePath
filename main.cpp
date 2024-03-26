@@ -33,7 +33,8 @@ namespace sp {
 int k_pretty_print_key = -1;
 } // namespace sp
 
-auto create_integrator(const sp::IntegratorType type, const int image_width, const int image_height, const int min_depth, const int min_height) -> std::unique_ptr<sp::Integrator>
+auto create_integrator(const sp::IntegratorType type, const int image_width, const int image_height, const int min_depth,
+                       const int                min_height) -> std::unique_ptr<sp::Integrator>
 {
     switch (type) {
     case sp::IntegratorType::Mandelbrot: return std::make_unique<sp::MandelbrotIntegrator>(image_width, image_height);
@@ -233,8 +234,8 @@ void morton_demonstration()
                 float saturation = min_saturation;
                 if (frame - activation_frame <= frames_to_fade) {
                     const unsigned frames_past_expiration = frame - activation_frame;
-                    saturation = min_saturation + (1.0f - static_cast<float>(frames_past_expiration) /
-                                                              static_cast<float>(frames_to_fade));
+                    saturation                            = min_saturation + (1.0f - static_cast<float>(frames_past_expiration) /
+                        static_cast<float>(frames_to_fade));
                 }
 
                 sp::HSV color = hit_color;
@@ -253,21 +254,18 @@ void morton_demonstration()
     }
 }
 
-template <typename First, typename... Rest>
-std::tuple<First, Rest...> parse_args(const char* const argv[])
+template<typename First, typename... Rest> std::tuple<First, Rest...> parse_args(const char* const argv[])
 {
     return std::tuple_cat(parse_args<First>(argv), parse_args<Rest...>(argv + 1));
 }
 
-template <>
-std::tuple<int> parse_args<int>(const char* const argv[])
+template<> std::tuple<int> parse_args<int>(const char* const argv[])
 {
     const unsigned int a = std::stoi(argv[0]);
     return std::make_tuple(a);
 }
 
-template <>
-std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
+template<> std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
 {
     const unsigned int a = std::stoul(argv[0]);
     return std::make_tuple(a);
@@ -295,7 +293,7 @@ void enable_pretty_printing(std::ostream& outs)
 
 void print_usage(std::string_view exe_name)
 {
-    std::cout << "Usage: " << exe_name << "[--threads <n>] <filename>\n";
+    std::cout << "Usage: " << exe_name << " [--threads <n>] <filename>\n";
 }
 
 int main(const int argc, const char* const argv[])
@@ -312,6 +310,8 @@ int main(const int argc, const char* const argv[])
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
+
+    sp::IntegratorType integrator_type{ sp::IntegratorType::NotSpecified };
 
     std::string file_path;
     try {
@@ -337,6 +337,14 @@ int main(const int argc, const char* const argv[])
                     return EXIT_FAILURE;
                 }
                 std::tie(num_pixel_samples) = parse_args<unsigned>(argv + i + 1);
+                i += num_args;
+            } else if (arg == "--integrator"sv) {
+                constexpr int num_args = 1;
+                if (i + num_args >= argc) {
+                    std::cerr << "Expected additional argument to '--integrator'";
+                    return EXIT_FAILURE;
+                }
+                integrator_type = sp::string_to_integrator_type(argv[i + 1]);
                 i += num_args;
             } else if (arg == "--test"sv) {
                 run_unit_tests = true;
@@ -367,7 +375,15 @@ int main(const int argc, const char* const argv[])
         using namespace sp::literals;
         const sp::Scene scene = parse_scene_file(file_path);
 
-        const auto integrator = create_integrator(scene.integrator_type, scene.image_width, scene.image_height, scene.russian_roulette_depth, scene.max_depth);
+        if (integrator_type == sp::IntegratorType::NotSpecified) {
+            integrator_type = scene.integrator_type;
+        }
+        if (integrator_type == sp::IntegratorType::NotSpecified) {
+            integrator_type = sp::IntegratorType::DirectLighting;
+        }
+
+        const auto integrator = create_integrator(integrator_type, scene.image_width, scene.image_height, scene.russian_roulette_depth,
+                                                  scene.max_depth);
         assert(integrator);
         render(*integrator, num_threads, num_pixel_samples, scene);
     } catch (const std::exception& e) {

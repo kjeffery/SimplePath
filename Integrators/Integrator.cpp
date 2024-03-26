@@ -17,13 +17,37 @@
 #include <iostream> // TODO: temp
 
 namespace sp {
-
 namespace {
-inline bool occluded(const VisibilityTester& tester, const Scene& scene)
+bool occluded(const VisibilityTester& tester, const Scene& scene)
 {
     return scene.intersect_p(tester.m_ray, tester.m_limits);
 }
 } // anonymous namespace
+
+auto string_to_integrator_type(std::string_view s) -> IntegratorType
+{
+    s = trim(s);
+    if (s == "mandelbrot") {
+        return IntegratorType::Mandelbrot;
+    }
+    if (s == "brute_force") {
+        return IntegratorType::BruteForce;
+    }
+    if (s == "brute_force_iterative") {
+        return IntegratorType::BruteForceIterative;
+    }
+    if (s == "brute_force_iterative_rr") {
+        return IntegratorType::BruteForceIterativeRR;
+    }
+    if (s == "brute_force_iterative_rrnee") {
+        return IntegratorType::BruteForceIterativeRRNEE;
+    }
+    if (s == "direct_lighting") {
+        return IntegratorType::DirectLighting;
+    }
+
+    throw std::runtime_error("Unknown integrator type");
+}
 
 MandelbrotIntegrator::MandelbrotIntegrator(const int image_width, const int image_height) noexcept
 : m_image_width(image_width)
@@ -32,10 +56,10 @@ MandelbrotIntegrator::MandelbrotIntegrator(const int image_width, const int imag
 }
 
 RGB MandelbrotIntegrator::integrate_impl(const Ray& ray,
-                   const Scene&,
-                   MemoryArena& arena,
-                   Sampler&,
-                   const Point2& pixel_coords) const
+                                         const Scene&,
+                                         MemoryArena& arena,
+                                         Sampler&,
+                                         const Point2& pixel_coords) const
 {
     constexpr float x0 = -2.0f;
     constexpr float x1 = +1.0f;
@@ -79,10 +103,10 @@ int MandelbrotIntegrator::mandel(const float c_re, const float c_im) noexcept
     return i;
 }
 RGB BruteForceIntegrator::integrate_impl(const Ray&   ray,
-                   const Scene& scene,
-                   MemoryArena& arena,
-                   Sampler&     sampler,
-                   const Point2&) const
+                                         const Scene& scene,
+                                         MemoryArena& arena,
+                                         Sampler&     sampler,
+                                         const Point2&) const
 {
     return do_integrate(ray, scene, arena, sampler, 0);
 }
@@ -112,7 +136,7 @@ RGB BruteForceIntegrator::do_integrate(const Ray& ray, const Scene& scene, Memor
         const Ray   outgoing_ray{ outgoing_position, wi };
 
         return do_integrate(outgoing_ray, scene, arena, sampler, depth + 1) * cosine * shading_result.color /
-               shading_result.pdf;
+                shading_result.pdf;
     } else if (hit_light) {
         return light_intersection.L;
     } else {
@@ -121,10 +145,10 @@ RGB BruteForceIntegrator::do_integrate(const Ray& ray, const Scene& scene, Memor
 }
 
 RGB BruteForceIntegratorIterative::integrate_impl(const Ray&   ray,
-                   const Scene& scene,
-                   MemoryArena& arena,
-                   Sampler&     sampler,
-                   const Point2&) const
+                                                  const Scene& scene,
+                                                  MemoryArena& arena,
+                                                  Sampler&     sampler,
+                                                  const Point2&) const
 {
     return do_integrate(ray, scene, arena, sampler);
 }
@@ -169,10 +193,10 @@ RGB BruteForceIntegratorIterative::do_integrate(Ray ray, const Scene& scene, Mem
 }
 
 RGB BruteForceIntegratorIterativeRR::integrate_impl(const Ray&   ray,
-                   const Scene& scene,
-                   MemoryArena& arena,
-                   Sampler&     sampler,
-                   const Point2&) const
+                                                    const Scene& scene,
+                                                    MemoryArena& arena,
+                                                    Sampler&     sampler,
+                                                    const Point2&) const
 {
     return do_integrate(ray, scene, arena, sampler);
 }
@@ -232,10 +256,10 @@ RGB BruteForceIntegratorIterativeRR::do_integrate(Ray ray, const Scene& scene, M
 }
 
 RGB DirectLightingIntegrator::integrate_impl(const Ray&   ray,
-                   const Scene& scene,
-                   MemoryArena& arena,
-                   Sampler&     sampler,
-                   const Point2&) const
+                                             const Scene& scene,
+                                             MemoryArena& arena,
+                                             Sampler&     sampler,
+                                             const Point2&) const
 {
     return do_integrate(ray, scene, arena, sampler, 0);
 }
@@ -252,7 +276,7 @@ RGB DirectLightingIntegrator::do_integrate(Ray ray, const Scene& scene, MemoryAr
     if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
         scene.for_each_light([&ray, &scene, &arena, &L, &geometry_intersection, &sampler](const Light& light) {
             const LightSample light_sample =
-                light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
+                    light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
             if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
                 return;
             }
@@ -289,16 +313,17 @@ BruteForceIntegratorIterativeDynamicRR::BruteForceIntegratorIterativeDynamicRR(i
 }
 
 RGB BruteForceIntegratorIterativeDynamicRR::integrate_impl(const Ray&    ray,
-                   const Scene&  scene,
-                   MemoryArena&  arena,
-                   Sampler&      sampler,
-                   const Point2& pixel_coords) const
+                                                           const Scene&  scene,
+                                                           MemoryArena&  arena,
+                                                           Sampler&      sampler,
+                                                           const Point2& pixel_coords) const
 {
     return do_integrate(ray, scene, arena, sampler, pixel_coords);
 }
 
 RGB
-BruteForceIntegratorIterativeDynamicRR::do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, const Point2& pixel_coords) const
+BruteForceIntegratorIterativeDynamicRR::do_integrate(Ray           ray, const Scene& scene, MemoryArena& arena, Sampler& sampler,
+                                                     const Point2& pixel_coords) const
 {
     RGB throughput = RGB::white();
     RGB L          = RGB::black();
@@ -434,17 +459,17 @@ RGB estimate_direct_mis(const Scene&    scene,
     const Ray material_ray{ p, material_sample.direction };
     if (LightIntersection light_intersection; scene.intersect(material_ray, material_limits, light_intersection)) {
         L_result += material_sample.color * light_intersection.L * std::abs(dot(material_sample.direction, n)) *
-                    weight / material_sample.pdf;
+                weight / material_sample.pdf;
     }
 
     return L_result;
 }
 
 RGB BruteForceIntegratorIterativeRRNEE::integrate_impl(const Ray&   ray,
-                   const Scene& scene,
-                   MemoryArena& arena,
-                   Sampler&     sampler,
-                   const Point2&) const
+                                                       const Scene& scene,
+                                                       MemoryArena& arena,
+                                                       Sampler&     sampler,
+                                                       const Point2&) const
 {
     return do_integrate(ray, scene, arena, sampler);
 }
@@ -483,16 +508,16 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
                 });
 #else
             scene.for_each_light([&L, &scene, &arena, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](
-                                     const Light& light) {
-                L += throughput * estimate_direct_mis(scene,
-                                                      arena,
-                                                      light,
-                                                      geometry_intersection.m_point,
-                                                      n,
-                                                      wo,
-                                                      sampler,
-                                                      *geometry_intersection.m_material);
-            });
+            const Light& light) {
+                    L += throughput * estimate_direct_mis(scene,
+                                                          arena,
+                                                          light,
+                                                          geometry_intersection.m_point,
+                                                          n,
+                                                          wo,
+                                                          sampler,
+                                                          *geometry_intersection.m_material);
+                });
 #endif
 
             // Get next direction
@@ -529,5 +554,4 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
     }
     return L;
 }
-
 } // namespace sp

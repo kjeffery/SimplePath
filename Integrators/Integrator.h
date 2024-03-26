@@ -13,11 +13,11 @@
 #include "../base/Array2D.h"
 
 namespace sp {
-
 class Scene;
 
 enum class IntegratorType
 {
+    NotSpecified,
     Mandelbrot,
     BruteForce,
     BruteForceIterative,
@@ -25,6 +25,8 @@ enum class IntegratorType
     BruteForceIterativeRRNEE,
     DirectLighting
 };
+
+[[nodiscard]] auto string_to_integrator_type(std::string_view s) -> IntegratorType;
 
 class Integrator
 {
@@ -133,7 +135,7 @@ private:
                        Sampler&      sampler,
                        const Point2& pixel_coords) const override;
 
-    RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, const Point2& pixel_coords) const;
+    RGB      do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, const Point2& pixel_coords) const;
     Stats2D& get_stats_for_depth(int min_depth, int current_depth) const;
 
     mutable StatsDepthContainer m_stats;
@@ -150,5 +152,4 @@ private:
 
     RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const;
 };
-
 } // namespace sp

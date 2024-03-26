@@ -2,11 +2,12 @@
 
 /// @author Keith Jeffery
 
+#include <utility>
+
 #include "../shapes/Hitable.h"
 #include "../shapes/Sphere.h"
 
 namespace sp {
-
 struct VisibilityTester
 {
     RayLimits m_limits;
@@ -24,12 +25,12 @@ struct LightSample
 class Light : public Hitable
 {
 public:
-    explicit Light(RGB radiance) noexcept
+    explicit Light(const RGB radiance) noexcept
     : m_radiance(radiance)
     {
     }
 
-    LightSample sample(const Point3& observer_world, const Normal3& observer_normal, const Point2& u) const noexcept
+    [[nodiscard]] auto sample(const Point3& observer_world, const Normal3& observer_normal, const Point2& u) const noexcept -> LightSample
     {
         const ShapeSample s_sample  = shape_sample(observer_world, u);
         const Vector3     to_sample = s_sample.m_p - observer_world;
@@ -46,25 +47,25 @@ public:
         return { radiance, pdf, visibility_tester };
     }
 
-    float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
+    [[nodiscard]] auto pdf(const Point3& observer_world, const Vector3& wi) const noexcept -> float
     {
         return shape_pdf(observer_world, wi);
     }
 
-    RGB L(const Point3& p, const Normal3& n, const Vector3& w) const noexcept
+    [[nodiscard]] RGB L(const Point3& p, const Normal3& n, const Vector3& w) const noexcept
     {
         return (dot(n, w) > 0.0f) ? m_radiance : RGB::black();
     }
 
 protected:
-    const RGB& get_radiance() const noexcept
+    [[nodiscard]] const RGB& get_radiance() const noexcept
     {
         return m_radiance;
     }
 
 private:
-    virtual ShapeSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept = 0;
-    virtual float       shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept  = 0;
+    [[nodiscard]] virtual ShapeSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept = 0;
+    [[nodiscard]] virtual float       shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept = 0;
 
     RGB m_radiance;
 };
@@ -72,7 +73,7 @@ private:
 class EnvironmentLight : public Light
 {
 public:
-    explicit EnvironmentLight(RGB radiance) noexcept
+    explicit EnvironmentLight(const RGB radiance) noexcept
     : Light(radiance)
     {
     }
@@ -93,29 +94,29 @@ private:
         return true;
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         return false;
     }
 
-    BBox3 get_world_bounds_impl() const noexcept override
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
         return sp::BBox3{};
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return false;
     }
 
-    ShapeSample shape_sample(const Point3&, const Point2& u) const noexcept override
+    [[nodiscard]] ShapeSample shape_sample(const Point3&, const Point2& u) const noexcept override
     {
         const Point3  p = sample_to_uniform_sphere(u);
         const Normal3 n = -Normal3{ p };
         return { p, n };
     }
 
-    float shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept override
+    [[nodiscard]] float shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept override
     {
         return uniform_sphere_pdf();
     }
@@ -126,7 +127,7 @@ class SphereLight : public Light
 public:
     explicit SphereLight(RGB radiance, AffineSpace object_to_world, AffineSpace world_to_object) noexcept
     : Light(radiance)
-    , m_sphere{ object_to_world, world_to_object }
+    , m_sphere{ std::move(object_to_world), std::move(world_to_object) }
     {
     }
 
@@ -147,27 +148,27 @@ private:
         return false;
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         return m_sphere.intersect_p(ray, limits);
     }
 
-    BBox3 get_world_bounds_impl() const noexcept override
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
         return m_sphere.get_world_bounds();
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return true;
     }
 
-    ShapeSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept override
+    [[nodiscard]] ShapeSample shape_sample(const Point3& observer_world, const Point2& u) const noexcept override
     {
         return m_sphere.sample(observer_world, u);
     }
 
-    float shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept override
+    [[nodiscard]] float shape_pdf(const Point3& observer_world, const Vector3& wi) const noexcept override
     {
         return m_sphere.pdf(observer_world, wi);
     }
@@ -175,5 +176,4 @@ private:
 private:
     Sphere m_sphere;
 };
-
 } // namespace sp

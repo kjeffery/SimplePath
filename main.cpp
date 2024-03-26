@@ -367,7 +367,7 @@ int main(const int argc, const char* const argv[])
         using namespace sp::literals;
         const sp::Scene scene = parse_scene_file(file_path);
 
-        const auto integrator = create_integrator(scene.integrator_type, scene.image_width, scene.image_height, scene.min_depth, scene.max_depth);
+        const auto integrator = create_integrator(scene.integrator_type, scene.image_width, scene.image_height, scene.russian_roulette_depth, scene.max_depth);
         assert(integrator);
         render(*integrator, num_threads, num_pixel_samples, scene);
     } catch (const std::exception& e) {

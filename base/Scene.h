@@ -90,7 +90,7 @@ public:
 
     int                  image_width{800};
     int                  image_height{600};
-    int min_depth{3};
+    int russian_roulette_depth{3};
     int max_depth{10};
     sp::IntegratorType integrator_type{sp::IntegratorType::BruteForceIterative};
 

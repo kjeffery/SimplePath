@@ -202,7 +202,7 @@ RGB BruteForceIntegratorIterativeRR::do_integrate(Ray ray, const Scene& scene, M
             const RGB   contribution = cosine * shading_result.color / shading_result.pdf;
             throughput *= contribution;
 
-            if (depth >= scene.min_depth) {
+            if (depth >= scene.russian_roulette_depth) {
                 const float lum = relative_luminance(throughput);
                 if (lum < rr_throughput_luminance_cutoff) {
                     // q is the probability of continuing
@@ -327,10 +327,10 @@ BruteForceIntegratorIterativeDynamicRR::do_integrate(Ray ray, const Scene& scene
             const RGB contribution = cosine * shading_result.color / shading_result.pdf;
             throughput *= contribution;
 
-            if (depth >= scene.min_depth) {
+            if (depth >= scene.russian_roulette_depth) {
                 const int pixel_x = static_cast<int>(pixel_coords.x);
                 const int pixel_y = static_cast<int>(pixel_coords.y);
-                auto&     stats   = get_stats_for_depth(scene.min_depth, depth)(pixel_x, pixel_y);
+                auto&     stats   = get_stats_for_depth(scene.russian_roulette_depth, depth)(pixel_x, pixel_y);
                 if (stats.size() >= rr_min_samples) {
                     const float mean_throughput_luminance = stats.mean();
                     const float lum                       = relative_luminance(throughput);
@@ -502,7 +502,7 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
             const RGB   contribution      = cosine * shading_result.color / shading_result.pdf;
             throughput *= contribution;
 
-            if (depth >= scene.min_depth) {
+            if (depth >= scene.russian_roulette_depth) {
                 const float lum = relative_luminance(throughput);
                 if (lum < rr_throughput_luminance_cutoff) {
                     // q is the probability of continuing

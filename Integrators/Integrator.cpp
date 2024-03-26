@@ -275,16 +275,15 @@ RGB DirectLightingIntegrator::do_integrate(Ray ray, const Scene& scene, MemoryAr
 
     if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
         scene.for_each_light([&ray, &scene, &arena, &L, &geometry_intersection, &sampler](const Light& light) {
-            const LightSample light_sample =
-                    light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
+            const auto light_sample = light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
             if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
                 return;
             }
 
-            const Vector3  wo = -ray.get_direction();
-            const Normal3& n  = geometry_intersection.m_normal;
-            const Vector3& wi = light_sample.m_tester.m_ray.get_direction();
-            const RGB      f  = geometry_intersection.m_material->eval(arena, wo, wi, n, sampler);
+            const auto  wo = -ray.get_direction();
+            const auto& n  = geometry_intersection.m_normal;
+            const auto& wi = light_sample.m_tester.m_ray.get_direction();
+            const auto  f  = geometry_intersection.m_material->eval(arena, wo, wi, n, sampler);
 
             if (f != RGB::black() && !occluded(light_sample.m_tester, scene)) {
                 L += f * light_sample.m_L * std::abs(dot(wi, n)) / light_sample.m_pdf;

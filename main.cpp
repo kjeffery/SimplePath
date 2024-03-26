@@ -33,7 +33,7 @@ namespace sp {
 int k_pretty_print_key = -1;
 } // namespace sp
 
-auto create_integrator(const sp::IntegratorType type, int image_width, int image_height, int min_depth, int min_height) -> std::unique_ptr<sp::Integrator>
+auto create_integrator(const sp::IntegratorType type, const int image_width, const int image_height, const int min_depth, const int min_height) -> std::unique_ptr<sp::Integrator>
 {
     switch (type) {
     case sp::IntegratorType::Mandelbrot: return std::make_unique<sp::MandelbrotIntegrator>(image_width, image_height);
@@ -366,7 +366,10 @@ int main(const int argc, const char* const argv[])
     try {
         using namespace sp::literals;
         const sp::Scene scene = parse_scene_file(file_path);
-        render(num_threads, num_pixel_samples, scene);
+
+        const auto integrator = create_integrator(scene.integrator_type, scene.image_width, scene.image_height, scene.min_depth, scene.max_depth);
+        assert(integrator);
+        render(*integrator, num_threads, num_pixel_samples, scene);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return EXIT_FAILURE;

@@ -34,6 +34,7 @@ set(SOURCES
         Image/Image.cpp
         Image/Image.h
         Integrators/Integrator.h
+        Integrators/Integrator.cpp
         Lights/Light.h
         Lights/LightSample.h
         UnitTests.cpp

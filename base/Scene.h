@@ -7,8 +7,8 @@
 #include "SmartToRawPointerIterator.h"
 
 #include "../Cameras/Camera.h"
-#include "../Integrators/Integrator.h"
 #include "../Lights/Light.h"
+#include "../Integrators/Integrator.h"
 #include "../shapes/Aggregate.h"
 #include "../shapes/BVHAccelerator.h"
 #include "../shapes/ListAccelerator.h"

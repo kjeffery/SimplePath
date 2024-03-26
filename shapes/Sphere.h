@@ -9,7 +9,6 @@
 #include "../math/Vector3.h"
 
 namespace sp {
-
 class Sphere : public Shape
 {
 public:
@@ -18,14 +17,14 @@ public:
     {
     }
 
-    ShapeSample sample(const Point2& u) const noexcept
+    [[nodiscard]] ShapeSample sample(const Point2& u) const noexcept
     {
         const Point3  local_sample = sample_to_uniform_sphere(u);
         const Normal3 normal{ local_sample }; // local_sample - our center
         return { get_object_to_world()(local_sample), get_object_to_world()(normal) };
     }
 
-    ShapeSample sample(const Point3& observer_world, const Point2& u) const noexcept
+    [[nodiscard]] ShapeSample sample(const Point3& observer_world, const Point2& u) const noexcept
     {
         const Point3  observer    = get_world_to_object()(observer_world);
         const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0
@@ -51,7 +50,7 @@ public:
         return { get_object_to_world()(local_sample), get_object_to_world()(normal) };
     }
 
-    float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
+    [[nodiscard]] float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
     {
         const Point3  observer    = get_world_to_object()(observer_world);
         const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0
@@ -70,18 +69,18 @@ public:
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
-        const Ray local_ray = get_world_to_object()(ray);
+        const auto local_ray = get_world_to_object()(ray);
 
-        const Vector3& d = local_ray.get_direction();
-        const Point3&  o = local_ray.get_origin();
+        const auto& d = local_ray.get_direction();
+        const auto& o = local_ray.get_origin();
 
-        const float a = dot(d, d);
-        const float b = 2.0f * dot(d, Vector3{ o });
-        const float c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
+        const auto a = dot(d, d);
+        const auto b = 2.0f * dot(d, Vector3{ o });
+        const auto c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
 
-        if (float discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
+        if (auto discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
             discriminant = std::sqrt(discriminant);
-            float t      = (-b - discriminant) / (2.0f * a);
+            auto t       = (-b - discriminant) / (2.0f * a);
 
             if (t < limits.m_t_min) {
                 t = (-b + discriminant) / (2.0f * a);
@@ -101,20 +100,20 @@ private:
         return false;
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        const Ray local_ray = get_world_to_object()(ray);
+        const auto local_ray = get_world_to_object()(ray);
 
-        const Vector3& d = local_ray.get_direction();
-        const Point3&  o = local_ray.get_origin();
+        const auto& d = local_ray.get_direction();
+        const auto& o = local_ray.get_origin();
 
-        const float a = dot(d, d);
-        const float b = 2.0f * dot(d, Vector3{ o });
-        const float c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
+        const auto a = dot(d, d);
+        const auto b = 2.0f * dot(d, Vector3{ o });
+        const auto c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
 
-        if (float discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
+        if (auto discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
             discriminant = std::sqrt(discriminant);
-            float t      = (-b - discriminant) / (2.0f * a);
+            auto t       = (-b - discriminant) / (2.0f * a);
 
             if (t < limits.m_t_min) {
                 t = (-b + discriminant) / (2.0f * a);
@@ -130,17 +129,16 @@ private:
         return false;
     }
 
-    BBox3 get_object_bounds() const noexcept override
+    [[nodiscard]] BBox3 get_object_bounds() const noexcept override
     {
         return { Point3{ -k_radius, -k_radius, -k_radius }, Point3{ k_radius, k_radius, k_radius } };
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return true;
     }
 
-    static constexpr float k_radius = 1.0f;
+    static constexpr auto k_radius = 1.0f;
 };
-
 } // namespace sp

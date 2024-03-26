@@ -74,7 +74,7 @@ namespace {
         return IntegratorType::DirectLighting;
     }
 
-    throw ParsingException("Unknown integrator type");
+    throw InternalParsingException("Unknown integrator type");
 }
 
 [[nodiscard]] bool is_whitespace(char c) noexcept
@@ -705,34 +705,39 @@ void FileParser::parse_scene_parameters(const std::string&         body,
 {
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
-    for (Token token; ins;) {
-        ins >> token;
-        if (ins.eof()) {
-            break;
-        }
-        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
 
-        const std::string& word = token;
-        if (word == "output_file_name") {
-            std::string file_name;
-            ins >> file_name;
-            m_output_file_name = trim(file_name, '"');
-        } else if (word == "width") {
-            ins >> m_image_width;
-        } else if (word == "height") {
-            ins >> m_image_height;
-        } else if (word == "russian_roulette_depth") {
-            ins >> m_russian_roulette_depth;
-        } else if (word == "max_depth") {
-            ins >> m_max_depth;
-        } else if (word == "integrator") {
-            std::string integrator_type;
-            ins >> integrator_type;
-            m_integrator_type = string_to_integrator_type(integrator_type);
-        } else {
-            throw ParsingException("Unknown scene_parameters attribute: " + word,
-                                   line_numbers[line_number_character_offset + ins.tellg()]);
+    try {
+        for (Token token; ins;) {
+            ins >> token;
+            if (ins.eof()) {
+                break;
+            }
+            consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+            const std::string& word = token;
+            if (word == "output_file_name") {
+                std::string file_name;
+                ins >> file_name;
+                m_output_file_name = trim(file_name, '"');
+            } else if (word == "width") {
+                ins >> m_image_width;
+            } else if (word == "height") {
+                ins >> m_image_height;
+            } else if (word == "russian_roulette_depth") {
+                ins >> m_russian_roulette_depth;
+            } else if (word == "max_depth") {
+                ins >> m_max_depth;
+            } else if (word == "integrator") {
+                std::string integrator_type;
+                ins >> integrator_type;
+                m_integrator_type = string_to_integrator_type(integrator_type);
+            } else {
+                throw ParsingException("Unknown scene_parameters attribute: " + word,
+                                       line_numbers[line_number_character_offset + ins.tellg()]);
+            }
         }
+    } catch (const InternalParsingException&) {
+        std::throw_with_nested(ParsingException("Scene parameter error"));
     }
 }
 

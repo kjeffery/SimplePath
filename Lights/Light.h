@@ -32,14 +32,14 @@ public:
 
     [[nodiscard]] auto sample(const Point3& observer_world, const Normal3& observer_normal, const Point2& u) const noexcept -> LightSample
     {
-        const ShapeSample s_sample  = shape_sample(observer_world, u);
-        const Vector3     to_sample = s_sample.m_p - observer_world;
-        const Vector3     wi        = normalize(to_sample);
-        const float       pdf       = shape_pdf(observer_world, wi);
+        const auto s_sample  = shape_sample(observer_world, u);
+        const auto to_sample = s_sample.m_p - observer_world;
+        const auto wi        = normalize(to_sample);
+        const auto pdf       = shape_pdf(observer_world, wi);
 
         RayLimits limits;
         limits.m_t_min = get_ray_offset(observer_normal, wi);
-        limits.m_t_max = length(to_sample);
+        limits.m_t_max = length(to_sample) - k_ray_epsilon;
 
         const Ray              occlusion_ray{ observer_world, wi };
         const VisibilityTester visibility_tester{ limits, occlusion_ray };

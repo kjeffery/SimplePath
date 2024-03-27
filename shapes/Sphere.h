@@ -61,9 +61,16 @@ public:
             return uniform_sphere_pdf();
         }
 
-        const float sin_theta_max2 = 1.0f / sqr_distance;
-        const float cos_theta_max  = std::sqrt(std::max(0.0f, 1.0f - sin_theta_max2));
-        return uniform_cone_pdf(cos_theta_max);
+        constexpr auto sin2_1_5_deg = 0.00068523f;
+
+        const auto sin2_theta_max = 1.0f / sqr_distance;
+        const auto cos_theta_max  = std::sqrt(std::max(0.0f, 1.0f - sin2_theta_max));
+
+        // For a small solid angle, compute more accurate one_minus_cos_theta_max
+        const auto one_minus_cos_theta_max = (sin2_theta_max < sin2_1_5_deg) ? sin2_theta_max / 2.0f : 1.0f - cos_theta_max;
+
+        // This is the same as the uniform_cone_pdf
+        return 1.0f / (2.0f * std::numbers::pi_v<float> * one_minus_cos_theta_max);
     }
 
 private:

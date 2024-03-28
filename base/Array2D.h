@@ -12,8 +12,7 @@
 #include <memory>
 
 namespace sp {
-
-template <typename T, std::uint32_t log_tile_size = 4, typename allocator_t = std::allocator<T>>
+template<typename T, std::uint32_t log_tile_size = 4, typename allocator_t = std::allocator<T>>
 class Array2D
 {
     static constexpr int k_tile_width  = 1 << log_tile_size;
@@ -128,7 +127,7 @@ private:
         : allocator_type()
         , m_width(width)
         , m_height(height)
-        , m_data(allocator_traits::allocate(m_impl.get_allocator(), memory_size(width, height)))
+        , m_data(allocator_traits::allocate(get_allocator(), memory_size(width, height)))
         {
             //std::cerr << "Allocated storage for " << memory_size(width, height) << " objects\n";
             //std::cerr << "Tiles width: " << num_tiles_width(width) << '\n';
@@ -211,7 +210,7 @@ private:
 
             constexpr bool propagate = typename allocator_traits::propagate_on_container_copy_assignment::value_type();
             const bool     realloc   = (propagate && !allocators_equal(*this, other)) ||
-                                 (m_width != other.m_width || m_height != other.m_height);
+                    (m_width != other.m_width || m_height != other.m_height);
 
             destroy();
 
@@ -228,7 +227,7 @@ private:
             m_height = other.m_height;
 
             if (realloc) {
-                m_data = allocator_traits::allocate(m_impl.get_allocator(), memory_size(m_width, m_height));
+                m_data = allocator_traits::allocate(get_allocator(), memory_size(m_width, m_height));
             }
 
             for (size_type y = 0; y < m_height; ++y) {
@@ -381,5 +380,4 @@ private:
 
     Impl m_impl;
 };
-
 } // namespace sp

@@ -388,6 +388,7 @@ BruteForceIntegratorIterativeDynamicRR::Stats2D& BruteForceIntegratorIterativeDy
 }
 
 RGB estimate_direct(const Scene&    scene,
+                    MemoryArena&    arena,
                     const Light&    light,
                     const Point3&   p,
                     const Normal3&  n,
@@ -402,12 +403,14 @@ RGB estimate_direct(const Scene&    scene,
         return L_result;
     }
 
-    if (scene.intersect_p(light_sample.m_tester.m_ray, light_sample.m_tester.m_limits)) {
-        // Occluded: we're in shadow
+    const auto& wi        = light_sample.m_tester.m_ray.get_direction();
+    const auto  bsdf_eval = material.eval(arena, wo, wi, n, sampler) * std::abs(dot(n, wi));
+
+    if (bsdf_eval == RGB::black() || scene.intersect_p(light_sample.m_tester.m_ray, light_sample.m_tester.m_limits)) {
         return L_result;
     }
 
-    return light_sample.m_L / light_sample.m_pdf;
+    return light_sample.m_L * bsdf_eval / light_sample.m_pdf;
 }
 
 RGB estimate_direct_mis(const Scene&    scene,
@@ -434,11 +437,11 @@ RGB estimate_direct_mis(const Scene&    scene,
     const auto& wi        = light_sample.m_tester.m_ray.get_direction();
     const auto  bsdf_eval = material.eval(arena, wo, wi, n, sampler);
 
-    float bsdf_pdf;
     if (bsdf_eval != RGB::black()) {
-        bsdf_pdf           = material.pdf(arena, wo, wi, n, sampler);
-        const float weight = balance_heuristic(1, light_sample.m_pdf, 1, bsdf_pdf);
-        L_result += bsdf_eval * light_sample.m_L * (std::abs(dot(wi, n) * weight / light_sample.m_pdf));
+        if (const auto bsdf_pdf = material.pdf(arena, wo, wi, n, sampler); bsdf_pdf > 0.0f) {
+            const auto weight = balance_heuristic(1, light_sample.m_pdf, 1, bsdf_pdf);
+            L_result += bsdf_eval * light_sample.m_L * (std::abs(dot(wi, n)) * weight / light_sample.m_pdf);
+        }
     }
 
     const MaterialSampleResult material_sample = material.sample(arena, wo, n, sampler);
@@ -497,8 +500,9 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
 
 #if 0
             scene.for_each_light(
-                [&L, &scene, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
+                [&L, &scene, &arena, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](const Light& light) {
                     L += throughput * estimate_direct(scene,
+                                                      arena,
                                                       light,
                                                       geometry_intersection.m_point,
                                                       n,

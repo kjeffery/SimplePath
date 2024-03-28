@@ -457,8 +457,9 @@ RGB estimate_direct_mis(const Scene&    scene,
     material_limits.m_t_max = k_infinite_distance;
     const Ray material_ray{ p, material_sample.direction };
     if (LightIntersection light_intersection; scene.intersect(material_ray, material_limits, light_intersection)) {
-        L_result += material_sample.color * light_intersection.L * std::abs(dot(material_sample.direction, n)) *
-                weight / material_sample.pdf;
+        if (!scene.intersect_p(material_ray, material_limits)) {
+            L_result += material_sample.color * light_intersection.L * std::abs(dot(material_sample.direction, n)) * weight / material_sample.pdf;
+        }
     }
 
     return L_result;

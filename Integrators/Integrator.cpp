@@ -419,9 +419,9 @@ RGB estimate_direct_mis(const Scene&    scene,
                         Sampler&        sampler,
                         const Material& material)
 {
-    RGB L_result = RGB::black();
+    auto L_result = RGB::black();
 
-    const LightSample light_sample = light.sample(p, n, sampler.get_next_2D());
+    const auto light_sample = light.sample(p, n, sampler.get_next_2D());
     if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
         return L_result;
     }
@@ -431,8 +431,8 @@ RGB estimate_direct_mis(const Scene&    scene,
         return L_result;
     }
 
-    const Vector3& wi        = light_sample.m_tester.m_ray.get_direction();
-    const RGB      bsdf_eval = material.eval(arena, wo, wi, n, sampler);
+    const auto& wi        = light_sample.m_tester.m_ray.get_direction();
+    const auto  bsdf_eval = material.eval(arena, wo, wi, n, sampler);
 
     float bsdf_pdf;
     if (bsdf_eval != RGB::black()) {

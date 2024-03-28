@@ -63,12 +63,16 @@ sp::Scene parse_scene_file(std::string_view file_name)
     }
 }
 
-sp::Sampler get_pixel_sampler(std::uint32_t x, std::uint32_t y)
+auto get_pixel_sampler(std::uint32_t x, std::uint32_t y) -> sp::RSequenceSampler
 {
     // TODO: if num passes == 1, get set
-    return sp::Sampler::create_new_sequence((x << 16u) | y);
+    return sp::RSequenceSampler::create_new_sequence(sp::Seed{ x << 16u | y });
 }
 
+auto get_integrator_sampler(std::uint32_t x, std::uint32_t y) -> sp::IncoherentSampler
+{
+    return sp::IncoherentSampler::create_new_sequence(sp::Seed{ (x << 16u | y) ^ 0xb0ae9d99 });
+}
 void render_thread(sp::Image&            image,
                    const unsigned        num_pixel_samples,
                    const sp::Scene&      scene,
@@ -84,14 +88,15 @@ void render_thread(sp::Image&            image,
         // use a filter to skip the pixels we're not interested in.
         auto in_tile = [&tile](const sp::Point2i& p) noexcept { return contains(tile, p); };
         for (auto p : std::views::all(tile) | std::views::filter(in_tile)) {
-            auto sampler = get_pixel_sampler(p.x, p.y);
+            auto pixel_sampler      = get_pixel_sampler(p.x, p.y);
+            auto integrator_sampler = get_integrator_sampler(p.x, p.y);
             for (unsigned i = 0; i < num_pixel_samples; ++i) {
                 arena.release_all();
-                const auto       sample = sampler.get_next_2D();
+                const auto       sample = pixel_sampler.get_next_2D();
                 const sp::Point2 pixel_coords{ p.x + sample.x, p.y + sample.y };
                 const sp::Ray    ray = scene.m_camera->generate_ray(pixel_coords.x, pixel_coords.y);
                 // std::osyncstream(std::cout) << ray << '\n';
-                image(p.x, p.y) += integrator.integrate(ray, scene, arena, sampler, pixel_coords);
+                image(p.x, p.y) += integrator.integrate(ray, scene, arena, integrator_sampler, pixel_coords);
             }
             image(p.x, p.y) /= num_pixel_samples;
         }
@@ -254,18 +259,21 @@ void morton_demonstration()
     }
 }
 
-template<typename First, typename... Rest> std::tuple<First, Rest...> parse_args(const char* const argv[])
+template<typename First, typename... Rest>
+std::tuple<First, Rest...> parse_args(const char* const argv[])
 {
     return std::tuple_cat(parse_args<First>(argv), parse_args<Rest...>(argv + 1));
 }
 
-template<> std::tuple<int> parse_args<int>(const char* const argv[])
+template<>
+std::tuple<int> parse_args<int>(const char* const argv[])
 {
     const unsigned int a = std::stoi(argv[0]);
     return std::make_tuple(a);
 }
 
-template<> std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
+template<>
+std::tuple<unsigned> parse_args<unsigned>(const char* const argv[])
 {
     const unsigned int a = std::stoul(argv[0]);
     return std::make_tuple(a);

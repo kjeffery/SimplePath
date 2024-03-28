@@ -10,6 +10,9 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "math/Sampler.h"
+#include "math/Sampler.h"
+
 using namespace sp;
 
 #define UTEST_ASSERT(x)                                                        \
@@ -126,7 +129,7 @@ void do_test_material(const sp::Material& material, const Normal3& normal)
 {
     constexpr int n_samples = 1024;
     MemoryArena   arena;
-    Sampler       sampler = Sampler::create_new_sequence(999);
+    auto          sampler = IncoherentSampler::create_new_sequence(sp::Seed{ 999 });
 
     ONB onb = ONB::from_v(normal);
 
@@ -186,7 +189,7 @@ void test_sphere_light()
 {
     auto tr = AffineSpace::translate(Vector3{ +0.0f, +3.0f, +0.0f }) * AffineSpace::scale(Vector3{ 0.1f, 0.1f, 0.1f });
     auto ir = AffineSpace::translate(Vector3{ -0.0f, -3.0f, -0.0f }) *
-              AffineSpace::scale(Vector3{ 1.0f / 0.1f, 1.0f / 0.1f, 1.0f / 0.1f });
+            AffineSpace::scale(Vector3{ 1.0f / 0.1f, 1.0f / 0.1f, 1.0f / 0.1f });
 
     // auto tr = AffineSpace::translate(Vector3{ +0.0f, +3.0f, +0.0f });
     // auto ir = AffineSpace::translate(Vector3{ -0.0f, -3.0f, -0.0f });
@@ -199,7 +202,7 @@ void test_sphere_light()
     const Point3 p{ -3.0f, -1.0f, 2.0f };
 
     constexpr int num_samples = 128;
-    auto          sampler     = Sampler::create_new_set(0, num_samples);
+    auto          sampler     = IncoherentSampler::create_new_set(sp::Seed{ 0 }, num_samples);
     for (int i = 0; i < num_samples; ++i) {
         const auto result = light.sample(p, Normal3{ 0.0f, 1.0f, 0.0f }, sampler.get_next_2D());
         UTEST_ASSERT(light.intersect_p(result.m_tester.m_ray, RayLimits{}));

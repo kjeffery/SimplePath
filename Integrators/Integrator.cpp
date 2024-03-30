@@ -180,7 +180,7 @@ RGB BruteForceIntegratorIterative::do_integrate(Ray ray, const Scene& scene, Mem
             const auto outgoing_position = ray(limits.m_t_max);
             const Ray  outgoing_ray{ outgoing_position, wi };
             ray            = outgoing_ray;
-            limits.m_t_min = get_ray_offset(n, cosine);
+            limits.m_t_min = get_ray_offset(cosine);
             limits.m_t_max = k_infinite_distance;
         } else if (hit_light) {
             L += throughput * light_intersection.L;
@@ -243,7 +243,7 @@ RGB BruteForceIntegratorIterativeRR::do_integrate(Ray ray, const Scene& scene, M
             const auto outgoing_position = ray(limits.m_t_max);
             const Ray  outgoing_ray{ outgoing_position, wi };
             ray            = outgoing_ray;
-            limits.m_t_min = get_ray_offset(n, cosine);
+            limits.m_t_min = get_ray_offset(cosine);
             limits.m_t_max = k_infinite_distance;
         } else if (hit_light) {
             L += throughput * light_intersection.L;
@@ -396,18 +396,16 @@ RGB estimate_direct(const Scene&    scene,
                     Sampler&        sampler,
                     const Material& material)
 {
-    RGB L_result = RGB::black();
-
     const LightSample light_sample = light.sample(p, n, sampler.get_next_2D());
     if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
-        return L_result;
+        return RGB::black();
     }
 
     const auto& wi        = light_sample.m_tester.m_ray.get_direction();
     const auto  bsdf_eval = material.eval(arena, wo, wi, n, sampler) * std::abs(dot(n, wi));
 
     if (bsdf_eval == RGB::black() || scene.intersect_p(light_sample.m_tester.m_ray, light_sample.m_tester.m_limits)) {
-        return L_result;
+        return RGB::black();
     }
 
     return light_sample.m_L * bsdf_eval / light_sample.m_pdf;
@@ -511,7 +509,7 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
                                                       *geometry_intersection.m_material);
                 });
 #else
-            scene.for_each_light([&L, &scene, &arena, &throughput, &ray, &n, &wo, &sampler, &geometry_intersection](
+            scene.for_each_light([&L, &scene, &arena, &throughput, &n, &wo, &sampler, &geometry_intersection](
             const Light& light) {
                     L += throughput * estimate_direct_mis(scene,
                                                           arena,
@@ -547,7 +545,7 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
 
             const Ray outgoing_ray{ outgoing_position, wi };
             ray            = outgoing_ray;
-            limits.m_t_min = get_ray_offset(n, cosine);
+            limits.m_t_min = get_ray_offset(cosine);
             limits.m_t_max = k_infinite_distance;
         } else if (hit_light) {
             L += throughput * light_intersection.L;

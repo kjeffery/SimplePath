@@ -48,12 +48,12 @@ private:
     Vector3 m_direction;
 };
 
-inline float get_ray_offset(const Normal3& n, const float cos_d) noexcept
+inline float get_ray_offset(const float cos_d) noexcept
 {
     if (cos_d == 0.0f) {
         return k_ray_epsilon; // Meh. What are you going to do?
     }
-    const float h = k_ray_epsilon / cos_d;
+    const auto h = k_ray_epsilon / cos_d;
     return h;
 }
 
@@ -81,12 +81,11 @@ inline float get_ray_offset(const Normal3& n, const Vector3& d) noexcept
     // There are certainly more advanced ways to handle this offsetting business (e.g., see PBRT v3+, where they track
     // accumulated floating-point error). That's Pharr from what we're doing here.
 
-    return get_ray_offset(n, dot(n, d));
+    return get_ray_offset(std::abs(dot(n, d)));
 }
 
 inline std::ostream& operator<<(std::ostream& outs, const Ray& ray)
 {
     return outs << ray.get_origin() << ' ' << ray.get_direction();
 }
-
 } // namespace sp

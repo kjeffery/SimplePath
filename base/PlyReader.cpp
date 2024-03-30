@@ -15,7 +15,6 @@
 #include <variant>
 
 namespace sp {
-
 struct Face
 {
     std::array<unsigned, 3> vertex_indices;
@@ -146,10 +145,11 @@ void check_data_consistency(DataType new_data_type, DataType old_data_type)
 
 struct TypeReader
 {
+    virtual          ~TypeReader() = default;
     virtual ReadType read(std::istream& ins) const = 0;
 };
 
-template <typename T>
+template<typename T>
 struct AsciiTypeReader : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -160,7 +160,7 @@ struct AsciiTypeReader : public TypeReader
     }
 };
 
-template <>
+template<>
 struct AsciiTypeReader<std::uint8_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -171,7 +171,7 @@ struct AsciiTypeReader<std::uint8_t> : public TypeReader
     }
 };
 
-template <>
+template<>
 struct AsciiTypeReader<std::int8_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -182,7 +182,7 @@ struct AsciiTypeReader<std::int8_t> : public TypeReader
     }
 };
 
-template <>
+template<>
 struct AsciiTypeReader<std::nullptr_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -191,7 +191,7 @@ struct AsciiTypeReader<std::nullptr_t> : public TypeReader
     }
 };
 
-template <typename T>
+template<typename T>
 struct LittleEndianTypeReader : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -202,7 +202,7 @@ struct LittleEndianTypeReader : public TypeReader
     }
 };
 
-template <>
+template<>
 struct LittleEndianTypeReader<std::nullptr_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -211,7 +211,7 @@ struct LittleEndianTypeReader<std::nullptr_t> : public TypeReader
     }
 };
 
-template <typename T>
+template<typename T>
 struct BigEndianTypeReader : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -222,7 +222,7 @@ struct BigEndianTypeReader : public TypeReader
     }
 };
 
-template <>
+template<>
 struct BigEndianTypeReader<std::nullptr_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -231,7 +231,7 @@ struct BigEndianTypeReader<std::nullptr_t> : public TypeReader
     }
 };
 
-template <typename T>
+template<typename T>
 std::unique_ptr<TypeReader> create_reader(FileType file_type)
 {
     switch (file_type) {
@@ -288,8 +288,8 @@ Face read_face(std::istream& ins, const TypeReader& count_reader, const TypeRead
     Face f;
     for (count_type i = 0; i < vertex_count; ++i) {
         auto       vertex_index_variant = index_reader.read(ins);
-        const auto vertex_index = std::visit([](auto arg) { return static_cast<unsigned>(arg); }, vertex_index_variant);
-        f.vertex_indices[i]     = vertex_index;
+        const auto vertex_index         = std::visit([](auto arg) { return static_cast<unsigned>(arg); }, vertex_index_variant);
+        f.vertex_indices[i]             = vertex_index;
     }
     return f;
 }
@@ -468,8 +468,8 @@ Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_
         Face f;
         for (std::uint64_t v = 0; v < vertex_count; ++v) {
             auto       vertex_index_variant = vertex_index_type_reader->read(ins);
-            const auto vertex_index =
-                std::visit([](auto arg) { return static_cast<unsigned>(arg); }, vertex_index_variant);
+            const auto vertex_index         =
+                    std::visit([](auto arg) { return static_cast<unsigned>(arg); }, vertex_index_variant);
             f.vertex_indices[v] = vertex_index;
         }
 
@@ -512,5 +512,4 @@ Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_
 
     return Mesh{ std::move(vertex_indices), std::move(vertices), std::move(vertex_normals), object_to_world };
 }
-
 } // namespace sp

@@ -299,7 +299,7 @@ private:
             swap(get_allocator(), other.get_allocator());
         }
 
-        void swap_allocator(Impl& other, std::false_type) noexcept
+        void swap_allocator(Impl& /*other*/, std::false_type) noexcept
         {
             // No-op
         }

@@ -41,7 +41,7 @@ public:
         m_max = max(p, m_max);
     }
 
-    const T size() const noexcept
+    T size() const noexcept
     {
         return m_max - m_min;
     }

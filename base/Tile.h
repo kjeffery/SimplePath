@@ -141,39 +141,39 @@ private:
     Tile m_tile;
 };
 
-TilePixelIterator operator+(TilePixelIterator it, int n) noexcept
+inline TilePixelIterator operator+(TilePixelIterator it, int n) noexcept
 {
     it += n;
     return it;
 }
 
-TilePixelIterator operator+(int n, TilePixelIterator it) noexcept
+inline TilePixelIterator operator+(int n, TilePixelIterator it) noexcept
 {
     return it + n;
 }
 
-TilePixelIterator operator-(TilePixelIterator it, int n) noexcept
+inline TilePixelIterator operator-(TilePixelIterator it, int n) noexcept
 {
     it -= n;
     return it;
 }
 
-TilePixelIterator begin(Tile tile) noexcept
+inline TilePixelIterator begin(Tile tile) noexcept
 {
     return TilePixelIterator(tile, 0);
 }
 
-TilePixelIterator end(Tile tile) noexcept
+inline TilePixelIterator end(Tile tile) noexcept
 {
     return TilePixelIterator(tile, k_tile_dimension * k_tile_dimension);
 }
 
-TilePixelIterator cbegin(Tile tile) noexcept
+inline TilePixelIterator cbegin(Tile tile) noexcept
 {
     return TilePixelIterator(tile, 0);
 }
 
-TilePixelIterator cend(Tile tile) noexcept
+inline TilePixelIterator cend(Tile tile) noexcept
 {
     return TilePixelIterator(tile, k_tile_dimension * k_tile_dimension);
 }

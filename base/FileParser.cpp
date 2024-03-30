@@ -318,7 +318,7 @@ void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, co
         std::getline(ins, body, '}');
         if (active_types.contains(word)) {
             assert(m_parse_function_lookup.contains(word));
-            auto fn = m_parse_function_lookup[word];
+            const auto fn = m_parse_function_lookup[word];
             (this->*fn)(body, line_numbers, offset);
             LOG_FLUSH();
         }

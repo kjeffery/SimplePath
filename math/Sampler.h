@@ -96,12 +96,12 @@ private:
 class IncoherentSampler : public Sampler
 {
 public:
-    [[nodiscard]] static auto create_new_set(const Seed seed, std::uint32_t num) noexcept -> IncoherentSampler
+    [[nodiscard]] static auto create_new_set(const Seed seed, std::uint32_t /*num*/) noexcept -> IncoherentSampler
     {
         return IncoherentSampler{ seed };
     }
 
-    [[nodiscard]] static auto create_new_sequence(Seed seed) noexcept -> IncoherentSampler
+    [[nodiscard]] static auto create_new_sequence(const Seed seed) noexcept -> IncoherentSampler
     {
         return IncoherentSampler{ seed };
     }

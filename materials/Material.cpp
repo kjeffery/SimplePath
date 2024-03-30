@@ -10,7 +10,6 @@
 #include <numbers>
 
 namespace sp {
-
 namespace {
 auto beckmann_sample11(float cos_theta_i, float U1, float U2)
 {
@@ -44,8 +43,8 @@ auto beckmann_sample11(float cos_theta_i, float U1, float U2)
     float       b       = c - (1.0f + c) * std::pow(1.0f - sample_x, fit);
 
     // Normalization factor for the CDF
-    static const float sqrt_pi_inv = 1.0f / std::sqrt(std::numbers::pi_v<float>);
-    const float normalization = 1.0f / (1.0f + c + sqrt_pi_inv * tan_theta_i * std::exp(-cot_theta_i * cot_theta_i));
+    static const float sqrt_pi_inv   = 1.0f / std::sqrt(std::numbers::pi_v<float>);
+    const float        normalization = 1.0f / (1.0f + c + sqrt_pi_inv * tan_theta_i * std::exp(-cot_theta_i * cot_theta_i));
 
     for (int it = 0; it < 9; ++it) {
         // Bisection criterion -- the oddly-looking Boolean expression are intentional to check for NaNs at little
@@ -56,8 +55,8 @@ auto beckmann_sample11(float cos_theta_i, float U1, float U2)
 
         // Evaluate the CDF and its derivative (i.e. the density function)
         const float inv_erf = erfinv(b);
-        const float value =
-            normalization * (1.0f + b + sqrt_pi_inv * tan_theta_i * std::exp(-inv_erf * inv_erf)) - sample_x;
+        const float value   =
+                normalization * (1.0f + b + sqrt_pi_inv * tan_theta_i * std::exp(-inv_erf * inv_erf)) - sample_x;
         const float derivative = normalization * (1.0f - inv_erf * tan_theta_i);
 
         if (std::abs(value) < 1e-5f) {
@@ -125,7 +124,7 @@ Vector3 BeckmannDistribution::sample_wh_impl(const Vector3& wo, Sampler& sampler
             const float log_sample = std::log(1.0f - sampler.get_next_1D());
             assert(!std::isinf(log_sample));
             const float u1 = sampler.get_next_1D();
-            phi = std::atan(
+            phi            = std::atan(
                 m_alpha_y / m_alpha_x *
                 std::tan(2.0f * std::numbers::pi_v<float> * u1 + 0.5f * std::numbers::pi_v<float>));
             if (u1 > 0.5f) {
@@ -148,9 +147,8 @@ Vector3 BeckmannDistribution::sample_wh_impl(const Vector3& wo, Sampler& sampler
         return wh;
     } else {
         // Sample visible area of normals for Beckmann distribution
-        Vector3 wh;
-        bool    flip = wo.y < 0.0f;
-        wh = beckmann_sample(flip ? -wo : wo, m_alpha_x, m_alpha_y, sampler.get_next_1D(), sampler.get_next_1D());
+        const auto flip = wo.y < 0.0f;
+        auto       wh   = beckmann_sample(flip ? -wo : wo, m_alpha_x, m_alpha_y, sampler.get_next_1D(), sampler.get_next_1D());
         if (flip) {
             wh = -wh;
         }

@@ -9,7 +9,6 @@
 #include <numbers>
 
 namespace sp {
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // These sampling functions operate in local-space, where we assume a right-handed y-up coordinate system. All sampling
 // functions should assume that y is the primary axis (e.g. sampling a cosine-weighted hemisphere means that most of the
@@ -26,7 +25,7 @@ inline Vector3 sample_to_uniform_sphere(const Point2& u) noexcept
     return { r * std::cos(phi), r * std::sin(phi), z };
 }
 
-inline float uniform_sphere_pdf() noexcept
+constexpr float uniform_sphere_pdf() noexcept
 {
     return 1.0f / (4.0f * std::numbers::pi_v<float>);
 }
@@ -73,5 +72,4 @@ inline Vector3 spherical_direction(const float sin_theta, const float cos_theta,
 {
     return Vector3{ sin_theta * std::cos(phi), cos_theta, sin_theta * std::sin(phi) };
 }
-
 } // namespace sp

@@ -54,7 +54,7 @@ sp::Scene parse_scene_file(std::string_view file_name)
     if (file_name == "-"sv) {
         return sp::parse_file(std::cin);
     } else {
-        fs::path      file_path{ file_name };
+        const fs::path      file_path{ file_name };
         std::ifstream ins(file_path);
         if (!ins) {
             throw sp::ParsingException{ "Unable to open file "s + file_path.string() };
@@ -145,7 +145,6 @@ void morton_demonstration()
     constexpr unsigned num_tiles_1D       = 16u;
     constexpr unsigned num_tiles          = sp::square(num_tiles_1D);
     constexpr unsigned num_pixels_1D      = tile_size * num_tiles_1D;
-    constexpr unsigned num_pixels         = sp::square(num_pixels_1D);
     constexpr unsigned frames_to_activate = 2u;
     constexpr unsigned frames_to_fade     = 50u;
     constexpr unsigned total_frames       = frames_to_activate * num_tiles + frames_to_fade;

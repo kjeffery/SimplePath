@@ -9,7 +9,7 @@
 #include "../math/Vector3.h"
 
 namespace sp {
-class Sphere : public Shape
+class Sphere final : public Shape
 {
 public:
     Sphere(AffineSpace object_to_world, AffineSpace world_to_object) noexcept
@@ -50,7 +50,7 @@ public:
         return { get_object_to_world()(local_sample), get_object_to_world()(normal) };
     }
 
-    [[nodiscard]] float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
+    [[nodiscard]] float pdf(const Point3& observer_world, const Vector3& /*wi*/) const noexcept
     {
         const Point3  observer    = get_world_to_object()(observer_world);
         const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0

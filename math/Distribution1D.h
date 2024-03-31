@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <execution>
 #include <span>
 #include <vector>
 
@@ -18,20 +19,18 @@ public:
         // Compute integral of step function at $x_i$
         m_cdf[0] = 0;
         for (std::size_t i = 1; i < f.size() + 1; ++i) {
-            m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] / static_cast<float>(n);
+            m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] / static_cast<float>(f.size());
         }
 
         // Transform step function integral into CDF
         m_function_integral = m_cdf.back();
         if (m_function_integral == 0) {
             for (std::size_t i = 1; i < f.size() + 1; ++i) {
-                m_cdf[i] = static_cast<float>(i) / static_cast<float>(n);
+                m_cdf[i] = static_cast<float>(i) / static_cast<float>(f.size());
             }
         } else {
-            std::ranges::transform(m_cdf, m_cdf.begin(), [this](auto x) { return x / m_function_integral; });
-            for (std::size_t i = 1; i < f.size() + 1; ++i) {
-                m_cdf[i] /= m_function_integral;
-            }
+            std::transform(std::execution::par_unseq, m_cdf.cbegin(), m_cdf.cend(), m_cdf.begin(),
+                           [this](auto x) { return x / m_function_integral; });
         }
     }
 
@@ -40,12 +39,22 @@ public:
     {
     }
 
-    [[nodiscard]] auto size() const -> std::size_t
+    [[nodiscard]] auto size() const noexcept -> std::size_t
     {
         return m_function.size();
     }
 
-    auto sample_continuous(float u, float* pdf, std::size_t* off = nullptr) const -> float
+    [[nodiscard]] auto integral() const noexcept -> float
+    {
+        return m_function_integral;
+    }
+
+    [[nodiscard]] auto eval(const std::size_t idx) const noexcept -> float
+    {
+        return m_function[idx];
+    }
+
+    [[nodiscard]] auto sample_continuous(float u, float* pdf, std::size_t* off = nullptr) const -> float
     {
         // Find surrounding CDF segments and _offset_
         const auto offset = get_offset(u);
@@ -70,7 +79,7 @@ public:
         return (static_cast<float>(offset) + du) / static_cast<float>(size());
     }
 
-    auto sample_discrete(const float u, float* const pdf = nullptr, float* const u_remapped = nullptr) const -> std::size_t
+    [[nodiscard]] auto sample_discrete(const float u, float* const pdf = nullptr, float* const u_remapped = nullptr) const -> std::size_t
     {
         const auto offset = get_offset(u);
         if (pdf) {

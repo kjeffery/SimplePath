@@ -29,8 +29,8 @@
 using namespace std::literals;
 
 namespace sp {
-
-[[nodiscard]] std::string ParsingException::create_parse_message(const std::string& what_arg, int line_number)
+// TODO: change to parsing struct
+[[nodiscard]] std::string ParsingException::create_parse_message(const std::string& what_arg, const int line_number)
 {
     return what_arg + " on line " + std::to_string(line_number);
 }
@@ -40,19 +40,18 @@ ParsingException::ParsingException(const std::string& what_arg)
 {
 }
 
-ParsingException::ParsingException(const std::string& what_arg, int line_number)
+ParsingException::ParsingException(const std::string& what_arg, const int line_number)
 : std::runtime_error(create_parse_message(what_arg, line_number))
 {
 }
 
-class InternalParsingException : public ParsingException
+class InternalParsingException final : public ParsingException
 {
 public:
     using ParsingException::ParsingException;
 };
 
 namespace {
-
 [[nodiscard]] bool is_whitespace(char c) noexcept
 {
     // This depends on the current locale, and I'm assuming something ASCII-like.
@@ -191,8 +190,7 @@ public:
         m_parse_function_lookup.try_emplace("material_lambertian", &FileParser::parse_material_lambertian);
         m_parse_function_lookup.try_emplace("material_glossy", &FileParser::parse_material_glossy);
         m_parse_function_lookup.try_emplace("material_clearcoat", &FileParser::parse_material_clearcoat);
-        m_parse_function_lookup.try_emplace("material_transmissive_dielectric",
-                                            &FileParser::parse_material_transmissive_dielectric);
+        m_parse_function_lookup.try_emplace("material_transmissive_dielectric", &FileParser::parse_material_transmissive_dielectric);
         m_parse_function_lookup.try_emplace("mesh", &FileParser::parse_mesh);
         m_parse_function_lookup.try_emplace("perspective_camera", &FileParser::parse_perspective_camera);
         m_parse_function_lookup.try_emplace("plane", &FileParser::parse_plane);
@@ -258,8 +256,11 @@ private:
 
     using MaterialMap = std::unordered_map<std::string, std::shared_ptr<Material>, StringHash, std::equal_to<>>;
 
-    int                     m_image_width  = 256;
-    int                     m_image_height = 256;
+    int                     m_image_width{ 512 };
+    int                     m_image_height{ 512 };
+    int                     m_russian_roulette_depth{ 3 };
+    int                     m_max_depth{ 10 };
+    IntegratorType          m_integrator_type{ IntegratorType::NotSpecified };
     std::filesystem::path   m_output_file_name;
     std::unique_ptr<Camera> m_camera;
 
@@ -285,10 +286,13 @@ Scene FileParser::parse(std::istream& ins)
 
     Scene scene{ m_geometry.begin(), m_geometry.end(), m_lights.begin(), m_lights.end() };
 
-    scene.m_camera         = std::move(m_camera);
-    scene.output_file_name = std::move(m_output_file_name);
-    scene.image_width      = m_image_width;
-    scene.image_height     = m_image_height;
+    scene.m_camera               = std::move(m_camera);
+    scene.output_file_name       = std::move(m_output_file_name);
+    scene.image_width            = m_image_width;
+    scene.image_height           = m_image_height;
+    scene.russian_roulette_depth = m_russian_roulette_depth;
+    scene.max_depth              = m_max_depth;
+    scene.integrator_type        = m_integrator_type;
     return scene;
 }
 
@@ -314,7 +318,7 @@ void FileParser::parse_pass(const StringSet& active_types, std::istream& ins, co
         std::getline(ins, body, '}');
         if (active_types.contains(word)) {
             assert(m_parse_function_lookup.contains(word));
-            auto fn = m_parse_function_lookup[word];
+            const auto fn = m_parse_function_lookup[word];
             (this->*fn)(body, line_numbers, offset);
             LOG_FLUSH();
         }
@@ -400,7 +404,7 @@ void FileParser::parse_material_lambertian(const std::string&         body,
         throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material                  = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
+    auto       material            = std::make_unique<OneSampleMaterial>(create_lambertian_material(albedo));
     const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
     if (!success) {
         throw ParsingException("Material " + name + " already exists",
@@ -447,7 +451,7 @@ void FileParser::parse_material_glossy(const std::string&         body,
         throw ParsingException("Material needs named", line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material = std::make_unique<OneSampleMaterial>(create_beckmann_glossy_material(color, roughness, ior));
+    auto       material            = std::make_unique<OneSampleMaterial>(create_beckmann_glossy_material(color, roughness, ior));
     const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
     if (!success) {
         throw ParsingException("Material " + name + " already exists",
@@ -505,7 +509,7 @@ void FileParser::parse_material_clearcoat(const std::string&         body,
                                line_numbers[line_number_character_offset + ins.tellg()]);
     }
 
-    auto material                  = std::make_unique<ClearcoatMaterial>(create_clearcoat_material(base, ior, color));
+    auto       material            = std::make_unique<ClearcoatMaterial>(create_clearcoat_material(base, ior, color));
     const auto [iterator, success] = m_materials.try_emplace(name, std::move(material));
     if (!success) {
         throw ParsingException("Material " + name + " already exists",
@@ -676,26 +680,39 @@ void FileParser::parse_scene_parameters(const std::string&         body,
 {
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
-    for (Token token; ins;) {
-        ins >> token;
-        if (ins.eof()) {
-            break;
-        }
-        consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
 
-        const std::string& word = token;
-        if (word == "output_file_name") {
-            std::string file_name;
-            ins >> file_name;
-            m_output_file_name = trim(file_name, '"');
-        } else if (word == "width") {
-            ins >> m_image_width;
-        } else if (word == "height") {
-            ins >> m_image_height;
-        } else {
-            throw ParsingException("Unknown scene_parameters attribute: " + word,
-                                   line_numbers[line_number_character_offset + ins.tellg()]);
+    try {
+        for (Token token; ins;) {
+            ins >> token;
+            if (ins.eof()) {
+                break;
+            }
+            consume_character(ins, ':', line_numbers[line_number_character_offset + ins.tellg()]);
+
+            const std::string& word = token;
+            if (word == "output_file_name") {
+                std::string file_name;
+                ins >> file_name;
+                m_output_file_name = trim(file_name, '"');
+            } else if (word == "width") {
+                ins >> m_image_width;
+            } else if (word == "height") {
+                ins >> m_image_height;
+            } else if (word == "russian_roulette_depth") {
+                ins >> m_russian_roulette_depth;
+            } else if (word == "max_depth") {
+                ins >> m_max_depth;
+            } else if (word == "integrator") {
+                std::string integrator_type;
+                ins >> integrator_type;
+                m_integrator_type = string_to_integrator_type(integrator_type);
+            } else {
+                throw ParsingException("Unknown scene_parameters attribute: " + word,
+                                       line_numbers[line_number_character_offset + ins.tellg()]);
+            }
         }
+    } catch (const InternalParsingException&) {
+        std::throw_with_nested(ParsingException("Scene parameter error"));
     }
 }
 
@@ -742,7 +759,7 @@ void FileParser::parse_sphere(const std::string&         body,
 
     assert(material);
 
-    auto sphere_shape     = std::make_shared<Sphere>(transform, inverse_transform);
+    auto sphere_shape = std::make_shared<Sphere>(transform, inverse_transform);
 
 #if 0
     Sampler sampler = Sampler::create_new_set(42, 512);
@@ -821,7 +838,7 @@ void FileParser::parse_passes(std::istream& ins)
 {
     // We read the entire file contents into memory because it makes our lives easier. If, for some reason, the input
     // file is too large, an easy workaround is to write the cleaned lines to a temporary file.
-    const auto [file_contents, line_numbers] = file_to_string(ins);
+    const auto         [file_contents, line_numbers] = file_to_string(ins);
     std::istringstream cleaned_ins(file_contents);
 
     int version = -1;
@@ -900,7 +917,6 @@ void FileParser::parse_passes(std::istream& ins)
     // clang-format on
     parse_pass(pass_types3, cleaned_ins, line_numbers);
 }
-
 } // namespace
 
 Scene parse_file(std::istream& ins)
@@ -908,5 +924,4 @@ Scene parse_file(std::istream& ins)
     FileParser parser;
     return parser.parse(ins);
 }
-
 } // namespace sp

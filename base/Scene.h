@@ -8,6 +8,7 @@
 
 #include "../Cameras/Camera.h"
 #include "../Lights/Light.h"
+#include "../Integrators/Integrator.h"
 #include "../shapes/Aggregate.h"
 #include "../shapes/BVHAccelerator.h"
 #include "../shapes/ListAccelerator.h"
@@ -22,10 +23,9 @@
 #include <vector>
 
 namespace sp {
-
 namespace internal {
-template <typename Iterator>
-requires std::random_access_iterator<Iterator>
+template<typename Iterator>
+    requires std::random_access_iterator<Iterator>
 ListAccelerator create_acceleration_structure(Iterator first, Iterator last)
 {
 #if 1
@@ -51,11 +51,11 @@ public:
     using PrimitiveContainer = std::vector<std::shared_ptr<const GeometricPrimitive>>;
     using LightContainer     = std::vector<std::shared_ptr<const Light>>;
 
-    template <typename PrimitiveIterator, typename LightIterator>
-    requires std::convertible_to<typename std::iterator_traits<PrimitiveIterator>::value_type,
-                                 typename PrimitiveContainer::value_type> &&
-                 std::convertible_to<typename std::iterator_traits<LightIterator>::value_type,
-                                     typename LightContainer::value_type>
+    template<typename PrimitiveIterator, typename LightIterator>
+        requires std::convertible_to<typename std::iterator_traits<PrimitiveIterator>::value_type,
+                                     typename PrimitiveContainer::value_type> &&
+        std::convertible_to<typename std::iterator_traits<LightIterator>::value_type,
+                            typename LightContainer::value_type>
     Scene(PrimitiveIterator shapes_first,
           PrimitiveIterator shapes_last,
           LightIterator     lights_first,
@@ -81,17 +81,16 @@ public:
         return m_accelerator_geometry.intersect_p(ray, limits) || m_accelerator_lights.intersect_p(ray, limits);
     }
 
-    template <typename F>
-    void for_each_light(F f) const
+    template<typename F> void for_each_light(F f) const
     {
         std::for_each(m_lights.cbegin(), m_lights.cend(), [f](const auto& light_pointer) { f(*light_pointer); });
     }
 
-    // TODO: variables
-    int                  image_width  = 800;
-    int                  image_height = 600;
-    static constexpr int min_depth    = 3;
-    static constexpr int max_depth    = 10;
+    int                image_width{ 800 };
+    int                image_height{ 600 };
+    int                russian_roulette_depth{ 3 };
+    int                max_depth{ 10 };
+    sp::IntegratorType integrator_type{ sp::IntegratorType::NotSpecified };
 
     std::filesystem::path output_file_name;
 

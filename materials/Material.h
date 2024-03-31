@@ -22,7 +22,7 @@
 #include <utility>
 
 namespace sp {
-template <typename T>
+template<typename T>
 using ArenaVector = std::vector<T, ArenaAllocator<T>>;
 
 constexpr bool same_hemisphere(const Vector3& a, const Vector3& b)
@@ -133,9 +133,9 @@ inline float fresnel_dielectric(float cos_theta_i, float eta_i, float eta_t)
 
     // clang-format off
     const float real_parl = ((eta_t * cos_theta_i) - (eta_i * cos_theta_t)) /
-                            ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
+            ((eta_t * cos_theta_i) + (eta_i * cos_theta_t));
     const float real_perp = ((eta_i * cos_theta_i) - (eta_t * cos_theta_t)) /
-                            ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
+            ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
     // clang-format on
     return (real_parl * real_parl + real_perp * real_perp) / 2.0f;
 }
@@ -200,8 +200,8 @@ protected:
     }
 
 private:
-    virtual float   D_impl(const Vector3& wh) const                           = 0;
-    virtual float   lambda(const Vector3& w) const                            = 0;
+    virtual float   D_impl(const Vector3& wh) const = 0;
+    virtual float   lambda(const Vector3& w) const = 0;
     virtual Vector3 sample_wh_impl(const Vector3& wo, Sampler& sampler) const = 0;
 
     bool m_sample_visible_area;
@@ -240,7 +240,7 @@ private:
         }
         const float cos4_theta_v = square(cos2_theta(wh));
         return std::exp(-tan2_theta_v * (cos2_phi(wh) / square(m_alpha_x) + sin2_phi(wh) / square(m_alpha_y))) /
-               (std::numbers::pi_v<float> * m_alpha_x * m_alpha_y * cos4_theta_v);
+                (std::numbers::pi_v<float> * m_alpha_x * m_alpha_y * cos4_theta_v);
     }
 
     float lambda(const Vector3& w) const override
@@ -290,8 +290,8 @@ public:
 
 private:
     virtual MaterialSampleResult sample_impl(const Vector3& wo_local, const ONB& onb_local, Sampler& sampler) const = 0;
-    virtual RGB                  eval_impl(const Vector3& wo_local, const Vector3& wi_local) const                  = 0;
-    virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const                               = 0;
+    virtual RGB                  eval_impl(const Vector3& wo_local, const Vector3& wi_local) const = 0;
+    virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const = 0;
 
     virtual RGB rho_impl(const Vector3& wo_local, const ONB& onb_local, unsigned n_samples, Sampler& sampler) const
     {
@@ -392,13 +392,16 @@ private:
         if (wo_local.y == 0.0f) {
             return MaterialSampleResult::degenerate();
         }
-        const auto  wh_local    = m_distribution->sample_wh(wo_local, sampler);
+        assert(is_normalized(wo_local));
+        const auto wh_local = m_distribution->sample_wh(wo_local, sampler);
+        assert(is_normalized(wo_local));
         const float dot_product = dot(wo_local, wh_local);
         if (dot_product < 0.0f) {
             return MaterialSampleResult::degenerate();
         }
 
         const auto wi_local = specular_reflection(wo_local, wh_local);
+        assert(is_normalized(wi_local));
         if (!same_hemisphere(wo_local, wi_local)) {
             return MaterialSampleResult::degenerate();
         }
@@ -424,7 +427,7 @@ private:
         wh_local     = normalize(wh_local);
         const auto f = fresnel_dielectric(dot(wi_local, wh_local), 1.0f, m_ior);
         return m_r * m_distribution->D(wh_local) * m_distribution->G(wo_local, wi_local) * f /
-               (4.0f * abs_cos_theta_i * abs_cos_theta_o);
+                (4.0f * abs_cos_theta_i * abs_cos_theta_o);
     }
 
     float pdf_impl(const Vector3& wo, const Vector3& wi) const override
@@ -438,7 +441,7 @@ private:
 
     RGB                                     m_r;
     std::unique_ptr<MicrofacetDistribution> m_distribution;
-    float m_ior; // We only model reflection right now, so, unlike PBRT, we don't have a general Fresnel class
+    float                                   m_ior; // We only model reflection right now, so, unlike PBRT, we don't have a general Fresnel class
 };
 
 class Material
@@ -451,7 +454,12 @@ public:
     {
         const auto onb    = ONB::from_v(Vector3{ shading_normal });
         auto       result = sample_impl(arena, onb.to_onb(wo_world), onb, sampler);
-        result.direction  = onb.to_world(result.direction);
+        if (result.pdf == 0.0f || result.color == RGB::black()) {
+            return result;
+        }
+        assert(is_normalized(result.direction));
+        result.direction = onb.to_world(result.direction);
+        assert(is_normalized(result.direction));
         return result;
     }
 
@@ -503,12 +511,12 @@ private:
                            const Vector3& wo_local,
                            const Vector3& wi_local,
                            const ONB&     onb_local,
-                           Sampler&       sampler) const                                                         = 0;
-    virtual RGB   eval_impl(MemoryArena&   arena,
-                            const Vector3& wo_local,
-                            const Vector3& wi_local,
-                            const ONB&     onb_local,
-                            Sampler&       sampler) const                                                        = 0;
+                           Sampler&       sampler) const = 0;
+    virtual RGB eval_impl(MemoryArena&   arena,
+                          const Vector3& wo_local,
+                          const Vector3& wi_local,
+                          const ONB&     onb_local,
+                          Sampler&       sampler) const = 0;
 };
 
 // This is based on Veach and Guibas' multiple importance sampling. It's a general material used to hold any number of
@@ -562,6 +570,7 @@ private:
     {
         const std::size_t num_bxdfs = m_bxdfs.size();
         assert(num_bxdfs > 0);
+        assert(is_normalized(wo_local));
 
         if (num_bxdfs == 1) {
             return m_bxdfs.front()->sample(wo_local, onb_local, sampler);
@@ -588,6 +597,9 @@ private:
             selected_index = std::min(num_bxdfs - 1u, selected_index);
 
             const auto result = m_bxdfs[selected_index]->sample(wo_local, onb_local, sampler);
+            if (result.pdf == 0.0f || result.color == RGB::black()) {
+                return MaterialSampleResult{ RGB::black(), Vector3{ no_init }, 0.0f };
+            }
 
             // Go through each BxDF and calculate the multiple-importance sampling weight.
             // Here we're reusing _weights_ to store the PDFs from the sampling results.
@@ -598,6 +610,7 @@ private:
             ArenaVector<float>    pdfs(num_bxdfs, allocator_float);
 
             const Vector3& wi_local = result.direction;
+            assert(is_normalized(wi_local));
 
             for (std::size_t i = 0; i < num_bxdfs; ++i) {
                 // This isn't just for efficiency: if we sample a perfectly-specular BxDF, our PDF will be zero out of
@@ -803,5 +816,4 @@ inline OneSampleMaterial create_beckmann_glossy_material(RGB color, float roughn
     bxdfs.emplace_back(new LambertianBRDF{ color });
     return OneSampleMaterial{ std::move(bxdfs) };
 }
-
 } // namespace sp

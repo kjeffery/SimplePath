@@ -9,8 +9,7 @@
 #include "../math/Vector3.h"
 
 namespace sp {
-
-class Sphere : public Shape
+class Sphere final : public Shape
 {
 public:
     Sphere(AffineSpace object_to_world, AffineSpace world_to_object) noexcept
@@ -18,14 +17,14 @@ public:
     {
     }
 
-    ShapeSample sample(const Point2& u) const noexcept
+    [[nodiscard]] ShapeSample sample(const Point2& u) const noexcept
     {
         const Point3  local_sample = sample_to_uniform_sphere(u);
         const Normal3 normal{ local_sample }; // local_sample - our center
         return { get_object_to_world()(local_sample), get_object_to_world()(normal) };
     }
 
-    ShapeSample sample(const Point3& observer_world, const Point2& u) const noexcept
+    [[nodiscard]] ShapeSample sample(const Point3& observer_world, const Point2& u) const noexcept
     {
         const Point3  observer    = get_world_to_object()(observer_world);
         const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0
@@ -51,7 +50,7 @@ public:
         return { get_object_to_world()(local_sample), get_object_to_world()(normal) };
     }
 
-    float pdf(const Point3& observer_world, const Vector3& wi) const noexcept
+    [[nodiscard]] float pdf(const Point3& observer_world, const Vector3& /*wi*/) const noexcept
     {
         const Point3  observer    = get_world_to_object()(observer_world);
         const Vector3 to_observer = Vector3{ observer }; // observer - our center, which is 0, 0, 0
@@ -62,26 +61,33 @@ public:
             return uniform_sphere_pdf();
         }
 
-        const float sin_theta_max2 = 1.0f / sqr_distance;
-        const float cos_theta_max  = std::sqrt(std::max(0.0f, 1.0f - sin_theta_max2));
-        return uniform_cone_pdf(cos_theta_max);
+        constexpr auto sin2_1_5_deg = 0.00068523f;
+
+        const auto sin2_theta_max = 1.0f / sqr_distance;
+        const auto cos_theta_max  = std::sqrt(std::max(0.0f, 1.0f - sin2_theta_max));
+
+        // For a small solid angle, compute more accurate one_minus_cos_theta_max
+        const auto one_minus_cos_theta_max = (sin2_theta_max < sin2_1_5_deg) ? sin2_theta_max / 2.0f : 1.0f - cos_theta_max;
+
+        // This is the same as the uniform_cone_pdf
+        return 1.0f / (2.0f * std::numbers::pi_v<float> * one_minus_cos_theta_max);
     }
 
 private:
     bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
     {
-        const Ray local_ray = get_world_to_object()(ray);
+        const auto local_ray = get_world_to_object()(ray);
 
-        const Vector3& d = local_ray.get_direction();
-        const Point3&  o = local_ray.get_origin();
+        const auto& d = local_ray.get_direction();
+        const auto& o = local_ray.get_origin();
 
-        const float a = dot(d, d);
-        const float b = 2.0f * dot(d, Vector3{ o });
-        const float c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
+        const auto a = dot(d, d);
+        const auto b = 2.0f * dot(d, Vector3{ o });
+        const auto c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
 
-        if (float discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
+        if (auto discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
             discriminant = std::sqrt(discriminant);
-            float t      = (-b - discriminant) / (2.0f * a);
+            auto t       = (-b - discriminant) / (2.0f * a);
 
             if (t < limits.m_t_min) {
                 t = (-b + discriminant) / (2.0f * a);
@@ -101,20 +107,20 @@ private:
         return false;
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        const Ray local_ray = get_world_to_object()(ray);
+        const auto local_ray = get_world_to_object()(ray);
 
-        const Vector3& d = local_ray.get_direction();
-        const Point3&  o = local_ray.get_origin();
+        const auto& d = local_ray.get_direction();
+        const auto& o = local_ray.get_origin();
 
-        const float a = dot(d, d);
-        const float b = 2.0f * dot(d, Vector3{ o });
-        const float c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
+        const auto a = dot(d, d);
+        const auto b = 2.0f * dot(d, Vector3{ o });
+        const auto c = dot(Vector3{ o }, Vector3{ o }) - k_radius * k_radius;
 
-        if (float discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
+        if (auto discriminant = b * b - 4.0f * a * c; discriminant > 0.0f) {
             discriminant = std::sqrt(discriminant);
-            float t      = (-b - discriminant) / (2.0f * a);
+            auto t       = (-b - discriminant) / (2.0f * a);
 
             if (t < limits.m_t_min) {
                 t = (-b + discriminant) / (2.0f * a);
@@ -130,17 +136,16 @@ private:
         return false;
     }
 
-    BBox3 get_object_bounds() const noexcept override
+    [[nodiscard]] BBox3 get_object_bounds() const noexcept override
     {
         return { Point3{ -k_radius, -k_radius, -k_radius }, Point3{ k_radius, k_radius, k_radius } };
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return true;
     }
 
-    static constexpr float k_radius = 1.0f;
+    static constexpr auto k_radius = 1.0f;
 };
-
 } // namespace sp

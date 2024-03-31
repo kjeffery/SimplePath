@@ -87,12 +87,14 @@ public:
     requires std::random_access_iterator<Iterator>
     {
         m_iterator += n;
+        return *this;
     }
 
     SmartToRawPointerIterator operator-=(difference_type n)
     requires std::random_access_iterator<Iterator>
     {
         m_iterator -= n;
+        return *this;
     }
 
     SmartToRawPointerIterator operator[](difference_type n)

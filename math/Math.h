@@ -227,8 +227,7 @@ inline float rsqrt(const float x) noexcept
 inline float erfinv(float a) noexcept
 {
     float       p;
-    float       r;
-    const float t = std::log(madd(a, 0.0f - a, 1.0f));
+    const auto t = std::log(madd(a, 0.0f - a, 1.0f));
     // clang-format off
     if (std::abs(t) > 6.125f) { // maximum ulp error = 2.35793
         p =             3.03697567e-10f; //  0x1.4deb44p-32
@@ -253,8 +252,7 @@ inline float erfinv(float a) noexcept
         p = madd(p, t,  8.86226892e-1f); //  0x1.c5bf88p-1
     }
     // clang-format on
-    r = a * p;
-    return r;
+    return a * p;
 }
 
 // This function is adapted from Burkhard Stubert's page, "Comparing Two Floating-Point Numbers"

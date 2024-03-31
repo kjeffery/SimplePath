@@ -1,8 +1,6 @@
-//
-// Created by krjef on 10/18/2022.
-//
-
 #pragma once
+
+#include <cmath>
 
 /// @author Keith Jeffery
 

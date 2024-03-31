@@ -36,13 +36,13 @@ public:
     }
 
     template <std::size_t dim>
-    int get_num_tiles() noexcept
+    int get_num_tiles() const noexcept
     {
         const int s = extents<dim>(m_extents);
         return (s + (k_tile_dimension - 1)) / k_tile_dimension;
     }
 
-    int get_num_tiles() noexcept
+    int get_num_tiles() const noexcept
     {
         return get_num_tiles<0>() * get_num_tiles<1>();
     }

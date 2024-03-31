@@ -13,7 +13,7 @@ class ParsingException : public std::runtime_error
     static std::string create_parse_message(const std::string& what_arg, int line_number);
 
 public:
-    ParsingException(const std::string& what_arg);
+    explicit ParsingException(const std::string& what_arg);
     ParsingException(const std::string& what_arg, int line_number);
 };
 

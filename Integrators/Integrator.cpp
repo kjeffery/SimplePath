@@ -37,8 +37,8 @@ auto string_to_integrator_type(std::string_view s) -> IntegratorType
     if (s == "brute_force_iterative_rr") {
         return IntegratorType::BruteForceIterativeRR;
     }
-    if (s == "brute_force_iterative_rrnee") {
-        return IntegratorType::BruteForceIterativeRRNEE;
+    if (s == "iterative_rrnee") {
+        return IntegratorType::IterativeRRNEE;
     }
     if (s == "direct_lighting") {
         return IntegratorType::DirectLighting;
@@ -464,16 +464,16 @@ RGB estimate_direct_mis(const Scene&    scene,
     return L_result;
 }
 
-RGB BruteForceIntegratorIterativeRRNEE::integrate_impl(const Ray&   ray,
-                                                       const Scene& scene,
-                                                       MemoryArena& arena,
-                                                       Sampler&     sampler,
-                                                       const Point2&) const
+RGB IntegratorIterativeRRNEE::integrate_impl(const Ray&   ray,
+                                             const Scene& scene,
+                                             MemoryArena& arena,
+                                             Sampler&     sampler,
+                                             const Point2&) const
 {
     return do_integrate(ray, scene, arena, sampler);
 }
 
-RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const
+RGB IntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const
 {
     RGB       throughput = RGB::white();
     RGB       L          = RGB::black();

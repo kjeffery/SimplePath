@@ -22,7 +22,7 @@ enum class IntegratorType
     BruteForce,
     BruteForceIterative,
     BruteForceIterativeRR,
-    BruteForceIterativeRRNEE,
+    IterativeRRNEE,
     DirectLighting
 };
 
@@ -141,7 +141,7 @@ private:
     mutable StatsDepthContainer m_stats;
 };
 
-class BruteForceIntegratorIterativeRRNEE final : public Integrator
+class IntegratorIterativeRRNEE final : public Integrator
 {
 private:
     RGB integrate_impl(const Ray&   ray,

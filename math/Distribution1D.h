@@ -7,15 +7,12 @@
 #include <span>
 #include <vector>
 
+// Inspired by PBRT
 class Distribution1D
 {
 public:
     explicit Distribution1D(std::vector<float> f)
-    {
-    }
-
-    explicit Distribution1D(std::span<float> f)
-    : m_function{ f.begin(), f.end() }
+    : m_function{ std::move(f) }
     , m_cdf(f.size() + std::size_t{ 1 })
     {
         // Compute integral of step function at $x_i$
@@ -36,6 +33,11 @@ public:
                 m_cdf[i] /= m_function_integral;
             }
         }
+    }
+
+    explicit Distribution1D(std::span<float> f)
+    : Distribution1D{ std::vector<float>{ f.begin(), f.end() } }
+    {
     }
 
     [[nodiscard]] auto size() const -> std::size_t

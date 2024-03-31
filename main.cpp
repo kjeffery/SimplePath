@@ -54,8 +54,8 @@ sp::Scene parse_scene_file(std::string_view file_name)
     if (file_name == "-"sv) {
         return sp::parse_file(std::cin);
     } else {
-        const fs::path      file_path{ file_name };
-        std::ifstream ins(file_path);
+        const fs::path file_path{ file_name };
+        std::ifstream  ins(file_path);
         if (!ins) {
             throw sp::ParsingException{ "Unable to open file "s + file_path.string() };
         }
@@ -137,6 +137,7 @@ void render(const sp::Integrator& integrator, unsigned num_threads, unsigned num
     stopwatch.stop();
     std::cout << "\nElapsed time: ";
     stopwatch.print(std::cout);
+    std::cout << '\n';
 }
 
 void morton_demonstration()

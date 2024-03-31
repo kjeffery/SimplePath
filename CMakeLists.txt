@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7...3.23)
 
 if (${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
-endif()
+endif ()
 project(SimplePath)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -19,7 +19,8 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
-else()
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:except")
+else ()
     set(CMAKE_CXX_STANDARD 20)
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfma") # Only set this for axv2 or above
@@ -27,7 +28,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
-endif(MSVC)
+endif (MSVC)
 
 set(SOURCES
         Cameras/Camera.h
@@ -91,4 +92,4 @@ if (UNIX)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
     target_link_libraries(SimplePath PRIVATE Threads::Threads atomic tbb)
-endif(UNIX)
+endif (UNIX)

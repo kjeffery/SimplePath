@@ -1,5 +1,3 @@
-#pragma once
-
 /// @author Keith Jeffery
 
 #include "Integrator.h"
@@ -488,13 +486,15 @@ RGB BruteForceIntegratorIterativeRRNEE::do_integrate(Ray ray, const Scene& scene
         if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
             assert(geometry_intersection.m_material);
 
-            const Vector3  wo = -ray.get_direction();
-            const Normal3& n  = geometry_intersection.m_normal;
+            const Vector3 wo = -ray.get_direction();
+            assert(is_normalized(wo));
+            const Normal3& n = geometry_intersection.m_normal;
 
             const auto shading_result = geometry_intersection.m_material->sample(arena, wo, n, sampler);
             if (shading_result.pdf == 0.0f || shading_result.color == RGB::black()) {
                 break;
             }
+            assert(is_normalized(shading_result.direction));
 
 #if 0
             scene.for_each_light(

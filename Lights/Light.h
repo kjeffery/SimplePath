@@ -4,6 +4,8 @@
 
 #include <utility>
 
+#include "../Image/Image.h"
+#include "../math/Distribution2D.h"
 #include "../shapes/Hitable.h"
 #include "../shapes/Sphere.h"
 
@@ -173,6 +175,118 @@ private:
     }
 
     RGB m_radiance;
+};
+
+class ImageBasedEnvironmentLight final : public InfiniteLight
+{
+public:
+    explicit ImageBasedEnvironmentLight(Image radiance) noexcept
+    : m_radiance(std::move(radiance))
+    , m_distribution_2d{ create_distribution(radiance) }
+    {
+    }
+
+private:
+    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    {
+        assert(!"Should not get here");
+        return false;
+    }
+
+    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    {
+        if (limits.m_t_max < k_infinite_distance) {
+            return false;
+        }
+
+        constexpr auto inv_2_pi = 1.0f / (2.0f * std::numbers::pi_v<float>);
+
+        const auto   w = normalize(m_world_to_light(ray.get_direction()));
+        const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
+        isect.L = sample_bilinear(m_radiance, st[0], st[1]);
+        return true;
+    }
+
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    {
+        return false;
+    }
+
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
+    {
+        return sp::BBox3{};
+    }
+
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
+    {
+        return false;
+    }
+
+    [[nodiscard]] auto light_sample(const Point3&, const Point2& u) const noexcept -> PartialLightSample override
+    {
+        const auto [uv, map_pdf] = m_distribution_2d.sample_continuous(u);
+        if (map_pdf == 0.0f) {
+            return { .m_pdf = 0.0f, .m_max_distance = k_infinite_distance, .m_L = RGB::black(), .m_wi = Vector3{ no_init } };
+        }
+
+        // Convert infinite light sample point to direction
+        const auto theta     = uv[1] * std::numbers::pi_v<float>;
+        const auto phi       = uv[0] * 2.0f * std::numbers::pi_v<float>;
+        const auto cos_theta = std::cos(theta);
+        const auto sin_theta = std::sin(theta);
+        const auto sin_phi   = std::sin(phi);
+        const auto cos_phi   = std::cos(phi);
+
+        const auto wi = m_light_to_world(Vector3(sin_theta * cos_phi, cos_theta, sin_theta * sin_phi));
+
+        // Compute PDF for sampled infinite light direction
+        const auto pdf = (sin_theta == 0.0f) ? 0.0f : map_pdf / (2.0f * square(std::numbers::pi_v<float>) * sin_theta);
+
+        const auto L = sample_bilinear(m_radiance, uv[0], uv[1]);
+        return { .m_pdf = pdf, .m_max_distance = k_infinite_distance, .m_L = L, .m_wi = wi };
+    }
+
+    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float
+    {
+        return uniform_sphere_pdf();
+    }
+
+    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB
+    {
+        if (dot(n, wi) > 0.0f) {
+            return RGB::black();
+        }
+        constexpr auto inv_2_pi = 1.0f / (2.0f * std::numbers::pi_v<float>);
+
+        const auto   w = normalize(m_world_to_light(wi));
+        const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
+        return sample_bilinear(m_radiance, st[0], st[1]);
+    }
+
+    static [[nodiscard]] auto create_distribution(const Image& radiance)
+    {
+        const auto         width  = 2 * radiance.width();
+        const auto         height = 2 * radiance.height();
+        std::vector<float> img(width * height);
+
+        for (auto v = decltype(height){ 0 }; v < height; ++v) {
+            const auto vp        = (static_cast<float>(v) + 0.5f) / static_cast<float>(height);
+            const auto sin_theta = std::sin(std::numbers::pi_v<float> * (static_cast<float>(v) + 0.5f) / static_cast<float>(height));
+            for (auto u = decltype(width){ 0 }; u < width; ++u) {
+                const auto up      = (static_cast<float>(u) + 0.5f) / static_cast<float>(width);
+                img[u + v * width] = relative_luminance(sample_bilinear(radiance, up, vp));
+                img[u + v * width] *= sin_theta;
+            }
+        }
+
+        return Distribution2D{ img, width, height };
+    }
+
+    // TODO: user-set
+    LinearSpace3x3 m_light_to_world{};
+    LinearSpace3x3 m_world_to_light{};
+    Image          m_radiance;
+    Distribution2D m_distribution_2d;
 };
 
 class SphereLight final : public ObjectLight

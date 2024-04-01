@@ -18,7 +18,7 @@ public:
     : m_min(min)
     , m_max(max)
     , m_function{ std::move(f) }
-    , m_cdf(f.size() + std::size_t{ 1 })
+    , m_cdf(m_function.size() + std::size_t{ 1 })
     {
         assert(max > min);
 
@@ -27,16 +27,16 @@ public:
 
         // Compute integral of step function at $x_i$
         m_cdf[0] = 0;
-        for (std::size_t i = 1; i < f.size() + 1; ++i) {
+        for (std::size_t i = 1; i < m_function.size() + 1; ++i) {
             assert(m_function[i - 1] > 0.0f);
-            m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] * (max - min) / static_cast<float>(f.size());
+            m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] * (max - min) / static_cast<float>(m_function.size());
         }
 
         // Transform step function integral into CDF
         m_function_integral = m_cdf.back();
         if (m_function_integral == 0) {
-            for (std::size_t i = 1; i < f.size() + 1; ++i) {
-                m_cdf[i] = static_cast<float>(i) / static_cast<float>(f.size());
+            for (std::size_t i = 1; i < m_function.size() + 1; ++i) {
+                m_cdf[i] = static_cast<float>(i) / static_cast<float>(m_function.size());
             }
         } else {
             std::transform(std::execution::par_unseq, std::next(m_cdf.cbegin()), m_cdf.cend(), m_cdf.begin(),
@@ -124,7 +124,7 @@ public:
         }
         const auto c      = (x - m_min) / (m_max - m_min) * static_cast<float>(m_function.size());
         const auto offset = std::clamp(static_cast<std::size_t>(c), std::size_t{ 0 }, m_function.size() - std::size_t{ 1 });
-        assert(offset >= 0 && offset + 1 < cdf.size());
+        assert(offset >= 0 && offset + 1 < m_cdf.size());
 
         // Linearly interpolate between adjacent CDF values to find sample value
         const auto delta = c - static_cast<float>(offset);

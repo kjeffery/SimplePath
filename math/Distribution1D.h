@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "Math.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -12,14 +14,22 @@
 class Distribution1D
 {
 public:
-    explicit Distribution1D(std::vector<float> f)
-    : m_function{ std::move(f) }
+    Distribution1D(std::vector<float> f, float min, float max)
+    : m_min(min)
+    , m_max(max)
+    , m_function{ std::move(f) }
     , m_cdf(f.size() + std::size_t{ 1 })
     {
+        assert(max > min);
+
+        std::transform(std::execution::par_unseq, m_function.cbegin(), m_function.cend(), m_function.begin(),
+                       [](const auto& x) { return std::abs(x); });
+
         // Compute integral of step function at $x_i$
         m_cdf[0] = 0;
         for (std::size_t i = 1; i < f.size() + 1; ++i) {
-            m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] / static_cast<float>(f.size());
+            assert(m_function[i - 1] > 0.0f);
+            m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] * (max - min) / static_cast<float>(f.size());
         }
 
         // Transform step function integral into CDF
@@ -29,13 +39,23 @@ public:
                 m_cdf[i] = static_cast<float>(i) / static_cast<float>(f.size());
             }
         } else {
-            std::transform(std::execution::par_unseq, m_cdf.cbegin(), m_cdf.cend(), m_cdf.begin(),
+            std::transform(std::execution::par_unseq, std::next(m_cdf.cbegin()), m_cdf.cend(), m_cdf.begin(),
                            [this](auto x) { return x / m_function_integral; });
         }
     }
 
+    explicit Distribution1D(std::vector<float> f)
+    : Distribution1D{ std::move(f), 0.0f, 1.0f }
+    {
+    }
+
+    Distribution1D(std::span<float> f, float min, float max)
+    : Distribution1D{ std::vector<float>{ f.begin(), f.end() }, min, max }
+    {
+    }
+
     explicit Distribution1D(std::span<float> f)
-    : Distribution1D{ std::vector<float>{ f.begin(), f.end() } }
+    : Distribution1D{ f, 0.0f, 1.0f }
     {
     }
 
@@ -65,18 +85,16 @@ public:
         // Compute offset along CDF segment
         auto du = u - m_cdf[offset];
         if ((m_cdf[offset + 1] - m_cdf[offset]) > 0) {
-            assert(m_cdf[offset + 1] > m_cdf[offset]);
             du /= (m_cdf[offset + 1] - m_cdf[offset]);
         }
         assert(!std::isnan(du));
 
         // Compute PDF for sampled offset
         if (pdf) {
-            *pdf = (m_function_integral > 0) ? m_function[offset] / m_function_integral : 0;
+            *pdf = (m_function_integral > 0) ? m_function[offset] / m_function_integral : 0.0f;
         }
 
-        // Return $x\in{}[0,1)$ corresponding to sample
-        return (static_cast<float>(offset) + du) / static_cast<float>(size());
+        return sp::lerp((static_cast<float>(offset) + du) / static_cast<float>(size()), m_min, m_max);
     }
 
     [[nodiscard]] auto sample_discrete(const float u, float* const pdf = nullptr, float* const u_remapped = nullptr) const -> std::size_t
@@ -98,8 +116,23 @@ public:
         return m_function[index] / (m_function_integral * static_cast<float>(size()));
     }
 
+    [[nodiscard]] std::optional<float> invert(const float x) const
+    {
+        // Compute offset to CDF values that bracket $x$
+        if (x < m_min || x > m_max) {
+            return {};
+        }
+        const auto c      = (x - m_min) / (m_max - m_min) * static_cast<float>(m_function.size());
+        const auto offset = std::clamp(static_cast<std::size_t>(c), std::size_t{ 0 }, m_function.size() - std::size_t{ 1 });
+        assert(offset >= 0 && offset + 1 < cdf.size());
+
+        // Linearly interpolate between adjacent CDF values to find sample value
+        const auto delta = c - static_cast<float>(offset);
+        return sp::lerp(delta, m_cdf[offset], m_cdf[offset + 1]);
+    }
+
 private:
-    [[nodiscard]] auto get_offset(float u) const noexcept -> std::size_t
+    [[nodiscard]] auto get_offset(const float u) const noexcept -> std::size_t
     {
         const auto it = std::ranges::upper_bound(m_cdf, u);
         if (it == m_cdf.cend() || it == std::prev(m_cdf.cend())) {
@@ -110,7 +143,9 @@ private:
     }
 
     // Distribution1D Public Data
+    float              m_function_integral{ 0 };
+    float              m_min;
+    float              m_max;
     std::vector<float> m_function;
     std::vector<float> m_cdf;
-    float              m_function_integral;
 };

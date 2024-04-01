@@ -12,11 +12,10 @@
 #include <xmmintrin.h>
 
 namespace sp {
-
-template <typename T, typename U>
+template<typename T, typename U>
 T safe_divide(const T& a, const U& b) noexcept;
 
-template <>
+template<>
 inline float safe_divide(const float& a, const float& b) noexcept
 {
     if (b == 0.0f) {
@@ -28,26 +27,31 @@ inline float safe_divide(const float& a, const float& b) noexcept
 
 // clang-format off
 // Wow. Clang-format massacres this! Apparently this version of clang-format is not familiar with concepts.
-template <typename T>
+template<typename T>
 concept squarable = requires(T v)
 {
-    {v * v} -> std::convertible_to<T>;
+    { v * v } -> std::convertible_to<T>;
 };
 
 // clang-format on
 
 // clang-format off
-template <typename T>
-requires squarable<T>
+template<typename T>
+    requires squarable<T>
 constexpr T square(const T& t) noexcept(noexcept(t * t))
 {
     return t * t;
 }
 
+constexpr float lerp(const float x, const float a, const float b) noexcept
+{
+    return (1.0f - x) * a + x * b;
+}
+
 // clang-format on
 
-template <typename IteratorValue, typename IteratorPDF>
-requires std::forward_iterator<IteratorValue> && std::forward_iterator<IteratorPDF>
+template<typename IteratorValue, typename IteratorPDF>
+    requires std::forward_iterator<IteratorValue> && std::forward_iterator<IteratorPDF>
 float balance_heuristic(int           c,
                         float         p,
                         IteratorValue c_first,
@@ -89,22 +93,22 @@ inline float balance_heuristic(int nf, float f_pdf, int ng, float g_pdf) noexcep
     return balance_heuristic(nf, f_pdf, nf * f_pdf + ng * g_pdf);
 }
 
-template <typename T>
-requires std::is_integral_v<T>
+template<typename T>
+    requires std::is_integral_v<T>
 constexpr bool is_power_of_two(T v) noexcept
 {
     return v > 0 && !(v & (v - T{ 1 }));
 }
 
-template <typename T>
+template<typename T>
 concept unsigned_32 = std::unsigned_integral<T> && sizeof(T) == 4;
 
-template <typename T>
+template<typename T>
 concept unsigned_64 = std::unsigned_integral<T> && sizeof(T) == 8;
 
-template <typename T>
+template<typename T>
 constexpr T round_up_to_power_of_two(T v) noexcept
-requires unsigned_32<T>
+    requires unsigned_32<T>
 {
     --v;
     v |= v >> 1UL;
@@ -116,9 +120,9 @@ requires unsigned_32<T>
     return v;
 }
 
-template <typename T>
+template<typename T>
 constexpr T round_up_to_power_of_two(T v) noexcept
-requires unsigned_64<T>
+    requires unsigned_64<T>
 {
     --v;
     v |= v >> 1UL;
@@ -226,30 +230,32 @@ inline float rsqrt(const float x) noexcept
 // Taken from https://stackoverflow.com/a/49743348 and modified to fit my own selfish needs.
 inline float erfinv(float a) noexcept
 {
-    float       p;
+    float      p;
     const auto t = std::log(madd(a, 0.0f - a, 1.0f));
     // clang-format off
-    if (std::abs(t) > 6.125f) { // maximum ulp error = 2.35793
-        p =             3.03697567e-10f; //  0x1.4deb44p-32
-        p = madd(p, t,  2.93243101e-8f); //  0x1.f7c9aep-26
-        p = madd(p, t,  1.22150334e-6f); //  0x1.47e512p-20
-        p = madd(p, t,  2.84108955e-5f); //  0x1.dca7dep-16
-        p = madd(p, t,  3.93552968e-4f); //  0x1.9cab92p-12
-        p = madd(p, t,  3.02698812e-3f); //  0x1.8cc0dep-9
-        p = madd(p, t,  4.83185798e-3f); //  0x1.3ca920p-8
+    if (std::abs(t) > 6.125f) {
+        // maximum ulp error = 2.35793
+        p = 3.03697567e-10f;             //  0x1.4deb44p-32
+        p = madd(p, t, 2.93243101e-8f);  //  0x1.f7c9aep-26
+        p = madd(p, t, 1.22150334e-6f);  //  0x1.47e512p-20
+        p = madd(p, t, 2.84108955e-5f);  //  0x1.dca7dep-16
+        p = madd(p, t, 3.93552968e-4f);  //  0x1.9cab92p-12
+        p = madd(p, t, 3.02698812e-3f);  //  0x1.8cc0dep-9
+        p = madd(p, t, 4.83185798e-3f);  //  0x1.3ca920p-8
         p = madd(p, t, -2.64646143e-1f); // -0x1.0eff66p-2
-        p = madd(p, t,  8.40016484e-1f); //  0x1.ae16a4p-1
-    } else { // maximum ulp error = 2.35002
-        p =              5.43877832e-9f;  //  0x1.75c000p-28
-        p = madd(p, t,  1.43285448e-7f); //  0x1.33b402p-23
-        p = madd(p, t,  1.22774793e-6f); //  0x1.499232p-20
-        p = madd(p, t,  1.12963626e-7f); //  0x1.e52cd2p-24
+        p = madd(p, t, 8.40016484e-1f);  //  0x1.ae16a4p-1
+    } else {
+        // maximum ulp error = 2.35002
+        p = 5.43877832e-9f;              //  0x1.75c000p-28
+        p = madd(p, t, 1.43285448e-7f);  //  0x1.33b402p-23
+        p = madd(p, t, 1.22774793e-6f);  //  0x1.499232p-20
+        p = madd(p, t, 1.12963626e-7f);  //  0x1.e52cd2p-24
         p = madd(p, t, -5.61530760e-5f); // -0x1.d70bd0p-15
         p = madd(p, t, -1.47697632e-4f); // -0x1.35be90p-13
-        p = madd(p, t,  2.31468678e-3f); //  0x1.2f6400p-9
-        p = madd(p, t,  1.15392581e-2f); //  0x1.7a1e50p-7
+        p = madd(p, t, 2.31468678e-3f);  //  0x1.2f6400p-9
+        p = madd(p, t, 1.15392581e-2f);  //  0x1.7a1e50p-7
         p = madd(p, t, -2.32015476e-1f); // -0x1.db2aeep-3
-        p = madd(p, t,  8.86226892e-1f); //  0x1.c5bf88p-1
+        p = madd(p, t, 8.86226892e-1f);  //  0x1.c5bf88p-1
     }
     // clang-format on
     return a * p;
@@ -273,5 +279,4 @@ inline bool float_compare_epsilon(const float a, const float b, const float epsi
 {
     return std::abs(a - b) <= epsilon;
 }
-
 } // namespace sp

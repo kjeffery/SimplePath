@@ -182,7 +182,7 @@ class ImageBasedEnvironmentLight final : public InfiniteLight
 public:
     explicit ImageBasedEnvironmentLight(Image radiance) noexcept
     : m_radiance(std::move(radiance))
-    , m_distribution_2d{ create_distribution(radiance) }
+    , m_distribution_2d{ create_distribution(m_radiance) }
     {
     }
 
@@ -283,8 +283,8 @@ private:
     }
 
     // TODO: user-set
-    LinearSpace3x3 m_light_to_world{};
-    LinearSpace3x3 m_world_to_light{};
+    LinearSpace3x3 m_light_to_world{ LinearSpace3x3::identity() };
+    LinearSpace3x3 m_world_to_light{ LinearSpace3x3::identity() };
     Image          m_radiance;
     Distribution2D m_distribution_2d;
 };

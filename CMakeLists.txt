@@ -62,6 +62,8 @@ set(SOURCES
         math/AffineSpace.h
         math/Angles.h
         math/BBox.h
+        math/Distribution1D.h
+        math/Distribution2D.h
         math/LinearSpace3x3.h
         math/Math.h
         math/ONB.h

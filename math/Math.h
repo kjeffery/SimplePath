@@ -42,13 +42,12 @@ constexpr T square(const T& t) noexcept(noexcept(t * t))
 {
     return t * t;
 }
+// clang-format on
 
 constexpr float lerp(const float x, const float a, const float b) noexcept
 {
     return (1.0f - x) * a + x * b;
 }
-
-// clang-format on
 
 template<typename IteratorValue, typename IteratorPDF>
     requires std::forward_iterator<IteratorValue> && std::forward_iterator<IteratorPDF>

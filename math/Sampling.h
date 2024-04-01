@@ -68,8 +68,25 @@ inline float uniform_cone_pdf(const float cos_theta_max) noexcept
     return 1.0f / (2.0f * std::numbers::pi_v<float> * (1.0f - cos_theta_max));
 }
 
-inline Vector3 spherical_direction(const float sin_theta, const float cos_theta, const float phi) noexcept
+inline auto spherical_direction(const float sin_theta, const float cos_theta, const float phi) noexcept -> Vector3
 {
     return Vector3{ sin_theta * std::cos(phi), cos_theta, sin_theta * std::sin(phi) };
+}
+
+inline auto spherical_direction(const float    sin_theta, const float cos_theta, const float phi, const Vector3& x, const Vector3& y,
+                                const Vector3& z) noexcept -> Vector3
+{
+    return sin_theta * std::cos(phi) * x + cos_theta * y + sin_theta * std::sin(phi) * z;
+}
+
+inline auto spherical_theta(const Vector3& v) noexcept -> float
+{
+    return std::acos(std::clamp(v.y, -1.0f, 1.0f));
+}
+
+inline auto spherical_phi(const Vector3& v) -> float
+{
+    const auto p = std::atan2(v.z, v.x);
+    return (p < 0.0f) ? (p + 2.0f * std::numbers::pi_v<float>) : p;
 }
 } // namespace sp

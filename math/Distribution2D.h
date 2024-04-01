@@ -7,6 +7,12 @@
 class Distribution2D
 {
 public:
+    explicit Distribution2D(const std::span<float> function, std::size_t nu, std::size_t nv)
+    : p_conditional{ create_conditional(function, nu, nv) }
+    , p_marginal{ create_marginal(p_conditional) }
+    {
+    }
+
     explicit Distribution2D(const sp::Image& image)
     : p_conditional{ create_conditional(image) }
     , p_marginal{ create_marginal(p_conditional) }
@@ -32,6 +38,21 @@ public:
     }
 
 private:
+    [[nodiscard]] static auto create_conditional(const std::span<float> function, std::size_t nu, std::size_t nv) -> std::vector<Distribution1D>
+    {
+        std::vector<Distribution1D> conditional;
+        conditional.reserve(nv);
+        for (std::size_t v = 0; v < nv; ++v) {
+            std::vector<float> values;
+            values.reserve(nu);
+            for (std::size_t u = 0; u < nu; ++u) {
+                values.push_back(function[nu * v + u]);
+            }
+            conditional.emplace_back(std::move(values));
+        }
+        return conditional;
+    }
+
     [[nodiscard]] static auto create_conditional(const sp::Image& image) -> std::vector<Distribution1D>
     {
         std::vector<Distribution1D> conditional;

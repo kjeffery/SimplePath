@@ -23,7 +23,8 @@ enum class IntegratorType
     BruteForceIterative,
     BruteForceIterativeRR,
     IterativeRRNEE,
-    DirectLighting
+    DirectLighting,
+    Whitted
 };
 
 [[nodiscard]] auto string_to_integrator_type(std::string_view s) -> IntegratorType;
@@ -107,7 +108,7 @@ private:
     RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler) const;
 };
 
-class DirectLightingIntegrator : public Integrator
+class DirectLightingIntegrator final : public Integrator
 {
 private:
     RGB integrate_impl(const Ray&   ray,
@@ -119,7 +120,19 @@ private:
     RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, int depth) const;
 };
 
-class BruteForceIntegratorIterativeDynamicRR : public Integrator
+class WhittedIntegrator final : public Integrator
+{
+private:
+    RGB integrate_impl(const Ray&   ray,
+                       const Scene& scene,
+                       MemoryArena& arena,
+                       Sampler&     sampler,
+                       const Point2&) const override;
+
+    RGB do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, int depth) const;
+};
+
+class BruteForceIntegratorIterativeDynamicRR final : public Integrator
 {
     using StatsType           = RunningStats<float>;
     using Stats2D             = Array2D<StatsType>;

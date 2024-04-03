@@ -43,6 +43,9 @@ auto string_to_integrator_type(std::string_view s) -> IntegratorType
     if (s == "direct_lighting") {
         return IntegratorType::DirectLighting;
     }
+    if (s == "whitted") {
+        return IntegratorType::Whitted;
+    }
 
     throw std::runtime_error("Unknown integrator type");
 }
@@ -272,14 +275,14 @@ RGB DirectLightingIntegrator::do_integrate(Ray ray, const Scene& scene, MemoryAr
     const bool        hit_light = scene.intersect(ray, limits, light_intersection);
 
     if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
-        scene.for_each_light([&ray, &scene, &arena, &L, &geometry_intersection, &sampler](const Light& light) {
+        const auto  wo = -ray.get_direction();
+        const auto& n  = geometry_intersection.m_normal;
+        scene.for_each_light([&wo, &n, &scene, &arena, &L, &geometry_intersection, &sampler](const Light& light) {
             const auto light_sample = light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
             if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
                 return;
             }
 
-            const auto  wo = -ray.get_direction();
-            const auto& n  = geometry_intersection.m_normal;
             const auto& wi = light_sample.m_tester.m_ray.get_direction();
             const auto  f  = geometry_intersection.m_material->eval(arena, wo, wi, n, sampler);
 
@@ -287,10 +290,56 @@ RGB DirectLightingIntegrator::do_integrate(Ray ray, const Scene& scene, MemoryAr
                 L += f * light_sample.m_L * std::abs(dot(wi, n)) / light_sample.m_pdf;
             }
         });
-        // TODO: specular recursion
-        // if (depth < scene.max_depth) {
-        // if ()
-        //}
+    } else if (hit_light) {
+        L += throughput * light_intersection.L;
+    }
+    return L;
+}
+
+RGB WhittedIntegrator::integrate_impl(const Ray&   ray,
+                                      const Scene& scene,
+                                      MemoryArena& arena,
+                                      Sampler&     sampler,
+                                      const Point2&) const
+{
+    return do_integrate(ray, scene, arena, sampler, 0);
+}
+
+RGB WhittedIntegrator::do_integrate(Ray ray, const Scene& scene, MemoryArena& arena, Sampler& sampler, int depth) const
+{
+    RGB       throughput = RGB::white();
+    RGB       L          = RGB::black();
+    RayLimits limits;
+
+    LightIntersection light_intersection;
+    const bool        hit_light = scene.intersect(ray, limits, light_intersection);
+
+    if (Intersection geometry_intersection; scene.intersect(ray, limits, geometry_intersection)) {
+        const auto  wo = -ray.get_direction();
+        const auto& n  = geometry_intersection.m_normal;
+
+        scene.for_each_light([&wo, &n, &scene, &arena, &L, &geometry_intersection, &sampler](const Light& light) {
+            const auto light_sample = light.sample(geometry_intersection.m_point, geometry_intersection.m_normal, sampler.get_next_2D());
+            if (light_sample.m_pdf == 0.0f || light_sample.m_L == RGB::black()) {
+                return;
+            }
+
+            const auto& wi = light_sample.m_tester.m_ray.get_direction();
+            const auto  f  = geometry_intersection.m_material->eval(arena, wo, wi, n, sampler);
+
+            if (f != RGB::black() && !occluded(light_sample.m_tester, scene)) {
+                L += f * light_sample.m_L * std::abs(dot(wi, n)) / light_sample.m_pdf;
+            }
+        });
+
+        // TODO: we need to be able to pass material properties to the sample function
+        if (depth < scene.max_depth) {
+            const auto material_sample = geometry_intersection.m_material->sample(arena, wo, n, sampler);
+            if (is_specular(material_sample.properties)) {
+                const Ray outgoing_ray{ geometry_intersection.m_point, material_sample.direction };
+                L += do_integrate(outgoing_ray, scene, arena, sampler, depth + 1);
+            }
+        }
     } else if (hit_light) {
         L += throughput * light_intersection.L;
     }

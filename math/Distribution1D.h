@@ -28,7 +28,7 @@ public:
         // Compute integral of step function at $x_i$
         m_cdf[0] = 0;
         for (std::size_t i = 1; i < m_function.size() + 1; ++i) {
-            assert(m_function[i - 1] > 0.0f);
+            assert(m_function[i - 1] >= 0.0f);
             m_cdf[i] = m_cdf[i - 1] + m_function[i - 1] * (max - min) / static_cast<float>(m_function.size());
         }
 
@@ -74,7 +74,7 @@ public:
         return m_function[idx];
     }
 
-    [[nodiscard]] auto sample_continuous(float u, float* pdf, std::size_t* off = nullptr) const -> float
+    [[nodiscard]] auto sample_continuous(const float u, float* pdf, std::size_t* off = nullptr) const -> float
     {
         // Find surrounding CDF segments and _offset_
         const auto offset = get_offset(u);

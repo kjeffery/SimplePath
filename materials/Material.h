@@ -6,6 +6,8 @@
 
 /// @author Keith Jeffery
 
+#include "BSDFProperties.h"
+
 #include "../base/Logger.h"
 #include "../base/MemoryArena.h"
 #include "../math/ONB.h"
@@ -142,9 +144,10 @@ inline float fresnel_dielectric(float cos_theta_i, float eta_i, float eta_t)
 
 struct MaterialSampleResult
 {
-    RGB     color;
-    Vector3 direction;
-    float   pdf;
+    RGB            color;
+    Vector3        direction;
+    float          pdf;
+    BSDFProperties properties;
 
     static MaterialSampleResult degenerate() noexcept
     {
@@ -293,7 +296,7 @@ private:
     virtual RGB                  eval_impl(const Vector3& wo_local, const Vector3& wi_local) const = 0;
     virtual float                pdf_impl(const Vector3& wo, const Vector3& wi) const = 0;
 
-    virtual RGB rho_impl(const Vector3& wo_local, const ONB& onb_local, unsigned n_samples, Sampler& sampler) const
+    virtual RGB rho_impl(const Vector3& wo_local, const ONB& onb_local, const unsigned n_samples, Sampler& sampler) const
     {
         assert(n_samples > 0);
         auto r = RGB::black();
@@ -303,14 +306,14 @@ private:
                 r += result.color * abs_cos_theta(result.direction) / result.pdf;
             }
         }
-        return r / n_samples;
+        return r / static_cast<float>(n_samples);
     }
 };
 
-class LambertianBRDF : public BRDF
+class LambertianBRDF final : public BRDF
 {
 public:
-    explicit LambertianBRDF(RGB albedo) noexcept
+    explicit LambertianBRDF(const RGB albedo) noexcept
     : m_albedo(albedo / std::numbers::pi_v<float>)
     {
     }
@@ -323,7 +326,9 @@ private:
         if (wo_local.y < 0.0f) {
             sp.y *= 1.0f;
         }
-        return { m_albedo, Vector3{ sp }, uniform_hemisphere_pdf() };
+
+        constexpr auto properties = BSDFProperties::diffuse | BSDFProperties::reflective;
+        return { .color = m_albedo, .direction = Vector3{ sp }, .pdf = uniform_hemisphere_pdf(), .properties = properties };
     }
 
     RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
@@ -344,10 +349,10 @@ private:
     RGB m_albedo;
 };
 
-class SpecularReflectionBRDF : public BRDF
+class SpecularReflectionBRDF final : public BRDF
 {
 public:
-    explicit SpecularReflectionBRDF(RGB r) noexcept
+    explicit SpecularReflectionBRDF(const RGB r) noexcept
     : m_r(r)
     {
     }
@@ -357,7 +362,9 @@ private:
     {
         const auto wi    = specular_reflection_local(wo_local);
         const RGB  color = fresnel_dielectric(cos_theta(wi), 1.0f, 1.5f) * m_r / abs_cos_theta(wi);
-        return { color, wi, 1.0f };
+
+        constexpr auto properties = BSDFProperties::specular | BSDFProperties::reflective;
+        return { .color = color, .direction = wi, .pdf = 1.0f, .properties = properties };
     }
 
     RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
@@ -408,7 +415,9 @@ private:
 
         const float pdf   = m_distribution->pdf(wo_local, wh_local) / (4.0f * dot_product);
         const auto  color = eval(wo_local, wi_local);
-        return MaterialSampleResult{ color, wi_local, pdf };
+
+        constexpr auto properties = BSDFProperties::glossy | BSDFProperties::reflective;
+        return MaterialSampleResult{ .color = color, .direction = wi_local, .pdf = pdf, .properties = properties };
     }
 
     RGB eval_impl(const Vector3& wo_local, const Vector3& wi_local) const override
@@ -598,7 +607,7 @@ private:
 
             const auto result = m_bxdfs[selected_index]->sample(wo_local, onb_local, sampler);
             if (result.pdf == 0.0f || result.color == RGB::black()) {
-                return MaterialSampleResult{ RGB::black(), Vector3{ no_init }, 0.0f };
+                return MaterialSampleResult{ RGB::black(), Vector3{ no_init }, 0.0f, BSDFProperties::none };
             }
 
             // Go through each BxDF and calculate the multiple-importance sampling weight.
@@ -653,7 +662,7 @@ private:
             // C++ esoterica: we deliberately return a temporary here (instead of copying a MaterialSampleResult from
             // above) so that we can use return value optimization (RVO). We return a temporary above, so we want to be
             // consistent.
-            return MaterialSampleResult{ result_color, wi_local, result_pdf };
+            return MaterialSampleResult{ result_color, wi_local, result_pdf, result.properties };
         }
     }
 
@@ -739,10 +748,12 @@ private:
             const auto  specular_wi{ specular_reflection_local(wo_local) };
             const RGB   specular_color_result = f * m_specular_color / abs_cos_theta(specular_wi);
             const float specular_pdf          = f; // Our old pdf is 1.0, so this is a multiplication against 1.
-            return MaterialSampleResult{ specular_color_result, specular_wi, specular_pdf };
+
+            constexpr auto properties = BSDFProperties::specular | BSDFProperties::reflective;
+            return MaterialSampleResult{ specular_color_result, specular_wi, specular_pdf, properties };
         }
 
-        const auto base_result = m_base->sample_local_space(arena, wo_local, onb_local, sampler);
+        auto base_result = m_base->sample_local_space(arena, wo_local, onb_local, sampler);
         if (base_result.pdf == 0.0f) {
             return base_result;
         }
@@ -752,7 +763,7 @@ private:
         assert(color.r >= 0.0f);
         assert(color.g >= 0.0f);
         assert(color.b >= 0.0f);
-        return MaterialSampleResult{ color, base_result.direction, result_pdf };
+        return MaterialSampleResult{ color, base_result.direction, result_pdf, base_result.properties };
     };
 
     float pdf_impl(MemoryArena&   arena,

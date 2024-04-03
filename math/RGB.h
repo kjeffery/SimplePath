@@ -12,7 +12,6 @@
 #include <utility>
 
 namespace sp {
-
 struct RGB
 {
     constexpr RGB() noexcept
@@ -179,6 +178,16 @@ inline RGB max(const RGB& a, const RGB& b) noexcept
     return { std::max(a.r, b.r), std::max(a.g, b.g), std::max(a.b, b.b) };
 }
 
+inline float max(const RGB& a) noexcept
+{
+    return std::ranges::max({ a.r, a.g, a.b });
+}
+
+inline std::uint32_t index_of_max(const RGB& a) noexcept
+{
+    return (a.r > a.g) ? ((a.r > a.b) ? 0 : 2) : ((a.g > a.b) ? 1 : 2);
+}
+
 inline bool compare(const RGB& a, const RGB& b) noexcept
 {
     return float_compare(a.r, b.r) && float_compare(a.g, b.g) && float_compare(a.b, b.b);
@@ -187,10 +196,10 @@ inline bool compare(const RGB& a, const RGB& b) noexcept
 inline bool compare_epsilon(const RGB& a, const RGB& b, const float epsilon) noexcept
 {
     return float_compare_epsilon(a.r, b.r, epsilon) && float_compare_epsilon(a.g, b.g, epsilon) &&
-           float_compare_epsilon(a.b, b.b, epsilon);
+            float_compare_epsilon(a.b, b.b, epsilon);
 }
 
-template <>
+template<>
 inline RGB safe_divide(const RGB& a, const float& b) noexcept
 {
     if (b == 0.0f) {
@@ -200,7 +209,7 @@ inline RGB safe_divide(const RGB& a, const float& b) noexcept
     }
 }
 
-template <>
+template<>
 inline RGB safe_divide(const RGB& a, const RGB& b) noexcept
 {
     RGB result = a / b;
@@ -229,11 +238,9 @@ inline std::istream& operator>>(std::istream& ins, RGB& c)
     ins >> c.b;
     return ins;
 }
-
 } // namespace sp
 
-namespace std
-{
+namespace std {
 inline bool isinf(const sp::RGB& rgb)
 {
     return isinf(rgb.r) || isinf(rgb.g) || isinf(rgb.b);

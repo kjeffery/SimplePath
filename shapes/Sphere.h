@@ -98,7 +98,7 @@ private:
             }
 
             const Normal3 n{ madd(t, d, Vector3{ o }) / k_radius }; // (o + t * d) / k_radius };
-            isect.m_normal = get_object_to_world()(n);
+            isect.m_normal = normalize(get_object_to_world()(n));
             isect.m_point  = ray(t);
             limits.m_t_max = t;
             return true;

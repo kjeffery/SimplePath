@@ -43,6 +43,7 @@ auto create_integrator(const sp::IntegratorType type, const int image_width, con
     case sp::IntegratorType::BruteForceIterativeRR: return std::make_unique<sp::BruteForceIntegratorIterativeRR>();
     case sp::IntegratorType::IterativeRRNEE: return std::make_unique<sp::IntegratorIterativeRRNEE>();
     case sp::IntegratorType::DirectLighting: return std::make_unique<sp::DirectLightingIntegrator>();
+    case sp::IntegratorType::Whitted: return std::make_unique<sp::WhittedIntegrator>();
     default: return std::make_unique<sp::BruteForceIntegratorIterative>();
     }
 }

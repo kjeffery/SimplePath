@@ -180,9 +180,9 @@ private:
 class ImageBasedEnvironmentLight final : public InfiniteLight
 {
 public:
-    explicit ImageBasedEnvironmentLight(Image radiance) noexcept
-    : m_radiance(std::move(radiance))
-    , m_distribution_2d{ create_distribution(m_radiance) }
+    ImageBasedEnvironmentLight(Image radiance, float max_radiance) noexcept
+    : m_radiance{ modify_image(std::move(radiance), max_radiance) }
+    , m_distribution_2d{ create_distribution(m_radiance, max_radiance) }
     {
     }
 
@@ -203,7 +203,7 @@ private:
 
         const auto   w = normalize(m_world_to_light(ray.get_direction()));
         const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
-        isect.L = sample_bilinear(m_radiance, st[0], st[1]);
+        isect.L = sample_nearest_neighbor(m_radiance, st[0], st[1], RemapWrap{}, RemapClamp{});
         return true;
     }
 
@@ -242,13 +242,24 @@ private:
         // Compute PDF for sampled infinite light direction
         const auto pdf = (sin_theta == 0.0f) ? 0.0f : map_pdf / (2.0f * square(std::numbers::pi_v<float>) * sin_theta);
 
-        const auto L = sample_bilinear(m_radiance, uv[0], uv[1]);
+        const auto L = sample_nearest_neighbor(m_radiance, uv[0], uv[1], RemapWrap{}, RemapClamp{});
         return { .m_pdf = pdf, .m_max_distance = k_infinite_distance, .m_L = L, .m_wi = wi };
     }
 
     [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float
     {
-        return uniform_sphere_pdf();
+        const auto w         = m_world_to_light(wi);
+        const auto theta     = spherical_theta(w);
+        const auto phi       = spherical_phi(w);
+        const auto sin_theta = std::sin(theta);
+        if (sin_theta == 0.0f) {
+            return 0.0f;
+        }
+        constexpr auto inv_2_pi = 1.0f / (2.0f * std::numbers::pi_v<float>);
+
+        const auto pdf = m_distribution_2d.pdf({ phi * inv_2_pi, theta * std::numbers::pi_v<float> }) / (2.0f * square(std::numbers::pi_v<float>) *
+            sin_theta);
+        return pdf;
     }
 
     [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB
@@ -260,24 +271,56 @@ private:
 
         const auto   w = normalize(m_world_to_light(wi));
         const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
-        return sample_bilinear(m_radiance, st[0], st[1]);
+        return sample_nearest_neighbor(m_radiance, st[0], st[1], RemapWrap{}, RemapClamp{});
     }
 
-    static [[nodiscard]] auto create_distribution(const Image& radiance)
+    static [[nodiscard]] auto modify_image(Image radiance, float max_radiance) -> Image
+    {
+        using size_type = Image::size_type;
+        for (size_type y = 0; y < radiance.height(); ++y) {
+            for (size_type x = 0; x < radiance.width(); ++x) {
+                auto& color = radiance(x, y);
+                for (std::uint32_t i = 0; i < 3; ++i) {
+                    if (std::isinf(color[i])) {
+                        color[i] = max_radiance;
+                    }
+                }
+                if (relative_luminance(color) > max_radiance) {
+                    const auto max_index = index_of_max(color);
+                    for (std::uint32_t i = 0; i < 3; ++i) {
+                        color[i] = color[i] * max_radiance / color[max_index];
+                    }
+                }
+            }
+        }
+        return radiance;
+    }
+
+    static [[nodiscard]] auto create_distribution(const Image& radiance, float max_radiance) -> Distribution2D
     {
         const auto         width  = 2 * radiance.width();
         const auto         height = 2 * radiance.height();
         std::vector<float> img(width * height);
 
+        float max = std::numeric_limits<float>::lowest();
         for (auto v = decltype(height){ 0 }; v < height; ++v) {
             const auto vp        = (static_cast<float>(v) + 0.5f) / static_cast<float>(height);
             const auto sin_theta = std::sin(std::numbers::pi_v<float> * (static_cast<float>(v) + 0.5f) / static_cast<float>(height));
             for (auto u = decltype(width){ 0 }; u < width; ++u) {
                 const auto up      = (static_cast<float>(u) + 0.5f) / static_cast<float>(width);
-                img[u + v * width] = relative_luminance(sample_bilinear(radiance, up, vp));
+                img[u + v * width] = relative_luminance(sample_nearest_neighbor(radiance, up, vp, RemapWrap{}, RemapClamp{}));
                 img[u + v * width] *= sin_theta;
+                if (std::isinf(img[u + v * width])) {
+                    img[u + v * width] = max_radiance;
+                }
+                img[u + v * width] = std::min(img[u + v * width], max_radiance);
+                max                = std::max(max, img[u + v * width]);
             }
         }
+#if 0
+        const auto mean = std::accumulate(img.cbegin(), img.cend(), 0.0f) / static_cast<float>(img.size());
+        std::transform(std::execution::par_unseq, img.cbegin(), img.cend(), img.begin(), [mean](const auto f) { return std::max(f - mean, 0.0f); });
+#endif
 
         return Distribution2D{ img, width, height };
     }

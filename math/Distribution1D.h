@@ -14,7 +14,7 @@
 class Distribution1D
 {
 public:
-    Distribution1D(std::vector<float> f, float min, float max)
+    Distribution1D(std::vector<float> f, const float min, const float max)
     : m_min(min)
     , m_max(max)
     , m_function{ std::move(f) }

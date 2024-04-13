@@ -11,7 +11,6 @@
 #include <string>
 
 namespace sp {
-
 void write_ppm(std::ostream& outs, const Image& img)
 {
     const int nx = img.width();
@@ -138,4 +137,26 @@ Image read(const std::filesystem::path& file)
     }
 }
 
+Image& operator*=(Image& img, const RGB& c) noexcept
+{
+    using size_type = Image::size_type;
+
+    for (size_type y = 0; y < img.height(); ++y) {
+        for (size_type x = 0; x < img.width(); ++x) {
+            img(x, y) *= c;
+        }
+    }
+    return img;
+}
+
+Image operator*(Image img, const RGB& c) noexcept
+{
+    img *= c;
+    return img;
+}
+
+Image operator*(const RGB& c, const Image& img) noexcept
+{
+    return img * c;
+}
 } // namespace sp

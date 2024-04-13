@@ -334,9 +334,11 @@ void FileParser::parse_environment_light(const std::string&         body,
 
     // We have transformations on our environmental light parsing, but we don't use them yet. They serve no purpose when
     // we are of a uniform radiance.
-    AffineSpace transform{ AffineSpace::identity() };
-    AffineSpace inverse_transform{ AffineSpace::identity() };
-    RGB         radiance = RGB::white();
+    auto                  transform{ AffineSpace::identity() };
+    auto                  inverse_transform{ AffineSpace::identity() };
+    auto                  radiance = RGB::white();
+    auto                  max_radiance{ std::numeric_limits<float>::max() };
+    std::filesystem::path filename{};
 
     for (Token token; ins;) {
         ins >> token;
@@ -348,6 +350,10 @@ void FileParser::parse_environment_light(const std::string&         body,
         const std::string& word = token;
         if (word == "radiance") {
             ins >> radiance;
+        } else if (word == "max_radiance") {
+            ins >> max_radiance;
+        } else if (word == "image") {
+            ins >> filename;
         } else if (word == "translate") {
             append_translate(ins, transform, inverse_transform);
         } else if (word == "rotate") {
@@ -360,8 +366,13 @@ void FileParser::parse_environment_light(const std::string&         body,
         }
     }
 
-    auto env_light = std::make_shared<EnvironmentLight>(radiance);
-    m_lights.push_back(env_light);
+    if (filename.empty()) {
+        m_lights.push_back(std::make_shared<EnvironmentLight>(radiance));
+    } else {
+        auto img = read(filename);
+        img *= radiance;
+        m_lights.push_back(std::make_shared<ImageBasedEnvironmentLight>(std::move(img), max_radiance));
+    }
 }
 
 void FileParser::parse_instance(const std::string&         body,

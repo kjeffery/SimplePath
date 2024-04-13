@@ -38,7 +38,8 @@ public:
     }
 
 private:
-    [[nodiscard]] static auto create_conditional(const std::span<float> function, std::size_t nu, std::size_t nv) -> std::vector<Distribution1D>
+    [[nodiscard]] static auto create_conditional(const std::span<float> function, const std::size_t nu,
+                                                 const std::size_t      nv) -> std::vector<Distribution1D>
     {
         std::vector<Distribution1D> conditional;
         conditional.reserve(nv);

@@ -40,7 +40,7 @@ private:
         return get_object_to_world()(get_object_bounds());
     }
 
-    std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(!"Should not get here");
         return {};

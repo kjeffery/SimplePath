@@ -46,13 +46,13 @@ class BVHAccelerator : public Aggregate
         {
             std::optional<LightIntersection> result;
 
-            auto internal_limits{ limits };
+            auto intermediate_limits{ limits };
             for (const auto i : { 0, 1 }) {
                 assert(m_children[i]);
-                if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
-                    if (const auto intersection = m_children[i]->intersect_lights(ray, internal_limits); intersection) {
-                        internal_limits.m_t_max = intersection->m_distance;
-                        result                  = intersection;
+                if (sp::intersect_p(m_children[i]->m_bounds, ray, intermediate_limits)) {
+                    if (const auto intersection = m_children[i]->intersect_lights(ray, intermediate_limits); intersection) {
+                        intermediate_limits.m_t_max = intersection->m_distance;
+                        result                      = intersection;
                     }
                 }
             }
@@ -63,13 +63,13 @@ class BVHAccelerator : public Aggregate
         {
             std::optional<Intersection> result;
 
-            auto internal_limits{ limits };
+            auto intermediate_limits{ limits };
             for (const auto i : { 0, 1 }) {
                 assert(m_children[i]);
-                if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
-                    if (const auto intersection = m_children[i]->intersect(ray, internal_limits); intersection) {
-                        internal_limits.m_t_max = intersection->m_distance;
-                        result                  = intersection;
+                if (sp::intersect_p(m_children[i]->m_bounds, ray, intermediate_limits)) {
+                    if (const auto intersection = m_children[i]->intersect(ray, intermediate_limits); intersection) {
+                        intermediate_limits.m_t_max = intersection->m_distance;
+                        result                      = intersection;
                     }
                 }
             }

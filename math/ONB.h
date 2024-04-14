@@ -32,11 +32,10 @@ class ONB
     }
 
 public:
-    ONB(Vector3 u, Vector3 v, Vector3 w)
-    noexcept
-    : m_u(u)
-    , m_v(v)
-    , m_w(w)
+    ONB(Vector3 u, Vector3 v, Vector3 w) noexcept
+    : m_u(std::move(u))
+    , m_v(std::move(v))
+    , m_w(std::move(w))
     {
         assert(is_normalized(m_u));
         assert(is_normalized(m_v));
@@ -47,7 +46,7 @@ public:
     {
         const auto u      = normalize(n);
         const auto [v, w] = create(u);
-        return ONB(u, v, w);
+        return { u, v, w };
     }
 
     static ONB from_u(const Normal3& n) noexcept
@@ -59,7 +58,7 @@ public:
     {
         const auto v      = normalize(n);
         const auto [w, u] = create(v);
-        return ONB(u, v, w);
+        return { u, v, w };
     }
 
     static ONB from_v(const Normal3& n) noexcept
@@ -71,7 +70,7 @@ public:
     {
         const auto w      = normalize(n);
         const auto [u, v] = create(w);
-        return ONB(u, v, w);
+        return { u, v, w };
     }
 
     static ONB from_w(const Normal3& n) noexcept
@@ -85,7 +84,7 @@ public:
         auto w = cross(u, v);
         w      = normalize(w);
         v      = cross(w, u);
-        return ONB(u, v, w);
+        return { u, v, w };
     }
 
     static ONB from_vu(Vector3 v, Vector3 u) noexcept
@@ -94,16 +93,16 @@ public:
         auto w = cross(u, v);
         w      = normalize(w);
         u      = cross(v, w);
-        return ONB(u, v, w);
+        return {u, v, w};
     }
 
-    static ONB from_uw(Vector3 u, Vector3 w) noexcept
+    static ONB from_uw(Vector3 u, const Vector3& w) noexcept
     {
         u      = normalize(u);
         auto v = cross(w, u);
         v      = normalize(v);
         u      = cross(v, w);
-        return ONB(u, v, w);
+        return {u, v, w};
     }
 
     static ONB from_wu(Vector3 w, Vector3 u) noexcept
@@ -112,7 +111,7 @@ public:
         auto v = cross(w, u);
         v      = normalize(v);
         u      = cross(v, w);
-        return ONB(u, v, w);
+        return {u, v, w};
     }
 
     static ONB from_vw(Vector3 v, Vector3 w) noexcept
@@ -121,7 +120,7 @@ public:
         auto u = cross(v, w);
         u      = normalize(u);
         w      = cross(u, v);
-        return ONB(u, v, w);
+        return {u, v, w};
     }
 
     static ONB from_wv(Vector3 w, Vector3 v) noexcept
@@ -130,17 +129,17 @@ public:
         auto u = cross(v, w);
         u      = normalize(u);
         v      = cross(w, u);
-        return ONB(u, v, w);
+        return {u, v, w};
     }
 
-    Vector3 to_world(const Vector3& a) const noexcept
+    [[nodiscard]] Vector3 to_world(const Vector3& a) const noexcept
     {
         return a.x * m_u + a.y * m_v + a.z * m_w;
     }
 
-    Vector3 to_onb(const Vector3& a) const noexcept
+    [[nodiscard]] Vector3 to_onb(const Vector3& a) const noexcept
     {
-        return Vector3{dot(a, m_u), dot(a, m_v), dot(a, m_w)};
+        return Vector3{ dot(a, m_u), dot(a, m_v), dot(a, m_w) };
     }
 
 private:

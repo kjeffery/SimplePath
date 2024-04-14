@@ -66,12 +66,12 @@ private:
         return std::ranges::any_of(m_primitives, [&ray, &limits](const auto& p) { return p->intersect_p(ray, limits); });
     }
 
-    BBox3 get_world_bounds_impl() const noexcept override
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
-        return BBox3();
+        return {};
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return std::ranges::all_of(m_primitives, [](const auto& p) { return p->is_bounded(); });
     }

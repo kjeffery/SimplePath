@@ -24,7 +24,7 @@
 #include <utility>
 
 namespace sp {
-template<typename T>
+template <typename T>
 using ArenaVector = std::vector<T, ArenaAllocator<T>>;
 
 constexpr bool same_hemisphere(const Vector3& a, const Vector3& b)

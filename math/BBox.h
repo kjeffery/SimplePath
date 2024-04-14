@@ -18,6 +18,11 @@ public:
     {
     }
 
+    BBox(const BBox&)            = default;
+    BBox(BBox&&)                 = default;
+    BBox& operator=(const BBox&) = default;
+    BBox& operator=(BBox&&)      = default;
+
     BBox(const T& a, const T& b) noexcept
     : m_min(min(a, b))
     , m_max(max(a, b))

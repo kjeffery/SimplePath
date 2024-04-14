@@ -19,12 +19,7 @@ public:
     {
     }
 
-    LinearSpace3x3() noexcept
-    : m_vx()
-    , m_vy()
-    , m_vz()
-    {
-    }
+    LinearSpace3x3() noexcept = default;
 
     LinearSpace3x3(const LinearSpace3x3&) noexcept            = default;
     LinearSpace3x3(LinearSpace3x3&&) noexcept                 = default;

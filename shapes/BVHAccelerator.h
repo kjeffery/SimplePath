@@ -159,28 +159,6 @@ private:
 
     template <typename Iterator>
         requires std::random_access_iterator<Iterator>
-    static auto partition(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
-    {
-        // Put all of the elements that are totally to the left in place
-        const auto left =
-                std::partition(/*std::execution::par_unseq,*/ first, last, [absolute_split_location, dimension](const auto& a) {
-                    return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
-                });
-
-        // Put all of the elements that are totally to the left in place
-        const auto right =
-                std::partition(/*std::execution::par_unseq,*/ left, last, [absolute_split_location, dimension](const auto& a) {
-                    return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
-                });
-        return std::make_pair(left, right);
-    }
-
-    // Reorders elements and returns two additional iterators (called left and right) such that:b
-    // Elements in [first, left) are completely to the left of the split location
-    // Elements in [right, last) are completely to the right of the split location
-    // Elements in [left, right) straddle the split location
-    template <typename Iterator>
-        requires std::random_access_iterator<Iterator>
     static auto split(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
     {
         for (std::size_t i = 0; i < 3; ++i) {
@@ -212,18 +190,20 @@ private:
             // Create n (e.g., 16) buckets that span the bounding box in our dimension.
             // For each object, classify which buckets it spans.
             // Calculate SAH for each bucket, and split at the best.
-            const auto dimension     = max_dim(bounds.size());
-            const auto [left, right] = split(dimension, center(bounds), first, last);
+            const auto dimension = max_dim(bounds.size());
+            assert(bounds.size()[dimension] > 0.0f);
+            const auto split_point_1d = center(bounds)[dimension]; // TODO: 1d overload
 
-            if (left == first || right == last) {
+            const auto split = std::partition(first, last, [dimension, split_point_1d](const auto& prim) {
+                return center(prim->get_world_bounds())[dimension] < split_point_1d;
+            });
+
+            if (split == first || split == last) {
                 result.reset(new NodeLeaf{ bounds, first, last });
                 return result;
             }
 
-            // Elements in [left, right) are in both sub-trees, so we do an overlapping construction here.
-            auto left_child{ construct(first, right) };
-            auto right_child{ construct(left, last) };
-            result.reset(new NodeInternal{ bounds, std::move(left_child), std::move(right_child) });
+            result.reset(new NodeInternal{ bounds, construct(first, split), construct(split, last) });
         }
         return result;
     }

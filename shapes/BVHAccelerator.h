@@ -23,7 +23,7 @@ class BVHAccelerator : public Aggregate
         virtual ~NodeBase() = default;
 
         explicit NodeBase(BBox3 bounds) noexcept
-        : m_bounds(bounds)
+        : m_bounds(std::move(bounds))
         {
         }
 
@@ -37,7 +37,7 @@ class BVHAccelerator : public Aggregate
     struct NodeInternal : NodeBase
     {
         NodeInternal(BBox3 bounds, std::unique_ptr<NodeBase> left, std::unique_ptr<NodeBase> right) noexcept
-        : NodeBase(bounds)
+        : NodeBase(std::move(bounds))
         , m_children{ std::move(left), std::move(right) }
         {
         }
@@ -76,7 +76,7 @@ class BVHAccelerator : public Aggregate
             return result;
         }
 
-        bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
+        [[nodiscard]] bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
         {
             for (const auto& child : m_children) {
                 assert(child);
@@ -112,7 +112,7 @@ class BVHAccelerator : public Aggregate
             return m_primitives.intersect(ray, limits);
         }
 
-        bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
+        [[nodiscard]] bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
         {
             return m_primitives.intersect_p(ray, limits);
         }

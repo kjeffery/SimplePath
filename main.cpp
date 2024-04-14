@@ -155,7 +155,7 @@ void morton_demonstration()
     constexpr sp::HSV base_color{ sp::Degrees{ 240.0f }, min_saturation, 1.0f };
     constexpr sp::HSV hit_color{ sp::Degrees{ 240.0f }, 1.0f, 1.0f };
 
-    sp::Array2D<sp::HSV> hsv_image(num_pixels_1D, num_pixels_1D, base_color);
+    sp::Array2D hsv_image(num_pixels_1D, num_pixels_1D, base_color);
 
     auto convert_to_rgb = [](const sp::Array2D<sp::HSV>& in) {
         sp::Image img(in.width(), in.height());

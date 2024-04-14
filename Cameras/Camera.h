@@ -8,7 +8,6 @@
 #include "../math/Ray.h"
 
 namespace sp {
-
 class Camera
 {
 public:
@@ -28,18 +27,18 @@ public:
     }
 
 protected:
-    int get_film_width() const noexcept
+    [[nodiscard]] int get_film_width() const noexcept
     {
         return m_film_width;
     }
 
-    int get_film_height() const noexcept
+    [[nodiscard]] int get_film_height() const noexcept
     {
         return m_film_height;
     }
 
 private:
-    virtual Ray generate_ray_impl(float pixel_x, float pixel_y) const = 0;
+    [[nodiscard]] virtual Ray generate_ray_impl(float pixel_x, float pixel_y) const = 0;
 
     int m_film_width;
     int m_film_height;
@@ -51,12 +50,12 @@ class ProjectiveCamera : public Camera
 public:
     ProjectiveCamera(AffineSpace transform, int film_width, int film_height) noexcept
     : Camera(film_width, film_height)
-    , m_transform(transform)
+    , m_transform(std::move(transform))
     {
     }
 
 protected:
-    const AffineSpace& get_transform() const noexcept
+    [[nodiscard]] const AffineSpace& get_transform() const noexcept
     {
         return m_transform;
     }
@@ -104,28 +103,29 @@ private:
                                         int            film_width,
                                         int            film_height) noexcept
     {
-        const float           fov_scale              = 1.0f / std::tan(0.5f * fov.as_radians());
-        const AffineSpace     camera_to_world        = AffineSpace::look_at(eye, point, up);
-        const LinearSpace3x3& camera_to_world_linear = camera_to_world.get_linear();
+        const auto  fov_scale              = 1.0f / std::tan(0.5f * fov.as_radians());
+        const auto  camera_to_world        = AffineSpace::look_at(eye, point, up);
+        const auto& camera_to_world_linear = camera_to_world.get_linear();
 
-        const Vector3 vx = camera_to_world_linear.col0();
-        const Vector3 vy = -camera_to_world_linear.col1();
-        const Vector3 vz = -0.5f * film_width * camera_to_world_linear.col0() +
-                           0.5f * film_height * camera_to_world_linear.col1() +
-                           0.5f * film_height * fov_scale * camera_to_world_linear.col2();
+        const auto& vx = camera_to_world_linear.col0();
+        const auto  vy = -camera_to_world_linear.col1();
+        const auto  vz = -0.5f * static_cast<float>(film_width) * camera_to_world_linear.col0() +
+                0.5f * static_cast<float>(film_height) * camera_to_world_linear.col1() +
+                0.5f * static_cast<float>(film_height) * fov_scale * camera_to_world_linear.col2();
 
         return AffineSpace{ vx, vy, vz, camera_to_world.get_affine() };
     }
 
-    Ray generate_ray_impl(float pixel_x, float pixel_y) const override
+    [[nodiscard]] Ray generate_ray_impl(float pixel_x, float pixel_y) const override
     {
-        const auto&   transform = get_transform();
-        const Point3  origin{ transform.get_affine() };
+        const auto&  transform = get_transform();
+        const Point3 origin{ transform.get_affine() };
         // TODO: same as mult by Point3{pixel_x, pixel_y, 1.0f}?
-        const Vector3 direction{ pixel_x * transform.get_linear().col0() + pixel_y * transform.get_linear().col1() +
-                                 transform.get_linear().col2() };
+        const Vector3 direction{
+            pixel_x * transform.get_linear().col0() + pixel_y * transform.get_linear().col1() +
+            transform.get_linear().col2()
+        };
         return Ray{ origin, normalize(direction) };
     }
 };
-
 } // namespace sp

@@ -39,10 +39,10 @@ public:
     }
 
 private:
-    virtual std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
-    virtual std::optional<Intersection>      intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
-    virtual bool                             intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
-    virtual BBox3                            get_world_bounds_impl() const noexcept = 0;
-    virtual bool                             is_bounded_impl() const noexcept = 0;
+    [[nodiscard]] virtual std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+    [[nodiscard]] virtual std::optional<Intersection>      intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+    [[nodiscard]] virtual bool                             intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+    [[nodiscard]] virtual BBox3                            get_world_bounds_impl() const noexcept = 0;
+    [[nodiscard]] virtual bool                             is_bounded_impl() const noexcept = 0;
 };
 } // namespace sp

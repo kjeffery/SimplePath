@@ -828,4 +828,4 @@ inline Vector3 lerp(const Vector3& v0, const Vector3& v1, const float t) noexcep
 {
     return madd(1.0f - t, v0, t * v1);
 }
-}; // namespace sp
+} // namespace sp

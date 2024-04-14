@@ -294,7 +294,7 @@ void enable_pretty_printing(std::ostream& outs)
     // Maybe a bit of abuse of call_once? We don't care much about thread-safety here, we just want to allocate our
     // key once.
     static std::once_flag xalloc_flag;
-    std::call_once(xalloc_flag, []() { sp::k_pretty_print_key = std::ios_base::xalloc(); });
+    std::call_once(xalloc_flag, [] { sp::k_pretty_print_key = std::ios_base::xalloc(); });
 
     outs.iword(sp::k_pretty_print_key) = 1;
     outs.register_callback(&pretty_print_callback, sp::k_pretty_print_key);

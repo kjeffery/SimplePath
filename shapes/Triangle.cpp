@@ -14,7 +14,7 @@ void log_extents(const Mesh& mesh, const char* const str)
 {
     assert(str);
 
-    if (Logger::instance().is_enabled(Logger::LoggingLevel::debug)) {
+    if (Logger::is_enabled(Logger::LoggingLevel::debug)) {
         BBox3 bounds;
         std::for_each(std::execution::unseq,
                       mesh.m_vertices.cbegin(),

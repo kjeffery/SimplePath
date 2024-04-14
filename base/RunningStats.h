@@ -40,22 +40,22 @@ public:
         }
     }
 
-    int size() const noexcept
+    [[nodiscard]] int size() const noexcept
     {
         return m_n;
     }
 
-    T mean() const noexcept
+    [[nodiscard]] T mean() const noexcept
     {
         return (m_n > 0) ? m_new_m : T{};
     }
 
-    T variance() const noexcept
+    [[nodiscard]] T variance() const noexcept
     {
         return ((m_n > 1) ? m_new_s / (m_n - 1) : T{});
     }
 
-    T standardDeviation() const noexcept
+    [[nodiscard]] T standardDeviation() const noexcept
     {
         return std::sqrt(variance());
     }

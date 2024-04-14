@@ -13,7 +13,7 @@ class Sphere final : public Shape
 {
 public:
     Sphere(AffineSpace object_to_world, AffineSpace world_to_object) noexcept
-    : Shape(object_to_world, world_to_object)
+    : Shape(std::move(object_to_world), std::move(world_to_object))
     {
     }
 

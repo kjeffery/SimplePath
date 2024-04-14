@@ -490,7 +490,7 @@ Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_
     }
 
     // Calculate vertex normals from the face normals.
-    std::vector<Normal3> vertex_normals(num_vertices, Normal3{ 0.0f, 0.0f, 0.0f });
+    std::vector vertex_normals(num_vertices, Normal3{ 0.0f, 0.0f, 0.0f });
     std::for_each(std::execution::unseq, faces.cbegin(), faces.cend(), [&vertex_normals](const auto& f) {
         for (std::size_t i = 0; i < 3; ++i) {
             vertex_normals.at(f.vertex_indices[i]) += f.face_normal;

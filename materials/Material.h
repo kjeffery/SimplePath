@@ -764,7 +764,7 @@ private:
         assert(color.g >= 0.0f);
         assert(color.b >= 0.0f);
         return MaterialSampleResult{ color, base_result.direction, result_pdf, base_result.properties };
-    };
+    }
 
     float pdf_impl(MemoryArena&   arena,
                    const Vector3& wo_local,
@@ -810,13 +810,13 @@ inline OneSampleMaterial create_lambertian_material(RGB albedo)
     OneSampleMaterial::BxDFContainer bxdfs;
     bxdfs.emplace_back(new LambertianBRDF{ albedo });
     return OneSampleMaterial{ std::move(bxdfs) };
-};
+}
 
 inline ClearcoatMaterial
 create_clearcoat_material(std::shared_ptr<Material> base, float ior, RGB reflection = RGB::white())
 {
     return ClearcoatMaterial{ base, ior, reflection };
-};
+}
 
 // TODO: anisotropic version
 inline OneSampleMaterial create_beckmann_glossy_material(RGB color, float roughness, float ior)

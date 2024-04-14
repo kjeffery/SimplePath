@@ -12,7 +12,7 @@
 #include <memory>
 
 namespace sp {
-template<typename T, std::uint32_t log_tile_size = 4, typename allocator_t = std::allocator<T>>
+template <typename T, std::uint32_t log_tile_size = 4, typename allocator_t = std::allocator<T>>
 class Array2D
 {
     static constexpr int k_tile_width  = 1 << log_tile_size;
@@ -64,9 +64,7 @@ public:
     {
     }
 
-    ~Array2D() noexcept
-    {
-    }
+    ~Array2D() noexcept = default;
 
     Array2D& operator=(const Array2D& other)
     {
@@ -90,12 +88,12 @@ public:
         return m_impl;
     }
 
-    size_type width() const noexcept
+    [[nodiscard]] size_type width() const noexcept
     {
         return m_impl.m_width;
     }
 
-    size_type height() const noexcept
+    [[nodiscard]] size_type height() const noexcept
     {
         return m_impl.m_height;
     }
@@ -198,6 +196,10 @@ private:
 
         Impl& operator=(const Impl& other)
         {
+            if (this == std::addressof(other)) {
+                return *this;
+            }
+
             // If we have to propagate allocators, and the allocators are not equal, we have to deallocate and
             // re-allocate. If we don't have to propagate, we have to reallocate if the size has changed.
 
@@ -312,7 +314,7 @@ private:
             swap_allocator(other, allocator_traits::propagate_on_container_swap);
         }
 
-        size_type get_data_index(size_type x, size_type y) const noexcept
+        [[nodiscard]] size_type get_data_index(const size_type x, const size_type y) const noexcept
         {
             const size_type     tile_x   = x / k_tile_width;
             const size_type     tile_y   = y / k_tile_height;

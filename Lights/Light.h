@@ -126,13 +126,13 @@ public:
     }
 
 private:
-    std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(!"Should not get here");
         return {};
     }
 
-    std::optional<LightIntersection> intersect_lights_impl(const Ray&, const RayLimits& limits) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray&, const RayLimits& limits) const noexcept override
     {
         if (limits.m_t_max < k_infinite_distance) {
             return {};
@@ -186,13 +186,13 @@ public:
     }
 
 private:
-    std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(!"Should not get here");
         return {};
     }
 
-    std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         if (limits.m_t_max < k_infinite_distance) {
             return {};
@@ -341,13 +341,13 @@ public:
     }
 
 private:
-    std::optional<Intersection> intersect_impl(const Ray&, const RayLimits&) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray&, const RayLimits&) const noexcept override
     {
         assert(!"Should not get here");
         return {};
     }
 
-    std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         // TODO: may need normal
         if (const auto geom_isect = m_sphere.intersect(ray, limits); geom_isect) {

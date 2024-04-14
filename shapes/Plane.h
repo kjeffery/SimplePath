@@ -13,7 +13,7 @@ class Plane : public Shape
 {
 public:
     Plane(AffineSpace object_to_world, AffineSpace world_to_object) noexcept
-    : Shape(object_to_world, world_to_object)
+    : Shape(std::move(object_to_world), std::move(world_to_object))
     {
     }
 
@@ -88,12 +88,12 @@ private:
         return true;
     }
 
-    BBox3 get_object_bounds() const noexcept override
+    [[nodiscard]] BBox3 get_object_bounds() const noexcept override
     {
-        return sp::BBox3();
+        return {};
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return false;
     }

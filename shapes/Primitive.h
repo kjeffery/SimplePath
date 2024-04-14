@@ -17,8 +17,8 @@ class GeometricPrimitive : public Hitable
 {
 public:
     GeometricPrimitive(std::shared_ptr<Shape> shape, std::shared_ptr<Material> material) noexcept
-    : m_shape(shape)
-    , m_material(material)
+    : m_shape(std::move(shape))
+    , m_material(std::move(material))
     {
     }
 
@@ -43,12 +43,12 @@ private:
         return {};
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         return m_shape->intersect_p(ray, limits);
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return m_shape->is_bounded();
     }

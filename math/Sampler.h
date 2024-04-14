@@ -138,7 +138,7 @@ private:
 class RSequenceSampler : public Sampler
 {
 public:
-    [[nodiscard]] static auto create_new_set(const Seed seed, std::uint32_t num) noexcept -> RSequenceSampler
+    [[nodiscard]] static auto create_new_set(const Seed seed, std::uint32_t /*num*/) noexcept -> RSequenceSampler
     {
         return RSequenceSampler{ seed };
     }

@@ -12,7 +12,7 @@
 namespace sp {
 enum Seed : std::uint32_t;
 
-template<unsigned dimension>
+template <unsigned dimension>
 class RSequence
 {
     static auto phi() noexcept -> float
@@ -61,7 +61,7 @@ private:
     std::array<float, dimension> m_alpha{};
 };
 
-template<typename RNG>
+template <typename RNG>
 auto canonical(RNG& rng) -> float
 {
     static std::uniform_real_distribution<float> dist;
@@ -112,7 +112,7 @@ private:
         return canonical();
     }
 
-    [[nodiscard]] auto get_next_2D_impl() noexcept -> Point2
+    [[nodiscard]] auto get_next_2D_impl() noexcept -> Point2 override
     {
         return { canonical(), canonical() };
     }
@@ -155,7 +155,7 @@ private:
         return p0;
     }
 
-    [[nodiscard]] auto get_next_2D_impl() noexcept -> Point2
+    [[nodiscard]] auto get_next_2D_impl() noexcept -> Point2 override
     {
         const auto [p0, p1] = m_2D(m_seed_2D, m_count_2D++);
         return { p0, p1 };

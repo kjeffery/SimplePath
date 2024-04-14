@@ -19,7 +19,6 @@
 #include <immintrin.h>
 
 namespace sp {
-
 template <VectorType>
 struct alignas(16) BaseVector3
 {
@@ -70,7 +69,18 @@ struct alignas(16) BaseVector3
     {
     }
 
+    BaseVector3(BaseVector3&& other) noexcept
+    : m128(other.m128)
+    {
+    }
+
     BaseVector3& operator=(const BaseVector3& other) noexcept
+    {
+        m128 = other.m128;
+        return *this;
+    }
+
+    BaseVector3& operator=(BaseVector3&& other) noexcept
     {
         m128 = other.m128;
         return *this;
@@ -102,8 +112,10 @@ struct alignas(16) BaseVector3
         t[3]     = 0.0f;
         return BaseVector3(t);
 #else
-        return BaseVector3{ _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a)),
-                                       _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))) };
+        return BaseVector3{
+            _mm_and_ps(_mm_load_ps(reinterpret_cast<const float*>(a)),
+                       _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1)))
+        };
 #endif
     }
 
@@ -308,9 +320,11 @@ inline BaseVector3<type> rsqrt(const BaseVector3<type>& a) noexcept
 #else
     __m128 r = _mm_rsqrt_ps(a.m128);
 #endif
-    return BaseVector3<type>{ _mm_add_ps(
-        _mm_mul_ps(_mm_set1_ps(1.5f), r),
-        _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(a.m128, _mm_set1_ps(-0.5f)), r), _mm_mul_ps(r, r))) };
+    return BaseVector3<type>{
+        _mm_add_ps(
+            _mm_mul_ps(_mm_set1_ps(1.5f), r),
+            _mm_mul_ps(_mm_mul_ps(_mm_mul_ps(a.m128, _mm_set1_ps(-0.5f)), r), _mm_mul_ps(r, r)))
+    };
 #endif
 }
 
@@ -611,7 +625,7 @@ template <VectorType type>
 inline bool compare_epsilon(const BaseVector3<type>& a, const BaseVector3<type>& b, const float epsilon) noexcept
 {
     return float_compare_epsilon(a.x, b.x, epsilon) && float_compare_epsilon(a.y, b.y, epsilon) &&
-           float_compare_epsilon(a.z, b.z, epsilon);
+            float_compare_epsilon(a.z, b.z, epsilon);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -814,5 +828,4 @@ inline Vector3 lerp(const Vector3& v0, const Vector3& v1, const float t) noexcep
 {
     return madd(1.0f - t, v0, t * v1);
 }
-
 }; // namespace sp

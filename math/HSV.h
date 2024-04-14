@@ -21,21 +21,21 @@ struct HSV
     {
     }
 
-    constexpr HSV(float v) noexcept
+    constexpr explicit HSV(float v) noexcept
     : h(v)
     , s(v)
     , v(v)
     {
     }
 
-    constexpr HSV(Degrees ih, float is, float iv) noexcept
+    constexpr HSV(const Degrees ih, const float is, const float iv) noexcept
     : h(ih.as_float() / 360.0f)
     , s(is)
     , v(iv)
     {
     }
 
-    constexpr HSV(float ih, float is, float iv) noexcept
+    constexpr HSV(const float ih, const float is, const float iv) noexcept
     : h(ih)
     , s(is)
     , v(iv)

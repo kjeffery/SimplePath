@@ -89,12 +89,12 @@ private:
         return { .m_pdf = pdf, .m_max_distance = distance, .m_L = m_radiance, .m_wi = wi };
     }
 
-    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float
+    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float override
     {
         return shape_pdf(observer_world, wi);
     }
 
-    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB
+    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB override
     {
         return (dot(n, wi) > 0.0f) ? m_radiance : RGB::black();
     }
@@ -163,12 +163,12 @@ private:
         return { .m_pdf = pdf, .m_max_distance = k_infinite_distance, .m_L = m_radiance, .m_wi = wi };
     }
 
-    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float
+    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float override
     {
         return uniform_sphere_pdf();
     }
 
-    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB
+    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB override
     {
         return (dot(n, wi) > 0.0f) ? m_radiance : RGB::black();
     }
@@ -245,7 +245,7 @@ private:
         return { .m_pdf = pdf, .m_max_distance = k_infinite_distance, .m_L = L, .m_wi = wi };
     }
 
-    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float
+    [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float override
     {
         const auto w         = m_world_to_light(wi);
         const auto theta     = spherical_theta(w);
@@ -261,7 +261,7 @@ private:
         return pdf;
     }
 
-    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB
+    [[nodiscard]] auto L_impl(const Point3& observer_world, const Normal3& n, const Vector3& wi) const noexcept -> RGB override
     {
         if (dot(n, wi) > 0.0f) {
             return RGB::black();

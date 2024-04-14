@@ -49,7 +49,7 @@ public:
         const std::string bar(numDraw, marker);
 
         // We force an update at 100% whether or not our time has elapsed.
-        if (std::lock_guard<std::mutex> lock(m_mutex); m_step < m_total && now - m_last_time < 1.0s) {
+        if (std::lock_guard lock(m_mutex); m_step < m_total && now - m_last_time < 1.0s) {
             return;
         } else {
             m_last_time = now;

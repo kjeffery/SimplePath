@@ -9,7 +9,6 @@
 #include "Vector3.h"
 
 namespace sp {
-
 class AffineSpace
 {
     LinearSpace3x3 m_linear;
@@ -28,19 +27,19 @@ public:
     AffineSpace& operator=(AffineSpace&&)      = default;
 
     AffineSpace(Vector3 vx, Vector3 vy, Vector3 vz, Vector3 p) noexcept
-    : m_linear(vx, vy, vz)
-    , m_affine(p)
+    : m_linear(std::move(vx), std::move(vy), std::move(vz))
+    , m_affine(std::move(p))
     {
     }
 
     AffineSpace(LinearSpace3x3 ls, Vector3 p) noexcept
-    : m_linear(ls)
-    , m_affine(p)
+    : m_linear(std::move(ls))
+    , m_affine(std::move(p))
     {
     }
 
     explicit AffineSpace(LinearSpace3x3 ls) noexcept
-    : m_linear(ls)
+    : m_linear(std::move(ls))
     , m_affine(Vector3::zero())
     {
     }
@@ -51,11 +50,11 @@ public:
     }
 
     inline static AffineSpace scale(const Vector3& s) noexcept;
-    inline static AffineSpace translate(Vector3 p) noexcept;
+    inline static AffineSpace translate(const Vector3& p) noexcept;
     // Rotation about an arbitrary axis
-    inline static AffineSpace rotate(const Vector3& u, const float r) noexcept;
+    inline static AffineSpace rotate(const Vector3& u, float r) noexcept;
     // Rotation about an arbitrary axis and point
-    inline static AffineSpace rotate(const Point3& p, const Vector3& u, const float r) noexcept;
+    inline static AffineSpace rotate(const Point3& p, const Vector3& u, float r) noexcept;
 
     static AffineSpace look_at(const Point3& eye, const Point3& point, const Vector3& up) noexcept
     {
@@ -65,14 +64,14 @@ public:
         return AffineSpace{ LinearSpace3x3{ u, v, z }, eye };
     }
 
-    inline static AffineSpace orthographic(const float z_near, const float z_far) noexcept;
+    inline static AffineSpace orthographic(float z_near, float z_far) noexcept;
 
-    const LinearSpace3x3& get_linear() const noexcept
+    [[nodiscard]] const LinearSpace3x3& get_linear() const noexcept
     {
         return m_linear;
     }
 
-    const Vector3& get_affine() const noexcept
+    [[nodiscard]] const Vector3& get_affine() const noexcept
     {
         return m_affine;
     }
@@ -227,7 +226,7 @@ AffineSpace AffineSpace::scale(const Vector3& s) noexcept
     return AffineSpace{ LinearSpace3x3::scale(s) };
 }
 
-AffineSpace AffineSpace::translate(Vector3 p) noexcept
+AffineSpace AffineSpace::translate(const Vector3& p) noexcept
 {
     return AffineSpace{ LinearSpace3x3::identity(), p };
 }
@@ -257,5 +256,4 @@ inline std::ostream& operator<<(std::ostream& outs, const AffineSpace& m)
 {
     return outs << "{ l = " << m.get_linear() << ", get_affine() = " << m.get_affine() << " }";
 }
-
 } // namespace sp

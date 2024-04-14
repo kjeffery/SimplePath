@@ -120,7 +120,7 @@ template <typename T>
     auto t0{ limits.m_t_min };
     auto t1{ limits.m_t_max };
 
-    for (const auto i : { 0, 1, 2 }) {
+    for (auto i = 0; i < 3; ++i) {
         // This may be NaN, and that's okay.
         const auto inv_ray_dir = 1.0f / ray.get_direction()[i];
         auto       t_near      = (box.get_lower()[i] - ray.get_origin()[i]) * inv_ray_dir;

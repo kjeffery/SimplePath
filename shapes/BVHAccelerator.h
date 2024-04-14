@@ -47,10 +47,10 @@ class BVHAccelerator : public Aggregate
             std::optional<LightIntersection> result;
 
             auto intermediate_limits{ limits };
-            for (const auto i : { 0, 1 }) {
-                assert(m_children[i]);
-                if (sp::intersect_p(m_children[i]->m_bounds, ray, intermediate_limits)) {
-                    if (const auto intersection = m_children[i]->intersect_lights(ray, intermediate_limits); intersection) {
+            for (const auto& child : m_children) {
+                assert(child);
+                if (sp::intersect_p(child->m_bounds, ray, intermediate_limits)) {
+                    if (const auto intersection = child->intersect_lights(ray, intermediate_limits); intersection) {
                         intermediate_limits.m_t_max = intersection->m_distance;
                         result                      = intersection;
                     }
@@ -64,10 +64,10 @@ class BVHAccelerator : public Aggregate
             std::optional<Intersection> result;
 
             auto intermediate_limits{ limits };
-            for (const auto i : { 0, 1 }) {
-                assert(m_children[i]);
-                if (sp::intersect_p(m_children[i]->m_bounds, ray, intermediate_limits)) {
-                    if (const auto intersection = m_children[i]->intersect(ray, intermediate_limits); intersection) {
+            for (const auto& child : m_children) {
+                assert(child);
+                if (sp::intersect_p(child->m_bounds, ray, intermediate_limits)) {
+                    if (const auto intersection = child->intersect(ray, intermediate_limits); intersection) {
                         intermediate_limits.m_t_max = intersection->m_distance;
                         result                      = intersection;
                     }
@@ -78,10 +78,10 @@ class BVHAccelerator : public Aggregate
 
         bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
         {
-            for (const auto i : { 0, 1 }) {
-                assert(m_children[i]);
-                if (sp::intersect_p(m_children[i]->m_bounds, ray, limits)) {
-                    if (m_children[i]->intersect_p(ray, limits)) {
+            for (const auto& child : m_children) {
+                assert(child);
+                if (sp::intersect_p(child->m_bounds, ray, limits)) {
+                    if (child->intersect_p(ray, limits)) {
                         return true;
                     }
                 }

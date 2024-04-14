@@ -36,12 +36,12 @@ public:
     friend bool operator==(const Tile& a, const Tile& b) noexcept = default;
     friend bool contains(const Tile& tile, const Point2i& p) noexcept
     {
-        return contains_open(static_cast<BBox2i>(tile), p);
+        return contains_open(tile, p);
     }
 
 private:
     explicit Tile(BBox2i bounds) noexcept
-    : BBox2i(bounds)
+    : BBox2i(std::move(bounds))
     {
     }
 };
@@ -57,7 +57,7 @@ public:
 
     TilePixelIterator() noexcept
     : m_index{ 0 }
-    , m_tile{Point2i{0, 0}}
+    , m_tile{ Point2i{ 0, 0 } }
     {
     }
 
@@ -123,7 +123,7 @@ public:
         return a.m_index - b.m_index;
     }
 
-    friend bool operator==(const TilePixelIterator&, const TilePixelIterator&) noexcept = default;
+    friend bool                 operator==(const TilePixelIterator&, const TilePixelIterator&) noexcept = default;
     friend std::strong_ordering operator<=>(const TilePixelIterator& a, const TilePixelIterator& b) noexcept
     {
         assert(a.m_tile == b.m_tile);

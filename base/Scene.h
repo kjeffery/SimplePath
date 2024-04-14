@@ -53,9 +53,9 @@ public:
 
     template <typename PrimitiveIterator, typename LightIterator>
         requires std::convertible_to<typename std::iterator_traits<PrimitiveIterator>::value_type,
-                                     typename PrimitiveContainer::value_type> &&
+                                     PrimitiveContainer::value_type> &&
         std::convertible_to<typename std::iterator_traits<LightIterator>::value_type,
-                            typename LightContainer::value_type>
+                            LightContainer::value_type>
     Scene(PrimitiveIterator shapes_first,
           PrimitiveIterator shapes_last,
           LightIterator     lights_first,

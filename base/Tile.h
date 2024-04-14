@@ -131,7 +131,7 @@ public:
     }
 
 private:
-    value_type dereference(int index) const noexcept
+    [[nodiscard]] value_type dereference(int index) const noexcept
     {
         const auto [x, y] = morton_decode(index);
         return m_tile.get_lower() + Point2i{ x, y };

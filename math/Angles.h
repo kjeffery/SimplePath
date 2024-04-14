@@ -29,11 +29,11 @@ public:
     explicit constexpr Angle(const Radians&) noexcept;
     explicit constexpr Angle(const Degrees&) noexcept;
 
-    constexpr Radians as_radians() const noexcept;
-    constexpr Degrees as_degrees() const noexcept;
+    [[nodiscard]] constexpr Radians as_radians() const noexcept;
+    [[nodiscard]] constexpr Degrees as_degrees() const noexcept;
 
     friend Angle            normalize(const Angle& a) noexcept;
-    friend constexpr Angle& operator*=(Angle& a, const float b) noexcept;
+    friend constexpr Angle& operator*=(Angle& a, float b) noexcept;
     friend constexpr Angle& operator+=(Angle& a, const Angle& b) noexcept;
     friend constexpr Angle& operator-=(Angle& a, const Angle& b) noexcept;
 

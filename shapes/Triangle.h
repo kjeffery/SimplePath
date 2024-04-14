@@ -53,7 +53,7 @@ public:
     Mesh& operator=(Mesh&&)      = default;
     Mesh& operator=(const Mesh&) = default;
 
-    std::size_t get_num_triangles() const noexcept
+    [[nodiscard]] std::size_t get_num_triangles() const noexcept
     {
         const std::size_t s = m_indices.size();
         assert(s % 3u == 0u);
@@ -81,8 +81,8 @@ public:
 #else
     Triangle(std::shared_ptr<Mesh> mesh, std::size_t triangle_number)
     : Shape(AffineSpace::identity(), AffineSpace::identity())
-    , m_mesh{ mesh }
-    , m_indices{ mesh->m_indices.data() + triangle_number * 3 }
+    , m_mesh{ std::move(mesh) }
+    , m_indices{ m_mesh->m_indices.data() + triangle_number * 3 }
     {
     }
 #endif
@@ -160,7 +160,7 @@ private:
         return { isect };
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         const Point3& p0 = m_mesh->m_vertices[m_indices[0]];
         const Point3& p1 = m_mesh->m_vertices[m_indices[1]];
@@ -213,7 +213,7 @@ private:
         return true;
     }
 
-    BBox3 get_object_bounds() const noexcept override
+    [[nodiscard]] BBox3 get_object_bounds() const noexcept override
     {
         // Vertices are transformed into world bounds at mesh creation.
         BBox3 bounds;
@@ -224,7 +224,7 @@ private:
         return bounds;
     }
 
-    BBox3 get_world_bounds_impl() const noexcept override
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
         // Vertices are already transformed into world bounds at mesh creation.
 
@@ -236,7 +236,7 @@ private:
         return bounds;
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return true;
     }

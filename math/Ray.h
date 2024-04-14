@@ -22,8 +22,8 @@ class Ray
 {
 public:
     Ray(Point3 p, Vector3 d) noexcept
-    : m_origin(p)
-    , m_direction(d)
+    : m_origin(std::move(p))
+    , m_direction(std::move(d))
     {
     }
 

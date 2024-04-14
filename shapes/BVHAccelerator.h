@@ -27,11 +27,9 @@ class BVHAccelerator : public Aggregate
         {
         }
 
-        [[nodiscard]] virtual bool
-        intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept = 0;
-        [[nodiscard]] virtual bool
-        intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept              = 0;
-        [[nodiscard]] virtual bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+        [[nodiscard]] virtual std::optional<LightIntersection> intersect_lights(const Ray& ray, const RayLimits& limits) noexcept = 0;
+        [[nodiscard]] virtual std::optional<Intersection>      intersect(const Ray& ray, const RayLimits& limits) noexcept = 0;
+        [[nodiscard]] virtual bool                             intersect_p(const Ray& ray, const RayLimits& limits) const noexcept = 0;
 
         BBox3 m_bounds;
     };
@@ -44,55 +42,45 @@ class BVHAccelerator : public Aggregate
         {
         }
 
-        bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept override
+        std::optional<LightIntersection> intersect_lights(const Ray& ray, const RayLimits& limits) noexcept override
         {
-            bool hit = false;
+            std::optional<LightIntersection> result;
 
-            for (int i = 0; i < 2; ++i) {
+            auto internal_limits{ limits };
+            for (const auto i : { 0, 1 }) {
                 assert(m_children[i]);
-                RayLimits internal_limits{ limits };
                 if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
-                    if (m_children[i]->intersect(ray, internal_limits, intersection)) {
-                        hit = true;
-                        // The intersection with the bounding box will modify the limit's minimum value as well, which
-                        // we don't want to modify for our "real" ray limits. We should only get here if we intersect
-                        // actual geometry: if we hit a bounding box and no geometry, we don't want to modify the
-                        // limits.
-                        limits.m_t_max = internal_limits.m_t_max;
+                    if (const auto intersection = m_children[i]->intersect_lights(ray, internal_limits); intersection) {
+                        internal_limits.m_t_max = intersection->m_distance;
+                        result                  = intersection;
                     }
                 }
             }
-            return hit;
+            return result;
         }
 
-        bool intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept override
+        std::optional<Intersection> intersect(const Ray& ray, const RayLimits& limits) noexcept override
         {
-            bool hit = false;
+            std::optional<Intersection> result;
 
-            for (int i = 0; i < 2; ++i) {
+            auto internal_limits{ limits };
+            for (const auto i : { 0, 1 }) {
                 assert(m_children[i]);
-                RayLimits internal_limits{ limits };
                 if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
-                    if (m_children[i]->intersect(ray, internal_limits, intersection)) {
-                        hit = true;
-                        // The intersection with the bounding box will modify the limit's minimum value as well, which
-                        // we don't want to modify for our "real" ray limits. We should only get here if we intersect
-                        // actual geometry: if we hit a bounding box and no geometry, we don't want to modify the
-                        // limits.
-                        assert(internal_limits.m_t_max <= limits.m_t_max);
-                        limits.m_t_max = internal_limits.m_t_max;
+                    if (const auto intersection = m_children[i]->intersect(ray, internal_limits); intersection) {
+                        internal_limits.m_t_max = intersection->m_distance;
+                        result                  = intersection;
                     }
                 }
             }
-            return hit;
+            return result;
         }
 
         bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
         {
-            for (int i = 0; i < 2; ++i) {
+            for (const auto i : { 0, 1 }) {
                 assert(m_children[i]);
-                RayLimits internal_limits{ limits };
-                if (sp::intersect_p(m_children[i]->m_bounds, ray, internal_limits)) {
+                if (sp::intersect_p(m_children[i]->m_bounds, ray, limits)) {
                     if (m_children[i]->intersect_p(ray, limits)) {
                         return true;
                     }
@@ -107,21 +95,21 @@ class BVHAccelerator : public Aggregate
     struct NodeLeaf : NodeBase
     {
         template <typename Iterator>
-        requires std::input_iterator<Iterator>
+            requires std::input_iterator<Iterator>
         NodeLeaf(BBox3 bounds, Iterator first, Iterator last)
         : NodeBase(bounds)
         , m_primitives(first, last)
         {
         }
 
-        bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& intersection) noexcept override
+        [[nodiscard]] std::optional<LightIntersection> intersect_lights(const Ray& ray, const RayLimits& limits) noexcept override
         {
-            return m_primitives.intersect(ray, limits, intersection);
+            return m_primitives.intersect_lights(ray, limits);
         }
 
-        bool intersect(const Ray& ray, RayLimits& limits, Intersection& intersection) noexcept override
+        [[nodiscard]] std::optional<Intersection> intersect(const Ray& ray, const RayLimits& limits) noexcept override
         {
-            return m_primitives.intersect(ray, limits, intersection);
+            return m_primitives.intersect(ray, limits);
         }
 
         bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept override
@@ -134,56 +122,56 @@ class BVHAccelerator : public Aggregate
 
 public:
     template <typename Iterator>
-    requires std::random_access_iterator<Iterator>
+        requires std::random_access_iterator<Iterator>
     BVHAccelerator(Iterator first, Iterator last)
     : m_root{ construct(first, last) }
     {
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& intersection) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(m_root);
-        return m_root->intersect(ray, limits, intersection);
+        return m_root->intersect_lights(ray, limits);
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& intersection) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(m_root);
-        return m_root->intersect(ray, limits, intersection);
+        return m_root->intersect(ray, limits);
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(m_root);
         return m_root->intersect_p(ray, limits);
     }
 
-    BBox3 get_world_bounds_impl() const noexcept override
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
         return m_root->m_bounds;
     }
 
-    bool is_bounded_impl() const noexcept override
+    [[nodiscard]] bool is_bounded_impl() const noexcept override
     {
         return true;
     }
 
     template <typename Iterator>
-    requires std::random_access_iterator<Iterator>
+        requires std::random_access_iterator<Iterator>
     static auto partition(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
     {
         // Put all of the elements that are totally to the left in place
         const auto left =
-            std::partition(std::execution::par_unseq, first, last, [absolute_split_location, dimension](const auto& a) {
-                return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
-            });
+                std::partition(/*std::execution::par_unseq,*/ first, last, [absolute_split_location, dimension](const auto& a) {
+                    return a->get_world_bounds().get_upper()[dimension] < absolute_split_location[dimension];
+                });
 
         // Put all of the elements that are totally to the left in place
         const auto right =
-            std::partition(std::execution::par_unseq, left, last, [absolute_split_location, dimension](const auto& a) {
-                return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
-            });
+                std::partition(/*std::execution::par_unseq,*/ left, last, [absolute_split_location, dimension](const auto& a) {
+                    return a->get_world_bounds().get_lower()[dimension] < absolute_split_location[dimension];
+                });
         return std::make_pair(left, right);
     }
 
@@ -192,7 +180,7 @@ private:
     // Elements in [right, last) are completely to the right of the split location
     // Elements in [left, right) straddle the split location
     template <typename Iterator>
-    requires std::random_access_iterator<Iterator>
+        requires std::random_access_iterator<Iterator>
     static auto split(std::size_t dimension, const Point3& absolute_split_location, Iterator first, Iterator last)
     {
         for (std::size_t i = 0; i < 3; ++i) {
@@ -205,7 +193,7 @@ private:
     }
 
     template <typename Iterator>
-    requires std::random_access_iterator<Iterator>
+        requires std::random_access_iterator<Iterator>
     std::unique_ptr<NodeBase> construct(Iterator first, Iterator last)
     {
         std::unique_ptr<NodeBase> result;

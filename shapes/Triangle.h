@@ -14,7 +14,6 @@
 #include <vector>
 
 namespace sp {
-
 class Mesh;
 
 void log_extents(const Mesh&, const char* const str);
@@ -34,17 +33,17 @@ public:
 
         // Unlike other objects, we don't transform the ray at intersection test time: we pre-transform all of our
         // triangles.
-        std::transform(std::execution::par_unseq,
-                       m_vertices.cbegin(),
-                       m_vertices.cend(),
-                       m_vertices.begin(),
-                       [&object_to_world](auto& v) { return object_to_world(v); });
+        std::transform( /*std::execution::par_unseq,*/
+            m_vertices.cbegin(),
+            m_vertices.cend(),
+            m_vertices.begin(),
+            [&object_to_world](auto& v) { return object_to_world(v); });
 
-        std::transform(std::execution::par_unseq,
-                       m_normals.cbegin(),
-                       m_normals.cend(),
-                       m_normals.begin(),
-                       [&object_to_world](auto& n) { return object_to_world(n); });
+        std::transform( /*std::execution::par_unseq,*/
+            m_normals.cbegin(),
+            m_normals.cend(),
+            m_normals.begin(),
+            [&object_to_world](auto& n) { return object_to_world(n); });
 
         log_extents(*this, "Post-transform");
     }
@@ -89,12 +88,12 @@ public:
 #endif
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        return false;
+        return {};
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         const Point3& p0 = m_mesh->m_vertices[m_indices[0]];
         const Point3& p1 = m_mesh->m_vertices[m_indices[1]];
@@ -122,12 +121,12 @@ private:
 
         const float denom = madd(A, EIHF, madd(B, GFDI, C * DHEG)); // A*EIHF + B*GFDI + C*DHEG
         if (denom == 0) {
-            return false;
+            return {};
         }
 
         const float beta = madd(J, EIHF, madd(K, GFDI, L * DHEG)) / denom; // J*EIHF + K*GFDI + L*DHEG
         if (beta <= 0.0f || beta >= 1.0f) {
-            return false;
+            return {};
         }
 
         const float AKJB = msub(A, K, J * B); // A*K - J*B
@@ -136,12 +135,12 @@ private:
 
         const float gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
         if (gamma <= 0.0f || beta + gamma >= 1.0f) {
-            return false;
+            return {};
         }
 
         const float t = -madd(F, AKJB, madd(E, JCAL, D * BLKC)) / denom; // F*AKJB + E*JCAL + D*BLKC
         if (t < limits.m_t_min || t > limits.m_t_max) {
-            return false;
+            return {};
         }
 
         const Normal3& n0 = m_mesh->m_normals[m_indices[0]];
@@ -153,11 +152,12 @@ private:
         // const Normal3 normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
         const Normal3 normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
 
-        isect.m_point  = ray(t);
-        isect.m_normal = normal;
-        limits.m_t_max = t;
+        Intersection isect;
+        isect.m_point    = ray(t);
+        isect.m_normal   = normal;
+        isect.m_distance = t;
 
-        return true;
+        return { isect };
     }
 
     bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
@@ -244,5 +244,4 @@ private:
     std::shared_ptr<Mesh> m_mesh;
     std::size_t*          m_indices;
 };
-
 } // namespace sp

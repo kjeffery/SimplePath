@@ -9,7 +9,6 @@
 #include "Shape.h"
 
 namespace sp {
-
 class Plane : public Shape
 {
 public:
@@ -19,7 +18,7 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         // A plane is defined as dot(n, (x - p)) = 0
         // Where
@@ -52,28 +51,32 @@ private:
         const Ray local_ray = get_world_to_object()(ray);
 
         const Vector3& d = local_ray.get_direction();
-        if (d.y == 0.0f) { // Ray is parallel to plane
-            return false;
+        if (d.y == 0.0f) {
+            // Ray is parallel to plane
+            return {};
         }
 
         const Point3& o = local_ray.get_origin();
         const float   t = -o.y / d.y;
         if (t < limits.m_t_min || t > limits.m_t_max) {
-            return false;
+            return {};
         }
 
-        isect.m_normal = get_object_to_world()(Normal3{ 0.0f, 1.0f, 0.0f });
-        isect.m_point  = ray(t);
-        limits.m_t_max = t;
-        return true;
+        Intersection isect;
+        isect.m_normal   = get_object_to_world()(Normal3{ 0.0f, 1.0f, 0.0f });
+        isect.m_point    = ray(t);
+        isect.m_distance = t;
+
+        return isect;
     }
 
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         const Ray local_ray = get_world_to_object()(ray);
 
         const Vector3& d = local_ray.get_direction();
-        if (d.y == 0.0f) { // Ray is parallel to plane
+        if (d.y == 0.0f) {
+            // Ray is parallel to plane
             return false;
         }
 
@@ -95,5 +98,4 @@ private:
         return false;
     }
 };
-
 } // namespace sp

@@ -8,20 +8,19 @@
 #include "../math/Ray.h"
 
 namespace sp {
-
 class Hitable
 {
 public:
     virtual ~Hitable() = default;
 
-    [[nodiscard]] bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights(const Ray& ray, const RayLimits& limits) const noexcept
     {
-        return intersect_impl(ray, limits, isect);
+        return intersect_lights_impl(ray, limits);
     }
 
-    [[nodiscard]] bool intersect(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept
+    [[nodiscard]] std::optional<Intersection> intersect(const Ray& ray, const RayLimits& limits) const noexcept
     {
-        return intersect_impl(ray, limits, isect);
+        return intersect_impl(ray, limits);
     }
 
     [[nodiscard]] bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept
@@ -40,10 +39,10 @@ public:
     }
 
 private:
-    virtual bool  intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept = 0;
-    virtual bool  intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept      = 0;
-    virtual bool  intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept                   = 0;
-    virtual BBox3 get_world_bounds_impl() const noexcept                                                     = 0;
-    virtual bool  is_bounded_impl() const noexcept                                                           = 0;
+    virtual std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+    virtual std::optional<Intersection>      intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+    virtual bool                             intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept = 0;
+    virtual BBox3                            get_world_bounds_impl() const noexcept = 0;
+    virtual bool                             is_bounded_impl() const noexcept = 0;
 };
 } // namespace sp

@@ -126,19 +126,18 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(!"Should not get here");
-        return false;
+        return {};
     }
 
-    bool intersect_impl(const Ray&, RayLimits& limits, LightIntersection& isect) const noexcept override
+    std::optional<LightIntersection> intersect_lights_impl(const Ray&, const RayLimits& limits) const noexcept override
     {
         if (limits.m_t_max < k_infinite_distance) {
-            return false;
+            return {};
         }
-        isect.L = m_radiance;
-        return true;
+        return { LightIntersection{ .m_distance = k_infinite_distance, .L = m_radiance } };
     }
 
     [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
@@ -187,24 +186,24 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(!"Should not get here");
-        return false;
+        return {};
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         if (limits.m_t_max < k_infinite_distance) {
-            return false;
+            return {};
         }
 
         constexpr auto inv_2_pi = 1.0f / (2.0f * std::numbers::pi_v<float>);
 
         const auto   w = normalize(m_world_to_light(ray.get_direction()));
         const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
-        isect.L = sample_nearest_neighbor(m_radiance, st[0], st[1], RemapWrap{}, RemapClamp{});
-        return true;
+        const auto   L = sample_nearest_neighbor(m_radiance, st[0], st[1], RemapWrap{}, RemapClamp{});
+        return { LightIntersection{ .m_distance = k_infinite_distance, .L = L } };
     }
 
     [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
@@ -342,20 +341,19 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray&, RayLimits&, Intersection&) const noexcept override
+    std::optional<Intersection> intersect_impl(const Ray&, const RayLimits&) const noexcept override
     {
         assert(!"Should not get here");
-        return false;
+        return {};
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         // TODO: may need normal
-        if (Intersection geom_isect; m_sphere.intersect(ray, limits, geom_isect)) {
-            isect.L = get_radiance();
-            return true;
+        if (const auto geom_isect = m_sphere.intersect(ray, limits); geom_isect) {
+            return { LightIntersection{ .m_distance = geom_isect->m_distance, .L = get_radiance() } };
         }
-        return false;
+        return {};
     }
 
     [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override

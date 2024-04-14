@@ -10,14 +10,15 @@
 namespace sp {
 struct LightIntersection
 {
-    RGB L;
+    float m_distance;
+    RGB   L;
 };
 
 struct Intersection
 {
+    float     m_distance;
     Normal3   m_normal;
     Point3    m_point;
     Material* m_material;
 };
-
 } // namespace sp

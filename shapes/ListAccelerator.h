@@ -16,7 +16,7 @@ class ListAccelerator : public Aggregate
 {
 public:
     template <typename Iterator>
-    requires std::input_iterator<Iterator>
+        requires std::input_iterator<Iterator>
     ListAccelerator(Iterator first, Iterator last)
     : m_primitives{ first, last }
     {
@@ -33,34 +33,37 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        bool hit = false;
-        for (const auto& p : m_primitives) {
-            // limits should be automatically updated so that the max value is the closest hit so far.
-            hit = p->intersect(ray, limits, isect) || hit;
-        }
-        return hit;
-    }
+        std::optional<LightIntersection> result;
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
-    {
-        bool hit = false;
-        for (const auto& p : m_primitives) {
-            // limits should be automatically updated so that the max value is the closest hit so far.
-            hit = p->intersect(ray, limits, isect) || hit;
-        }
-        return hit;
-    }
-
-    bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
-    {
-        for (const auto& p : m_primitives) {
-            if (p->intersect_p(ray, limits)) {
-                return true;
+        auto internal_limits{ limits };
+        for (const auto&   p : m_primitives) {
+            if (const auto hit = p->intersect_lights(ray, internal_limits); hit) {
+                internal_limits.m_t_max = hit->m_distance;
+                result                  = hit;
             }
         }
-        return false;
+        return result;
+    }
+
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    {
+        std::optional<Intersection> result;
+
+        auto internal_limits{ limits };
+        for (const auto&   p : m_primitives) {
+            if (const auto hit = p->intersect(ray, internal_limits); hit) {
+                internal_limits.m_t_max = hit->m_distance;
+                result                  = hit;
+            }
+        }
+        return result;
+    }
+
+    [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    {
+        return std::ranges::any_of(m_primitives, [&ray, &limits](const auto& p) { return p->intersect_p(ray, limits); });
     }
 
     BBox3 get_world_bounds_impl() const noexcept override

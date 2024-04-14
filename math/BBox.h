@@ -8,7 +8,6 @@
 #include "Vector3.h"
 
 namespace sp {
-
 template <typename T>
 class BBox
 {
@@ -116,16 +115,16 @@ T center(const BBox<T>& box) noexcept
 // This is close to PBRT's version:
 // https://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface#Bounds3::IntersectP
 template <typename T>
-[[nodiscard]] bool intersect_p(const BBox<T>& box, const Ray& ray, RayLimits& limits) noexcept
+[[nodiscard]] std::optional<RayLimits> intersect_p(const BBox<T>& box, const Ray& ray, const RayLimits& limits) noexcept
 {
-    float t0{ limits.m_t_min };
-    float t1{ limits.m_t_max };
+    auto t0{ limits.m_t_min };
+    auto t1{ limits.m_t_max };
 
-    for (int i = 0; i < 3; ++i) {
+    for (const auto i : { 0, 1, 2 }) {
         // This may be NaN, and that's okay.
-        const float inv_ray_dir = 1.0f / ray.get_direction()[i];
-        float       t_near      = (box.get_lower()[i] - ray.get_origin()[i]) * inv_ray_dir;
-        float       t_far       = (box.get_upper()[i] - ray.get_origin()[i]) * inv_ray_dir;
+        const auto inv_ray_dir = 1.0f / ray.get_direction()[i];
+        auto       t_near      = (box.get_lower()[i] - ray.get_origin()[i]) * inv_ray_dir;
+        auto       t_far       = (box.get_upper()[i] - ray.get_origin()[i]) * inv_ray_dir;
 
         if (t_near > t_far) {
             std::swap(t_near, t_far);
@@ -134,16 +133,14 @@ template <typename T>
         t0 = std::max(t_near, t0);
         t1 = std::min(t_far, t1);
         if (t0 > t1) {
-            return false;
+            return {};
         }
     }
-    limits.m_t_min = t0;
-    limits.m_t_max = t1;
-    return true;
+
+    return { RayLimits{ .m_t_min = t0, .m_t_max = t1 } };
 }
 
 using BBox2i = BBox<Point2i>;
 using BBox2  = BBox<Point2>;
 using BBox3  = BBox<Point3>;
-
 } // namespace sp

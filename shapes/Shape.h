@@ -40,10 +40,10 @@ private:
         return get_object_to_world()(get_object_bounds());
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
+    std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         assert(!"Should not get here");
-        return false;
+        return {};
     }
 
     AffineSpace m_object_to_world;

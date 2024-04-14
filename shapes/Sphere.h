@@ -74,7 +74,7 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
         const auto local_ray = get_world_to_object()(ray);
 
@@ -94,17 +94,18 @@ private:
             }
 
             if (t < limits.m_t_min || t > limits.m_t_max) {
-                return false;
+                return {};
             }
 
             const Normal3 n{ madd(t, d, Vector3{ o }) / k_radius }; // (o + t * d) / k_radius };
-            isect.m_normal = normalize(get_object_to_world()(n));
-            isect.m_point  = ray(t);
-            limits.m_t_max = t;
-            return true;
+            Intersection  isect;
+            isect.m_normal   = normalize(get_object_to_world()(n));
+            isect.m_point    = ray(t);
+            isect.m_distance = t;
+            return { isect };
         }
 
-        return false;
+        return {};
     }
 
     [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override

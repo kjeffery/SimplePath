@@ -13,7 +13,6 @@
 #include "../materials/Material.h"
 
 namespace sp {
-
 class GeometricPrimitive : public Hitable
 {
 public:
@@ -24,24 +23,24 @@ public:
     }
 
 private:
-    bool intersect_impl(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept override
-    {
-        assert(!"Should not get here");
-        return false;
-    }
-
-    BBox3 get_world_bounds_impl() const noexcept override
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
         return m_shape->get_world_bounds();
     }
 
-    bool intersect_impl(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept override
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray&, const RayLimits&) const noexcept override
     {
-        if (m_shape->intersect(ray, limits, isect)) {
-            isect.m_material = m_material.get().get();
-            return true;
+        assert(!"Should not get here");
+        return {};
+    }
+
+    [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    {
+        if (auto isect = m_shape->intersect(ray, limits); isect) {
+            isect->m_material = m_material.get().get();
+            return isect;
         }
-        return false;
+        return {};
     }
 
     bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
@@ -57,5 +56,4 @@ private:
     not_null<std::shared_ptr<Shape>>    m_shape;
     not_null<std::shared_ptr<Material>> m_material;
 };
-
 } // namespace sp

@@ -24,7 +24,7 @@
 
 namespace sp {
 namespace internal {
-template<typename Iterator>
+template <typename Iterator>
     requires std::random_access_iterator<Iterator>
 ListAccelerator create_acceleration_structure(Iterator first, Iterator last)
 {
@@ -51,7 +51,7 @@ public:
     using PrimitiveContainer = std::vector<std::shared_ptr<const GeometricPrimitive>>;
     using LightContainer     = std::vector<std::shared_ptr<const Light>>;
 
-    template<typename PrimitiveIterator, typename LightIterator>
+    template <typename PrimitiveIterator, typename LightIterator>
         requires std::convertible_to<typename std::iterator_traits<PrimitiveIterator>::value_type,
                                      typename PrimitiveContainer::value_type> &&
         std::convertible_to<typename std::iterator_traits<LightIterator>::value_type,
@@ -66,22 +66,23 @@ public:
     {
     }
 
-    bool intersect(const Ray& ray, RayLimits& limits, LightIntersection& isect) const noexcept
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights(const Ray& ray, const RayLimits& limits) const noexcept
     {
-        return m_accelerator_lights.intersect(ray, limits, isect);
+        return m_accelerator_lights.intersect_lights(ray, limits);
     }
 
-    bool intersect(const Ray& ray, RayLimits& limits, Intersection& isect) const noexcept
+    [[nodiscard]] std::optional<Intersection> intersect(const Ray& ray, const RayLimits& limits) const noexcept
     {
-        return m_accelerator_geometry.intersect(ray, limits, isect);
+        return m_accelerator_geometry.intersect(ray, limits);
     }
 
-    bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept
+    [[nodiscard]] bool intersect_p(const Ray& ray, const RayLimits& limits) const noexcept
     {
         return m_accelerator_geometry.intersect_p(ray, limits) || m_accelerator_lights.intersect_p(ray, limits);
     }
 
-    template<typename F> void for_each_light(F f) const
+    template <typename F>
+    void for_each_light(F f) const
     {
         std::for_each(m_lights.cbegin(), m_lights.cend(), [f](const auto& light_pointer) { f(*light_pointer); });
     }

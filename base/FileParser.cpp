@@ -65,7 +65,7 @@ std::pair<AffineSpace, AffineSpace> parse_translate(std::istream& ins)
     return std::make_pair(AffineSpace::translate(translate), AffineSpace::translate(-translate));
 }
 
-std::pair<AffineSpace, AffineSpace> parse_rotation(std::istream& ins)
+std::pair<LinearSpace3x3, LinearSpace3x3> parse_rotation(std::istream& ins)
 {
     Vector3 axis{ no_init };
     ins >> axis;
@@ -73,11 +73,11 @@ std::pair<AffineSpace, AffineSpace> parse_rotation(std::istream& ins)
     ins >> degrees;
 
     // TODO: have the rotate functions take an Angle
-    return std::make_pair(AffineSpace::rotate(axis, to_radians(degrees)),
-                          AffineSpace::rotate(axis, -to_radians(degrees)));
+    return std::make_pair(LinearSpace3x3::rotate(axis, to_radians(degrees)),
+                          LinearSpace3x3::rotate(axis, -to_radians(degrees)));
 }
 
-std::pair<AffineSpace, AffineSpace> parse_scale(std::istream& ins)
+std::pair<LinearSpace3x3, LinearSpace3x3> parse_scale(std::istream& ins)
 {
     Vector3 scale{ no_init };
     ins >> scale;
@@ -85,7 +85,7 @@ std::pair<AffineSpace, AffineSpace> parse_scale(std::istream& ins)
     if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f) {
         throw std::domain_error("Unable to handle zero scale");
     }
-    return std::make_pair(AffineSpace::scale(scale), AffineSpace::scale(1.0f / scale));
+    return std::make_pair(LinearSpace3x3::scale(scale), LinearSpace3x3::scale(1.0f / scale));
 }
 
 void append_translate(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
@@ -96,20 +96,22 @@ void append_translate(std::istream& ins, AffineSpace& transform, AffineSpace& in
     assert(compare(transform * inverse_transform, AffineSpace::identity()));
 }
 
-void append_rotation(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+template <typename T>
+void append_rotation(std::istream& ins, T& transform, T& inverse_transform)
 {
     const auto [t, t_inverse] = parse_rotation(ins);
     transform *= t;
     inverse_transform = t_inverse * inverse_transform;
-    assert(compare(transform * inverse_transform, AffineSpace::identity()));
+    assert(compare(transform * inverse_transform, T::identity()));
 }
 
-void append_scale(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+template <typename T>
+void append_scale(std::istream& ins, T& transform, T& inverse_transform)
 {
     const auto [t, t_inverse] = parse_scale(ins);
     transform *= t;
     inverse_transform = t_inverse * inverse_transform;
-    assert(compare(transform * inverse_transform, AffineSpace::identity()));
+    assert(compare(transform * inverse_transform, T::identity()));
 }
 
 class Token
@@ -334,8 +336,8 @@ void FileParser::parse_environment_light(const std::string&         body,
 
     // We have transformations on our environmental light parsing, but we don't use them yet. They serve no purpose when
     // we are of a uniform radiance.
-    auto                  transform{ AffineSpace::identity() };
-    auto                  inverse_transform{ AffineSpace::identity() };
+    auto                  transform{ LinearSpace3x3::identity() };
+    auto                  inverse_transform{ LinearSpace3x3::identity() };
     auto                  radiance = RGB::white();
     auto                  max_radiance{ std::numeric_limits<float>::max() };
     std::filesystem::path filename{};
@@ -354,8 +356,6 @@ void FileParser::parse_environment_light(const std::string&         body,
             ins >> max_radiance;
         } else if (word == "image") {
             ins >> filename;
-        } else if (word == "translate") {
-            append_translate(ins, transform, inverse_transform);
         } else if (word == "rotate") {
             append_rotation(ins, transform, inverse_transform);
         } else if (word == "scale") {
@@ -543,8 +543,8 @@ void FileParser::parse_mesh(const std::string&         body,
     ins.exceptions(std::ios::badbit);
 
     std::filesystem::path     path;
-    AffineSpace               transform{ AffineSpace::identity() };
-    AffineSpace               inverse_transform{ AffineSpace::identity() };
+    auto                      transform{ AffineSpace::identity() };
+    auto                      inverse_transform{ AffineSpace::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -645,8 +645,8 @@ void FileParser::parse_plane(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    AffineSpace               transform{ AffineSpace::identity() };
-    AffineSpace               inverse_transform{ AffineSpace::identity() };
+    auto                      transform{ AffineSpace::identity() };
+    auto                      inverse_transform{ AffineSpace::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -735,8 +735,8 @@ void FileParser::parse_sphere(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    AffineSpace               transform{ AffineSpace::identity() };
-    AffineSpace               inverse_transform{ AffineSpace::identity() };
+    auto                      transform{ AffineSpace::identity() };
+    auto                      inverse_transform{ AffineSpace::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -790,9 +790,9 @@ void FileParser::parse_sphere_light(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    AffineSpace transform{ AffineSpace::identity() };
-    AffineSpace inverse_transform{ AffineSpace::identity() };
-    RGB         radiance = RGB::white();
+    auto transform{ AffineSpace::identity() };
+    auto inverse_transform{ AffineSpace::identity() };
+    RGB  radiance = RGB::white();
 
     for (Token token; ins;) {
         ins >> token;

@@ -172,6 +172,20 @@ inline AffineSpace operator*(const AffineSpace& a, const AffineSpace& b) noexcep
     return AffineSpace{ a.get_linear() * b.get_linear(), a.get_linear() * b.get_affine() + a.get_affine() };
 }
 
+inline AffineSpace operator*(const AffineSpace& a, const LinearSpace3x3& b) noexcept
+{
+    // Since the linear space has a zero translation component, we can avoid a multiplication by zero.
+    //return AffineSpace{ a.get_linear() * b, a.get_linear() * Vector3{ 0 } + a.get_affine() };
+    return AffineSpace{ a.get_linear() * b, a.get_affine() };
+}
+
+inline AffineSpace operator*(const LinearSpace3x3& a, const AffineSpace& b) noexcept
+{
+    // Since the linear space has a zero translation component, we can avoid an addition by zero.
+    //return AffineSpace{ a * b.get_linear(), a * b.get_affine() + Vector3{ 0 } };
+    return AffineSpace{ a * b.get_linear(), a * b.get_affine() };
+}
+
 inline AffineSpace operator/(const AffineSpace& a, const AffineSpace& b) noexcept
 {
     return a * rcp(b);
@@ -185,6 +199,11 @@ inline AffineSpace operator/(const AffineSpace& a, const float b) noexcept
 #endif
 
 inline AffineSpace& operator*=(AffineSpace& a, const AffineSpace& b) noexcept
+{
+    return a = a * b;
+}
+
+inline AffineSpace& operator*=(AffineSpace& a, const LinearSpace3x3& b) noexcept
 {
     return a = a * b;
 }

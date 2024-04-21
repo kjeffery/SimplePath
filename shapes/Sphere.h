@@ -9,11 +9,11 @@
 #include "../math/Vector3.h"
 
 namespace sp {
-class Sphere final : public Shape
+class Sphere final : public TransformableShape
 {
 public:
     explicit Sphere(AffineTransformation object_to_world) noexcept
-    : Shape(std::move(object_to_world))
+    : TransformableShape(std::move(object_to_world))
     {
     }
 
@@ -137,7 +137,7 @@ private:
         return false;
     }
 
-    [[nodiscard]] BBox3 get_object_bounds() const noexcept override
+    [[nodiscard]] BBox3 get_object_bounds_impl() const noexcept override
     {
         return { Point3{ -k_radius, -k_radius, -k_radius }, Point3{ k_radius, k_radius, k_radius } };
     }

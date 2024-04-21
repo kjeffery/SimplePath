@@ -16,7 +16,32 @@ namespace sp {
 class Shape : public Hitable
 {
 public:
-    explicit Shape(AffineTransformation object_to_world) noexcept
+    Shape() noexcept = default;
+
+    [[nodiscard]] BBox3 get_object_bounds() const noexcept
+    {
+        return get_object_bounds_impl();
+    }
+
+private:
+    [[nodiscard]] virtual BBox3 get_object_bounds_impl() const noexcept = 0;
+
+    [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
+    {
+        return get_object_bounds();
+    }
+
+    [[nodiscard]] std::optional<LightIntersection> intersect_lights_impl(const Ray& ray, const RayLimits& limits) const noexcept override
+    {
+        assert(!"Should not get here");
+        return {};
+    }
+};
+
+class TransformableShape : public Shape
+{
+public:
+    explicit TransformableShape(AffineTransformation object_to_world) noexcept
     : m_object_to_world(std::move(object_to_world))
     {
     }
@@ -33,8 +58,6 @@ protected:
     }
 
 private:
-    [[nodiscard]] virtual BBox3 get_object_bounds() const noexcept = 0;
-
     [[nodiscard]] BBox3 get_world_bounds_impl() const noexcept override
     {
         return get_object_to_world()(get_object_bounds());

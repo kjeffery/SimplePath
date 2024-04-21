@@ -9,11 +9,11 @@
 #include "Shape.h"
 
 namespace sp {
-class Plane : public Shape
+class Plane : public TransformableShape
 {
 public:
     explicit Plane(AffineTransformation object_to_world) noexcept
-    : Shape(std::move(object_to_world))
+    : TransformableShape(std::move(object_to_world))
     {
     }
 
@@ -88,7 +88,7 @@ private:
         return true;
     }
 
-    [[nodiscard]] BBox3 get_object_bounds() const noexcept override
+    [[nodiscard]] BBox3 get_object_bounds_impl() const noexcept override
     {
         return {};
     }

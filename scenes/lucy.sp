@@ -2,7 +2,7 @@ version: 1
 
 scene_parameters {
     output_file_name: "image.pfm"
-    width: 2000
+    width: 1350
     height: 2000
 }
 
@@ -13,24 +13,38 @@ perspective_camera {
 }
 
 material_glossy {
-    name: "material_glossy"
+    name: "material_glossy_base"
     diffuse: 0.7 0.7 0.7
-    ior: 1.8
+    ior: 1.3
     roughness: 0.75
 }
 
 material_glossy {
     name: "material_glossy_plane"
-    diffuse: 0.6 0.6 0.6
+    diffuse: 0.4 0.1 0.1
     ior: 1.8
     roughness: 0.01
+}
+
+material_clearcoat {
+    name: "material_glossy_clearcoat"
+    base: "material_glossy_base"
+    ior: 1.5
+    color: 1.0 1.0 1.0
 }
 
 mesh {
     file: "ply_files/lucy.ply"
     rotate: 1.0 0.0 0.0 -90.0
-    material: "material_glossy"
+    ##material: "material_glossy"
+    material: "material_glossy_clearcoat"
 }
+
+#sphere {
+    #material: "material_glossy_base"
+    #translate: 100.756 -607.893 800.531
+    #scale: 100 100 100
+#}
 
 plane {
     material: "material_glossy_plane"

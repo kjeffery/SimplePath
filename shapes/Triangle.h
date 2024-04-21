@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+#include "../math/Transformation.h"
+
 namespace sp {
 class Mesh;
 
@@ -21,10 +23,10 @@ void log_extents(const Mesh&, const char* const str);
 class Mesh
 {
 public:
-    Mesh(std::vector<std::size_t> indices,
-         std::vector<Point3>      vertices,
-         std::vector<Normal3>     normals,
-         const AffineSpace&       object_to_world)
+    Mesh(std::vector<std::size_t>    indices,
+         std::vector<Point3>         vertices,
+         std::vector<Normal3>        normals,
+         const AffineTransformation& object_to_world)
     : m_indices(std::move(indices))
     , m_vertices(std::move(vertices))
     , m_normals(std::move(normals))
@@ -80,7 +82,7 @@ public:
     }
 #else
     Triangle(std::shared_ptr<Mesh> mesh, std::size_t triangle_number)
-    : Shape(AffineSpace::identity(), AffineSpace::identity())
+    : Shape(AffineTransformation::identity())
     , m_mesh{ std::move(mesh) }
     , m_indices{ m_mesh->m_indices.data() + triangle_number * 3 }
     {

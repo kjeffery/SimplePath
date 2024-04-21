@@ -71,6 +71,7 @@ set(SOURCES
         math/RGB.h
         math/RSequence.h
         math/Ray.h
+        math/Transformation.h
         math/Sampler.h
         math/Sampling.cpp
         math/Sampling.h

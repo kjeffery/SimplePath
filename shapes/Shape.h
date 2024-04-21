@@ -10,26 +10,26 @@
 #include "../math/AffineSpace.h"
 #include "../math/BBox.h"
 #include "../math/Ray.h"
+#include "../math/Transformation.h"
 
 namespace sp {
 class Shape : public Hitable
 {
 public:
-    Shape(AffineSpace object_to_world, AffineSpace world_to_object) noexcept
+    explicit Shape(AffineTransformation object_to_world) noexcept
     : m_object_to_world(std::move(object_to_world))
-    , m_world_to_object(std::move(world_to_object))
     {
     }
 
 protected:
-    [[nodiscard]] const AffineSpace& get_object_to_world() const noexcept
+    [[nodiscard]] auto get_object_to_world() const noexcept -> const AffineSpace&
     {
-        return m_object_to_world;
+        return m_object_to_world.get_transform();
     }
 
-    [[nodiscard]] const AffineSpace& get_world_to_object() const noexcept
+    [[nodiscard]] auto get_world_to_object() const noexcept -> const AffineSpace&
     {
-        return m_world_to_object;
+        return m_object_to_world.get_inverse();
     }
 
 private:
@@ -46,7 +46,6 @@ private:
         return {};
     }
 
-    AffineSpace m_object_to_world;
-    AffineSpace m_world_to_object;
+    AffineTransformation m_object_to_world;
 };
 } // namespace sp

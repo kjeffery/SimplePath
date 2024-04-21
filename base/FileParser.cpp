@@ -7,6 +7,7 @@
 #include "Util.h"
 
 #include "../base/Logger.h"
+#include "../math/Transformation.h"
 #include "../math/Vector3.h"
 #include "../shapes/Plane.h"
 #include "../shapes/Primitive.h"
@@ -58,14 +59,14 @@ namespace {
     return std::isspace(static_cast<unsigned char>(c)) != 0;
 }
 
-std::pair<AffineSpace, AffineSpace> parse_translate(std::istream& ins)
+auto parse_translate(std::istream& ins) -> AffineTransformation
 {
     Vector3 translate{ no_init };
     ins >> translate;
-    return std::make_pair(AffineSpace::translate(translate), AffineSpace::translate(-translate));
+    return { AffineSpace::translate(translate), AffineSpace::translate(-translate) };
 }
 
-std::pair<LinearSpace3x3, LinearSpace3x3> parse_rotation(std::istream& ins)
+auto parse_rotation(std::istream& ins) -> LinearTransformation
 {
     Vector3 axis{ no_init };
     ins >> axis;
@@ -73,11 +74,10 @@ std::pair<LinearSpace3x3, LinearSpace3x3> parse_rotation(std::istream& ins)
     ins >> degrees;
 
     // TODO: have the rotate functions take an Angle
-    return std::make_pair(LinearSpace3x3::rotate(axis, to_radians(degrees)),
-                          LinearSpace3x3::rotate(axis, -to_radians(degrees)));
+    return { LinearSpace3x3::rotate(axis, to_radians(degrees)), LinearSpace3x3::rotate(axis, -to_radians(degrees)) };
 }
 
-std::pair<LinearSpace3x3, LinearSpace3x3> parse_scale(std::istream& ins)
+auto parse_scale(std::istream& ins) -> LinearTransformation
 {
     Vector3 scale{ no_init };
     ins >> scale;
@@ -85,33 +85,27 @@ std::pair<LinearSpace3x3, LinearSpace3x3> parse_scale(std::istream& ins)
     if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f) {
         throw std::domain_error("Unable to handle zero scale");
     }
-    return std::make_pair(LinearSpace3x3::scale(scale), LinearSpace3x3::scale(1.0f / scale));
+    return { LinearSpace3x3::scale(scale), LinearSpace3x3::scale(1.0f / scale) };
 }
 
-void append_translate(std::istream& ins, AffineSpace& transform, AffineSpace& inverse_transform)
+auto append_translate(std::istream& ins, AffineTransformation& transform) -> void
 {
-    const auto [t, t_inverse] = parse_translate(ins);
+    const auto t = parse_translate(ins);
     transform *= t;
-    inverse_transform = t_inverse * inverse_transform;
-    assert(compare(transform * inverse_transform, AffineSpace::identity()));
-}
-
-template <typename T>
-void append_rotation(std::istream& ins, T& transform, T& inverse_transform)
-{
-    const auto [t, t_inverse] = parse_rotation(ins);
-    transform *= t;
-    inverse_transform = t_inverse * inverse_transform;
-    assert(compare(transform * inverse_transform, T::identity()));
 }
 
 template <typename T>
-void append_scale(std::istream& ins, T& transform, T& inverse_transform)
+auto append_rotation(std::istream& ins, Transformation<T>& transform) -> void
 {
-    const auto [t, t_inverse] = parse_scale(ins);
+    const auto t = parse_rotation(ins);
     transform *= t;
-    inverse_transform = t_inverse * inverse_transform;
-    assert(compare(transform * inverse_transform, T::identity()));
+}
+
+template <typename T>
+auto append_scale(std::istream& ins, Transformation<T>& transform) -> void
+{
+    const auto t = parse_scale(ins);
+    transform *= t;
 }
 
 class Token
@@ -336,8 +330,7 @@ void FileParser::parse_environment_light(const std::string&         body,
 
     // We have transformations on our environmental light parsing, but we don't use them yet. They serve no purpose when
     // we are of a uniform radiance.
-    auto                  transform{ LinearSpace3x3::identity() };
-    auto                  inverse_transform{ LinearSpace3x3::identity() };
+    auto                  transform{ LinearTransformation::identity() };
     auto                  radiance = RGB::white();
     auto                  max_radiance{ std::numeric_limits<float>::max() };
     std::filesystem::path filename{};
@@ -357,9 +350,9 @@ void FileParser::parse_environment_light(const std::string&         body,
         } else if (word == "image") {
             ins >> filename;
         } else if (word == "rotate") {
-            append_rotation(ins, transform, inverse_transform);
+            append_rotation(ins, transform);
         } else if (word == "scale") {
-            append_scale(ins, transform, inverse_transform);
+            append_scale(ins, transform);
         } else {
             throw ParsingException("Unknown environment light attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
@@ -371,7 +364,7 @@ void FileParser::parse_environment_light(const std::string&         body,
     } else {
         auto img = read(filename);
         img *= radiance;
-        m_lights.push_back(std::make_shared<ImageBasedEnvironmentLight>(std::move(img), max_radiance));
+        m_lights.push_back(std::make_shared<ImageBasedEnvironmentLight>(std::move(img), transform, max_radiance));
     }
 }
 
@@ -543,8 +536,7 @@ void FileParser::parse_mesh(const std::string&         body,
     ins.exceptions(std::ios::badbit);
 
     std::filesystem::path     path;
-    auto                      transform{ AffineSpace::identity() };
-    auto                      inverse_transform{ AffineSpace::identity() };
+    auto                      transform{ AffineTransformation::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -574,11 +566,11 @@ void FileParser::parse_mesh(const std::string&         body,
                 return;
             }
         } else if (word == "translate") {
-            append_translate(ins, transform, inverse_transform);
+            append_translate(ins, transform);
         } else if (word == "rotate") {
-            append_rotation(ins, transform, inverse_transform);
+            append_rotation(ins, transform);
         } else if (word == "scale") {
-            append_scale(ins, transform, inverse_transform);
+            append_scale(ins, transform);
         } else {
             throw ParsingException("Unknown mesh attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
@@ -645,8 +637,7 @@ void FileParser::parse_plane(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    auto                      transform{ AffineSpace::identity() };
-    auto                      inverse_transform{ AffineSpace::identity() };
+    auto                      transform{ AffineTransformation::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -667,11 +658,11 @@ void FileParser::parse_plane(const std::string&         body,
                 LOG_ERROR("Material '", material_name, "' not found\n");
             }
         } else if (word == "translate") {
-            append_translate(ins, transform, inverse_transform);
+            append_translate(ins, transform);
         } else if (word == "rotate") {
-            append_rotation(ins, transform, inverse_transform);
+            append_rotation(ins, transform);
         } else if (word == "scale") {
-            append_scale(ins, transform, inverse_transform);
+            append_scale(ins, transform);
         } else {
             throw ParsingException("Unknown plane attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
@@ -680,7 +671,7 @@ void FileParser::parse_plane(const std::string&         body,
 
     assert(material);
 
-    auto plane_shape     = std::make_shared<Plane>(transform, inverse_transform);
+    auto plane_shape     = std::make_shared<Plane>(transform);
     auto plane_primitive = std::make_shared<GeometricPrimitive>(plane_shape, material);
     m_geometry.push_back(plane_primitive);
 }
@@ -735,8 +726,7 @@ void FileParser::parse_sphere(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    auto                      transform{ AffineSpace::identity() };
-    auto                      inverse_transform{ AffineSpace::identity() };
+    auto                      transform{ AffineTransformation::identity() };
     std::shared_ptr<Material> material;
 
     for (Token token; ins;) {
@@ -757,11 +747,11 @@ void FileParser::parse_sphere(const std::string&         body,
                 LOG_ERROR("Material '", material_name, "' not found\n");
             }
         } else if (word == "translate") {
-            append_translate(ins, transform, inverse_transform);
+            append_translate(ins, transform);
         } else if (word == "rotate") {
-            append_rotation(ins, transform, inverse_transform);
+            append_rotation(ins, transform);
         } else if (word == "scale") {
-            append_scale(ins, transform, inverse_transform);
+            append_scale(ins, transform);
         } else {
             throw ParsingException("Unknown sphere attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
@@ -770,7 +760,7 @@ void FileParser::parse_sphere(const std::string&         body,
 
     assert(material);
 
-    auto sphere_shape = std::make_shared<Sphere>(transform, inverse_transform);
+    auto sphere_shape = std::make_shared<Sphere>(transform);
 
 #if 0
     Sampler sampler = Sampler::create_new_set(42, 512);
@@ -790,8 +780,7 @@ void FileParser::parse_sphere_light(const std::string&         body,
     std::istringstream ins(body);
     ins.exceptions(std::ios::badbit);
 
-    auto transform{ AffineSpace::identity() };
-    auto inverse_transform{ AffineSpace::identity() };
+    auto transform{ AffineTransformation::identity() };
     RGB  radiance = RGB::white();
 
     for (Token token; ins;) {
@@ -805,18 +794,18 @@ void FileParser::parse_sphere_light(const std::string&         body,
         if (word == "radiance") {
             ins >> radiance;
         } else if (word == "translate") {
-            append_translate(ins, transform, inverse_transform);
+            append_translate(ins, transform);
         } else if (word == "rotate") {
-            append_rotation(ins, transform, inverse_transform);
+            append_rotation(ins, transform);
         } else if (word == "scale") {
-            append_scale(ins, transform, inverse_transform);
+            append_scale(ins, transform);
         } else {
             throw ParsingException("Unknown environment light attribute: " + word,
                                    line_numbers[line_number_character_offset + ins.tellg()]);
         }
     }
 
-    auto sphere_light = std::make_shared<SphereLight>(radiance, transform, inverse_transform);
+    auto sphere_light = std::make_shared<SphereLight>(radiance, transform);
     m_lights.push_back(sphere_light);
 }
 

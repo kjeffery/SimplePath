@@ -179,8 +179,9 @@ private:
 class ImageBasedEnvironmentLight final : public InfiniteLight
 {
 public:
-    ImageBasedEnvironmentLight(Image radiance, float max_radiance) noexcept
-    : m_radiance{ modify_image(std::move(radiance), max_radiance) }
+    ImageBasedEnvironmentLight(Image radiance, LinearTransformation light_to_world, const float max_radiance) noexcept
+    : m_light_to_world{ std::move(light_to_world) }
+    , m_radiance{ modify_image(std::move(radiance), max_radiance) }
     , m_distribution_2d{ create_distribution(m_radiance, max_radiance) }
     {
     }
@@ -200,7 +201,8 @@ private:
 
         constexpr auto inv_2_pi = 1.0f / (2.0f * std::numbers::pi_v<float>);
 
-        const auto   w = normalize(m_world_to_light(ray.get_direction()));
+        const auto&  world_to_light = m_light_to_world.get_inverse();
+        const auto   w              = normalize(world_to_light(ray.get_direction()));
         const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
         const auto   L = sample_nearest_neighbor(m_radiance, st[0], st[1], RemapWrap{}, RemapClamp{});
         return { LightIntersection{ .m_distance = k_infinite_distance, .L = L } };
@@ -247,10 +249,11 @@ private:
 
     [[nodiscard]] auto pdf_impl(const Point3& observer_world, const Vector3& wi) const noexcept -> float override
     {
-        const auto w         = m_world_to_light(wi);
-        const auto theta     = spherical_theta(w);
-        const auto phi       = spherical_phi(w);
-        const auto sin_theta = std::sin(theta);
+        const auto& world_to_light = m_light_to_world.get_inverse();
+        const auto  w              = world_to_light(wi);
+        const auto  theta          = spherical_theta(w);
+        const auto  phi            = spherical_phi(w);
+        const auto  sin_theta      = std::sin(theta);
         if (sin_theta == 0.0f) {
             return 0.0f;
         }
@@ -268,7 +271,8 @@ private:
         }
         constexpr auto inv_2_pi = 1.0f / (2.0f * std::numbers::pi_v<float>);
 
-        const auto   w = normalize(m_world_to_light(wi));
+        const auto&  world_to_light = m_light_to_world.get_inverse();
+        const auto   w              = normalize(world_to_light(wi));
         const Point2 st{ spherical_phi(w) * inv_2_pi, spherical_theta(w) * std::numbers::inv_pi_v<float> };
         return sample_nearest_neighbor(m_radiance, st[0], st[1], RemapWrap{}, RemapClamp{});
     }
@@ -324,19 +328,17 @@ private:
         return Distribution2D{ img, width, height };
     }
 
-    // TODO: user-set
-    LinearSpace3x3 m_light_to_world{ LinearSpace3x3::identity() };
-    LinearSpace3x3 m_world_to_light{ LinearSpace3x3::identity() };
-    Image          m_radiance;
-    Distribution2D m_distribution_2d;
+    LinearTransformation m_light_to_world{ LinearTransformation::identity() };
+    Image                m_radiance;
+    Distribution2D       m_distribution_2d;
 };
 
 class SphereLight final : public ObjectLight
 {
 public:
-    explicit SphereLight(RGB radiance, AffineSpace object_to_world, AffineSpace world_to_object) noexcept
+    explicit SphereLight(RGB radiance, AffineTransformation object_to_world) noexcept
     : ObjectLight(radiance)
-    , m_sphere{ std::move(object_to_world), std::move(world_to_object) }
+    , m_sphere{ std::move(object_to_world) }
     {
     }
 

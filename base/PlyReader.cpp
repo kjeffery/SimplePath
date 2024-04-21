@@ -14,6 +14,8 @@
 #include <string>
 #include <variant>
 
+#include "../math/Transformation.h"
+
 namespace sp {
 struct Face
 {
@@ -149,7 +151,7 @@ struct TypeReader
     virtual ReadType read(std::istream& ins) const = 0;
 };
 
-template<typename T>
+template <typename T>
 struct AsciiTypeReader : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -160,7 +162,7 @@ struct AsciiTypeReader : public TypeReader
     }
 };
 
-template<>
+template <>
 struct AsciiTypeReader<std::uint8_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -171,7 +173,7 @@ struct AsciiTypeReader<std::uint8_t> : public TypeReader
     }
 };
 
-template<>
+template <>
 struct AsciiTypeReader<std::int8_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -182,7 +184,7 @@ struct AsciiTypeReader<std::int8_t> : public TypeReader
     }
 };
 
-template<>
+template <>
 struct AsciiTypeReader<std::nullptr_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -191,7 +193,7 @@ struct AsciiTypeReader<std::nullptr_t> : public TypeReader
     }
 };
 
-template<typename T>
+template <typename T>
 struct LittleEndianTypeReader : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -202,7 +204,7 @@ struct LittleEndianTypeReader : public TypeReader
     }
 };
 
-template<>
+template <>
 struct LittleEndianTypeReader<std::nullptr_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -211,7 +213,7 @@ struct LittleEndianTypeReader<std::nullptr_t> : public TypeReader
     }
 };
 
-template<typename T>
+template <typename T>
 struct BigEndianTypeReader : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -222,7 +224,7 @@ struct BigEndianTypeReader : public TypeReader
     }
 };
 
-template<>
+template <>
 struct BigEndianTypeReader<std::nullptr_t> : public TypeReader
 {
     ReadType read(std::istream& ins) const override
@@ -231,7 +233,7 @@ struct BigEndianTypeReader<std::nullptr_t> : public TypeReader
     }
 };
 
-template<typename T>
+template <typename T>
 std::unique_ptr<TypeReader> create_reader(FileType file_type)
 {
     switch (file_type) {
@@ -306,7 +308,7 @@ std::string read_next(std::istream& ins)
     return std::string{};
 }
 
-Mesh read_ply(const std::filesystem::path& file_name, const AffineSpace& object_to_world)
+Mesh read_ply(const std::filesystem::path& file_name, const AffineTransformation& object_to_world)
 {
     using namespace std::literals;
 

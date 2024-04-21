@@ -12,8 +12,8 @@ namespace sp {
 class Plane : public Shape
 {
 public:
-    Plane(AffineSpace object_to_world, AffineSpace world_to_object) noexcept
-    : Shape(std::move(object_to_world), std::move(world_to_object))
+    explicit Plane(AffineTransformation object_to_world) noexcept
+    : Shape(std::move(object_to_world))
     {
     }
 

@@ -197,7 +197,7 @@ void test_sphere_light()
     // auto tr = AffineSpace::scale(Vector3{ 0.1f, 0.1f, 0.1f });
     // auto ir = AffineSpace::scale(Vector3{ 1.0f / 0.1f, 1.0f / 0.1f, 1.0f / 0.1f });
 
-    SphereLight light(RGB{ 10.0f, 10.0f, 10.0f }, tr, ir);
+    SphereLight light(RGB{ 10.0f, 10.0f, 10.0f }, AffineTransformation{ tr, ir });
 
     const Point3 p{ -3.0f, -1.0f, 2.0f };
 

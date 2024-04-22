@@ -9,7 +9,7 @@
 #include "Shape.h"
 
 namespace sp {
-class Plane : public TransformableShape
+class Plane final : public TransformableShape
 {
 public:
     explicit Plane(AffineTransformation object_to_world) noexcept

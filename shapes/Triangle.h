@@ -7,7 +7,6 @@
 #include "../math/Vector3.h"
 
 #include <algorithm>
-#include <array>
 #include <execution>
 #include <memory>
 #include <utility>
@@ -18,7 +17,7 @@
 namespace sp {
 class Mesh;
 
-void log_extents(const Mesh&, const char* const str);
+void log_extents(const Mesh&, const char* str);
 
 class Mesh
 {
@@ -97,62 +96,62 @@ private:
 
     [[nodiscard]] std::optional<Intersection> intersect_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        const Point3& p0 = m_mesh->m_vertices[m_indices[0]];
-        const Point3& p1 = m_mesh->m_vertices[m_indices[1]];
-        const Point3& p2 = m_mesh->m_vertices[m_indices[2]];
+        const auto& p0 = m_mesh->m_vertices[m_indices[0]];
+        const auto& p1 = m_mesh->m_vertices[m_indices[1]];
+        const auto& p2 = m_mesh->m_vertices[m_indices[2]];
 
-        const float A = p0.x - p1.x;
-        const float B = p0.y - p1.y;
-        const float C = p0.z - p1.z;
+        const auto A = p0.x - p1.x;
+        const auto B = p0.y - p1.y;
+        const auto C = p0.z - p1.z;
 
-        const float D = p0.x - p2.x;
-        const float E = p0.y - p2.y;
-        const float F = p0.z - p2.z;
+        const auto D = p0.x - p2.x;
+        const auto E = p0.y - p2.y;
+        const auto F = p0.z - p2.z;
 
-        const float G = ray.get_direction().x;
-        const float H = ray.get_direction().y;
-        const float I = ray.get_direction().z;
+        const auto G = ray.get_direction().x;
+        const auto H = ray.get_direction().y;
+        const auto I = ray.get_direction().z;
 
-        const float J = p0.x - ray.get_origin().x;
-        const float K = p0.y - ray.get_origin().y;
-        const float L = p0.z - ray.get_origin().z;
+        const auto J = p0.x - ray.get_origin().x;
+        const auto K = p0.y - ray.get_origin().y;
+        const auto L = p0.z - ray.get_origin().z;
 
-        const float EIHF = msub(E, I, H * F); // E*I - H*F
-        const float GFDI = msub(G, F, D * I); // G*F - D*I
-        const float DHEG = msub(D, H, E * G); // D*H - E*G
+        const auto EIHF = msub(E, I, H * F); // E*I - H*F
+        const auto GFDI = msub(G, F, D * I); // G*F - D*I
+        const auto DHEG = msub(D, H, E * G); // D*H - E*G
 
-        const float denom = madd(A, EIHF, madd(B, GFDI, C * DHEG)); // A*EIHF + B*GFDI + C*DHEG
+        const auto denom = madd(A, EIHF, madd(B, GFDI, C * DHEG)); // A*EIHF + B*GFDI + C*DHEG
         if (denom == 0) {
             return {};
         }
 
-        const float beta = madd(J, EIHF, madd(K, GFDI, L * DHEG)) / denom; // J*EIHF + K*GFDI + L*DHEG
+        const auto beta = madd(J, EIHF, madd(K, GFDI, L * DHEG)) / denom; // J*EIHF + K*GFDI + L*DHEG
         if (beta <= 0.0f || beta >= 1.0f) {
             return {};
         }
 
-        const float AKJB = msub(A, K, J * B); // A*K - J*B
-        const float JCAL = msub(J, C, A * L); // J*C - A*L
-        const float BLKC = msub(B, L, K * C); // B*L - K*C
+        const auto AKJB = msub(A, K, J * B); // A*K - J*B
+        const auto JCAL = msub(J, C, A * L); // J*C - A*L
+        const auto BLKC = msub(B, L, K * C); // B*L - K*C
 
-        const float gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
+        const auto gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
         if (gamma <= 0.0f || beta + gamma >= 1.0f) {
             return {};
         }
 
-        const float t = -madd(F, AKJB, madd(E, JCAL, D * BLKC)) / denom; // F*AKJB + E*JCAL + D*BLKC
+        const auto t = -madd(F, AKJB, madd(E, JCAL, D * BLKC)) / denom; // F*AKJB + E*JCAL + D*BLKC
         if (t < limits.m_t_min || t > limits.m_t_max) {
             return {};
         }
 
-        const Normal3& n0 = m_mesh->m_normals[m_indices[0]];
-        const Normal3& n1 = m_mesh->m_normals[m_indices[1]];
-        const Normal3& n2 = m_mesh->m_normals[m_indices[2]];
+        const auto& n0 = m_mesh->m_normals[m_indices[0]];
+        const auto& n1 = m_mesh->m_normals[m_indices[1]];
+        const auto& n2 = m_mesh->m_normals[m_indices[2]];
 
         // Use the barycentric coordinates to interpolate our normal.
-        const float alpha = 1.0f - beta - gamma;
+        const auto alpha = 1.0f - beta - gamma;
         // const Normal3 normal = normalize(alpha * n0 + beta * n1 + gamma * n2);
-        const Normal3 normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
+        const auto normal = normalize(madd(alpha, n0, madd(beta, n1, gamma * n2)));
 
         Intersection isect;
         isect.m_point    = ray(t);
@@ -164,50 +163,50 @@ private:
 
     [[nodiscard]] bool intersect_p_impl(const Ray& ray, const RayLimits& limits) const noexcept override
     {
-        const Point3& p0 = m_mesh->m_vertices[m_indices[0]];
-        const Point3& p1 = m_mesh->m_vertices[m_indices[1]];
-        const Point3& p2 = m_mesh->m_vertices[m_indices[2]];
+        const auto& p0 = m_mesh->m_vertices[m_indices[0]];
+        const auto& p1 = m_mesh->m_vertices[m_indices[1]];
+        const auto& p2 = m_mesh->m_vertices[m_indices[2]];
 
-        const float A = p0.x - p1.x;
-        const float B = p0.y - p1.y;
-        const float C = p0.z - p1.z;
+        const auto A = p0.x - p1.x;
+        const auto B = p0.y - p1.y;
+        const auto C = p0.z - p1.z;
 
-        const float D = p0.x - p2.x;
-        const float E = p0.y - p2.y;
-        const float F = p0.z - p2.z;
+        const auto D = p0.x - p2.x;
+        const auto E = p0.y - p2.y;
+        const auto F = p0.z - p2.z;
 
-        const float G = ray.get_direction().x;
-        const float H = ray.get_direction().y;
-        const float I = ray.get_direction().z;
+        const auto G = ray.get_direction().x;
+        const auto H = ray.get_direction().y;
+        const auto I = ray.get_direction().z;
 
-        const float J = p0.x - ray.get_origin().x;
-        const float K = p0.y - ray.get_origin().y;
-        const float L = p0.z - ray.get_origin().z;
+        const auto J = p0.x - ray.get_origin().x;
+        const auto K = p0.y - ray.get_origin().y;
+        const auto L = p0.z - ray.get_origin().z;
 
-        const float EIHF = msub(E, I, H * F); // E*I - H*F
-        const float GFDI = msub(G, F, D * I); // G*F - D*I
-        const float DHEG = msub(D, H, E * G); // D*H - E*G
+        const auto EIHF = msub(E, I, H * F); // E*I - H*F
+        const auto GFDI = msub(G, F, D * I); // G*F - D*I
+        const auto DHEG = msub(D, H, E * G); // D*H - E*G
 
-        const float denom = madd(A, EIHF, madd(B, GFDI, C * DHEG)); // A*EIHF + B*GFDI + C*DHEG
+        const auto denom = madd(A, EIHF, madd(B, GFDI, C * DHEG)); // A*EIHF + B*GFDI + C*DHEG
         if (denom == 0) {
             return false;
         }
 
-        const float beta = madd(J, EIHF, madd(K, GFDI, L * DHEG)) / denom; // J*EIHF + K*GFDI + L*DHEG
+        const auto beta = madd(J, EIHF, madd(K, GFDI, L * DHEG)) / denom; // J*EIHF + K*GFDI + L*DHEG
         if (beta <= 0.0f || beta >= 1.0f) {
             return false;
         }
 
-        const float AKJB = msub(A, K, J * B); // A*K - J*B
-        const float JCAL = msub(J, C, A * L); // J*C - A*L
-        const float BLKC = msub(B, L, K * C); // B*L - K*C
+        const auto AKJB = msub(A, K, J * B); // A*K - J*B
+        const auto JCAL = msub(J, C, A * L); // J*C - A*L
+        const auto BLKC = msub(B, L, K * C); // B*L - K*C
 
-        const float gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
+        const auto gamma = madd(I, AKJB, madd(H, JCAL, G * BLKC)) / denom; // I*AKJB + H*JCAL + G*BLKC
         if (gamma <= 0.0f || beta + gamma >= 1.0f) {
             return false;
         }
 
-        const float t = -madd(F, AKJB, madd(E, JCAL, D * BLKC)) / denom; // F*AKJB + E*JCAL + D*BLKC
+        const auto t = -madd(F, AKJB, madd(E, JCAL, D * BLKC)) / denom; // F*AKJB + E*JCAL + D*BLKC
         if (t < limits.m_t_min || t > limits.m_t_max) {
             return false;
         }
@@ -220,7 +219,7 @@ private:
         // Vertices are transformed into world bounds at mesh creation.
         BBox3 bounds;
         for (std::size_t i = 0; i < 3; ++i) {
-            const Point3& p = m_mesh->m_vertices[m_indices[i]];
+            const auto& p = m_mesh->m_vertices[m_indices[i]];
             bounds.extend(p);
         }
         return bounds;
@@ -231,7 +230,7 @@ private:
         // Vertices are already transformed into world bounds at mesh creation.
         BBox3 bounds;
         for (std::size_t i = 0; i < 3; ++i) {
-            const Point3& p = m_mesh->m_vertices[m_indices[i]];
+            const auto& p = m_mesh->m_vertices[m_indices[i]];
             bounds.extend(p);
         }
         return bounds;

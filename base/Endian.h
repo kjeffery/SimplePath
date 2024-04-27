@@ -12,7 +12,30 @@
 static_assert(std::endian::native == std::endian::big || std::endian::native == std::endian::little,
               "We don't support mixed endianess");
 
-#if defined(_MSC_FULL_VER)
+#if defined(__cpp_lib_byteswap)
+template <typename T>
+constexpr auto little_endian(T v) noexcept -> T
+{
+    using enum std::endian;
+    if constexpr (native == little) {
+        return v;
+    } else if constexpr (native == big) {
+        return std::byteswap(v);
+    }
+}
+
+template <typename T>
+constexpr auto big_endian(T v) noexcept -> T
+{
+    using enum std::endian;
+    if constexpr (native == little) {
+        return std::byteswap(v);
+    } else if constexpr (native == big) {
+        return v;
+    }
+}
+
+#elif defined(_MSC_FULL_VER)
 
 #include <cstdlib>
 

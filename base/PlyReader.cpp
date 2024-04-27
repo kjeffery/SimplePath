@@ -99,46 +99,59 @@ enum class DataType
 // We don't store the uint8/int8 types because C++ likes to confuse how they're handled as ASCII vs numbers.
 using ReadType = std::variant<std::int16_t, std::uint16_t, std::int32_t, std::uint32_t, float, double>;
 
-DataType text_to_data_type(std::string_view s)
+DataType text_to_data_type(const std::string_view s)
 {
     using namespace std::literals;
 
     if (s == "char"sv) {
         return DataType::INT8;
-    } else if (s == "int8"sv) {
-        return DataType::INT8;
-    } else if (s == "uchar"sv) {
-        return DataType::UINT8;
-    } else if (s == "uint8"sv) {
-        return DataType::UINT8;
-    } else if (s == "short"sv) {
-        return DataType::INT16;
-    } else if (s == "int16"sv) {
-        return DataType::INT16;
-    } else if (s == "ushort"sv) {
-        return DataType::UINT16;
-    } else if (s == "uint16"sv) {
-        return DataType::UINT16;
-    } else if (s == "int"sv) {
-        return DataType::INT32;
-    } else if (s == "int32"sv) {
-        return DataType::INT32;
-    } else if (s == "uint"sv) {
-        return DataType::UINT32;
-    } else if (s == "uint32"sv) {
-        return DataType::UINT32;
-    } else if (s == "float"sv) {
-        return DataType::FLOAT;
-    } else if (s == "float32"sv) {
-        return DataType::FLOAT;
-    } else if (s == "double"sv) {
-        return DataType::DOUBLE;
-    } else {
-        throw std::runtime_error("Unknown data type"); // TODO: PlyException
     }
+    if (s == "int8"sv) {
+        return DataType::INT8;
+    }
+    if (s == "uchar"sv) {
+        return DataType::UINT8;
+    }
+    if (s == "uint8"sv) {
+        return DataType::UINT8;
+    }
+    if (s == "short"sv) {
+        return DataType::INT16;
+    }
+    if (s == "int16"sv) {
+        return DataType::INT16;
+    }
+    if (s == "ushort"sv) {
+        return DataType::UINT16;
+    }
+    if (s == "uint16"sv) {
+        return DataType::UINT16;
+    }
+    if (s == "int"sv) {
+        return DataType::INT32;
+    }
+    if (s == "int32"sv) {
+        return DataType::INT32;
+    }
+    if (s == "uint"sv) {
+        return DataType::UINT32;
+    }
+    if (s == "uint32"sv) {
+        return DataType::UINT32;
+    }
+    if (s == "float"sv) {
+        return DataType::FLOAT;
+    }
+    if (s == "float32"sv) {
+        return DataType::FLOAT;
+    }
+    if (s == "double"sv) {
+        return DataType::DOUBLE;
+    }
+    throw std::runtime_error("Unknown data type"); // TODO: PlyException
 }
 
-void check_data_consistency(DataType new_data_type, DataType old_data_type)
+void check_data_consistency(const DataType new_data_type, const DataType old_data_type)
 {
     if (old_data_type != new_data_type && old_data_type != DataType::NOT_SET) {
         throw std::runtime_error("Inconsistent data type"); // TODO: PlyException
@@ -152,49 +165,49 @@ struct TypeReader
 };
 
 template <typename T>
-struct AsciiTypeReader : public TypeReader
+struct AsciiTypeReader final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
         T val;
         ins >> val;
-        return sp::ReadType(val);
+        return { val };
     }
 };
 
 template <>
-struct AsciiTypeReader<std::uint8_t> : public TypeReader
+struct AsciiTypeReader<std::uint8_t> final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
         std::uint16_t val;
         ins >> val;
-        return sp::ReadType(val);
+        return { val };
     }
 };
 
 template <>
-struct AsciiTypeReader<std::int8_t> : public TypeReader
+struct AsciiTypeReader<std::int8_t> final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
         std::int16_t val;
         ins >> val;
-        return sp::ReadType(val);
+        return { val };
     }
 };
 
 template <>
-struct AsciiTypeReader<std::nullptr_t> : public TypeReader
+struct AsciiTypeReader<std::nullptr_t> final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
-        return sp::ReadType();
+        return {};
     }
 };
 
 template <typename T>
-struct LittleEndianTypeReader : public TypeReader
+struct LittleEndianTypeReader final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
@@ -205,16 +218,16 @@ struct LittleEndianTypeReader : public TypeReader
 };
 
 template <>
-struct LittleEndianTypeReader<std::nullptr_t> : public TypeReader
+struct LittleEndianTypeReader<std::nullptr_t> final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
-        return sp::ReadType();
+        return {};
     }
 };
 
 template <typename T>
-struct BigEndianTypeReader : public TypeReader
+struct BigEndianTypeReader final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
@@ -225,11 +238,11 @@ struct BigEndianTypeReader : public TypeReader
 };
 
 template <>
-struct BigEndianTypeReader<std::nullptr_t> : public TypeReader
+struct BigEndianTypeReader<std::nullptr_t> final : TypeReader
 {
     ReadType read(std::istream& ins) const override
     {
-        return sp::ReadType();
+        return {};
     }
 };
 
@@ -274,7 +287,7 @@ std::unique_ptr<TypeReader> create_reader(FileType file_type, DataType data_type
         return std::make_unique<AsciiTypeReader<nullptr_t>>();
     }
     assert(!"Should not get here");
-    return std::make_unique<AsciiTypeReader<nullptr_t>>();
+    std::unreachable();
 }
 
 Face read_face(std::istream& ins, const TypeReader& count_reader, const TypeReader& index_reader)

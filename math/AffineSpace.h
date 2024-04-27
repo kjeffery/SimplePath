@@ -52,9 +52,9 @@ public:
     inline static AffineSpace scale(const Vector3& s) noexcept;
     inline static AffineSpace translate(const Vector3& p) noexcept;
     // Rotation about an arbitrary axis
-    inline static AffineSpace rotate(const Vector3& u, float r) noexcept;
+    inline static AffineSpace rotate(const Vector3& u, Angle r) noexcept;
     // Rotation about an arbitrary axis and point
-    inline static AffineSpace rotate(const Point3& p, const Vector3& u, float r) noexcept;
+    inline static AffineSpace rotate(const Point3& p, const Vector3& u, Angle r) noexcept;
 
     static AffineSpace look_at(const Point3& eye, const Point3& point, const Vector3& up) noexcept
     {
@@ -251,13 +251,13 @@ AffineSpace AffineSpace::translate(const Vector3& p) noexcept
 }
 
 // Rotation about an arbitrary axis
-AffineSpace AffineSpace::rotate(const Vector3& u, const float r) noexcept
+AffineSpace AffineSpace::rotate(const Vector3& u, const Angle r) noexcept
 {
     return AffineSpace{ LinearSpace3x3::rotate(u, r) };
 }
 
 // Rotation about an arbitrary axis and point
-AffineSpace AffineSpace::rotate(const Point3& p, const Vector3& u, const float r) noexcept
+AffineSpace AffineSpace::rotate(const Point3& p, const Vector3& u, const Angle r) noexcept
 {
     return translate(Vector3{ +p }) * rotate(u, r) * translate(Vector3{ -p });
 }

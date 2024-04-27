@@ -61,9 +61,9 @@ namespace {
 
 auto parse_translate(std::istream& ins) -> AffineTransformation
 {
-    Vector3 translate{ no_init };
-    ins >> translate;
-    return { AffineSpace::translate(translate), AffineSpace::translate(-translate) };
+    Vector3 translation_value{ no_init };
+    ins >> translation_value;
+    return translate(translation_value);
 }
 
 auto parse_rotation(std::istream& ins) -> LinearTransformation
@@ -74,18 +74,18 @@ auto parse_rotation(std::istream& ins) -> LinearTransformation
     ins >> degrees;
 
     // TODO: have the rotate functions take an Angle
-    return { LinearSpace3x3::rotate(axis, to_radians(degrees)), LinearSpace3x3::rotate(axis, -to_radians(degrees)) };
+    return rotate(axis, Angle{ degrees });
 }
 
 auto parse_scale(std::istream& ins) -> LinearTransformation
 {
-    Vector3 scale{ no_init };
-    ins >> scale;
+    Vector3 scale_value{ no_init };
+    ins >> scale_value;
 
-    if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f) {
+    if (scale_value.x == 0.0f || scale_value.y == 0.0f || scale_value.z == 0.0f) {
         throw std::domain_error("Unable to handle zero scale");
     }
-    return { LinearSpace3x3::scale(scale), LinearSpace3x3::scale(1.0f / scale) };
+    return scale(scale_value);
 }
 
 auto append_translate(std::istream& ins, AffineTransformation& transform) -> void

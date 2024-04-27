@@ -10,7 +10,6 @@
 #include <ostream>
 
 namespace sp {
-
 class Radians;
 class Degrees;
 
@@ -149,6 +148,11 @@ inline Angle normalize(const Angle& a) noexcept
 {
     const float value = std::fmod(a.m_radians, 2.0f * std::numbers::pi_v<float>);
     return Angle{ Radians{ value } };
+}
+
+constexpr Angle operator-(Angle a) noexcept
+{
+    return Angle{ Radians{ -a.as_radians() } };
 }
 
 inline constexpr Angle& operator*=(Angle& a, const float b) noexcept
@@ -314,5 +318,4 @@ inline std::istream& operator>>(std::istream& ins, Degrees& degrees)
     degrees = Degrees{ f };
     return ins;
 }
-
 } // namespace sp

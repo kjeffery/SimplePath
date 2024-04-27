@@ -4,6 +4,7 @@
 
 // Based off of Intel Embree's LinearSpace3
 
+#include "Angles.h"
 #include "Quaternion.h"
 #include "Ray.h"
 #include "Vector3.h"
@@ -128,11 +129,11 @@ public:
     }
 
     // Return matrix for rotation about arbitrary axis
-    static LinearSpace3x3 rotate(Vector3 u, const float r) noexcept
+    static LinearSpace3x3 rotate(Vector3 u, const Angle r) noexcept
     {
         u             = normalize(u);
-        const float s = std::sin(r);
-        const float c = std::cos(r);
+        const float s = std::sin(r.as_radians());
+        const float c = std::cos(r.as_radians());
 
         // clang-format off
         return LinearSpace3x3{
@@ -184,12 +185,12 @@ private:
 
 inline LinearSpace3x3 operator-(const LinearSpace3x3& a)
 {
-    return {-a.col0(), -a.col1(), -a.col2()};
+    return { -a.col0(), -a.col1(), -a.col2() };
 }
 
 inline LinearSpace3x3 operator+(const LinearSpace3x3& a)
 {
-    return {+a.col0(), +a.col1(), +a.col2()};
+    return { +a.col0(), +a.col1(), +a.col2() };
 }
 
 inline LinearSpace3x3 rcp(const LinearSpace3x3& a)
@@ -261,7 +262,7 @@ inline bool compare(const LinearSpace3x3& a, const LinearSpace3x3& b) noexcept
 
 inline LinearSpace3x3 lerp(const LinearSpace3x3& l0, const LinearSpace3x3& l1, const float t)
 {
-    return {lerp(l0.col0(), l1.col0(), t), lerp(l0.col1(), l1.col1(), t), lerp(l0.col2(), l1.col2(), t)};
+    return { lerp(l0.col0(), l1.col0(), t), lerp(l0.col1(), l1.col1(), t), lerp(l0.col2(), l1.col2(), t) };
 }
 
 ////////////////////////////////////////////////////////////////////////////////

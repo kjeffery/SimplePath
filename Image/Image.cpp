@@ -91,8 +91,8 @@ Image read_pfm(std::istream& ins)
     ins.get(); // Get last '\n'
 
     using ConvertFunction         = std::uint32_t (*)(std::uint32_t);
-    const ConvertFunction be      = &big_endian;
-    const ConvertFunction le      = &little_endian;
+    const ConvertFunction be      = &big_endian_to_native;
+    const ConvertFunction le      = &little_endian_to_native;
     const ConvertFunction convert = (byte_order > 0) ? be : le;
 
     Image img(nx, ny);

@@ -4,6 +4,7 @@
 
 #include "PlyReader.h"
 #include "Scene.h"
+#include "STLReader.h"
 #include "Util.h"
 
 #include "../base/Logger.h"
@@ -558,13 +559,6 @@ void FileParser::parse_mesh(const std::string&         body,
             }
         } else if (word == "file") {
             ins >> path;
-            if (path.extension() != ".ply") {
-                LOG_ERROR("Unable to open file format for ",
-                          path.extension(),
-                          " on line ",
-                          line_number_character_offset + ins.tellg());
-                return;
-            }
         } else if (word == "translate") {
             append_translate(ins, transform);
         } else if (word == "rotate") {
@@ -579,7 +573,19 @@ void FileParser::parse_mesh(const std::string&         body,
 
     assert(material);
 
-    auto       mesh     = std::make_shared<Mesh>(read_ply(path, transform));
+    std::shared_ptr<Mesh> mesh;
+    if (path.extension() == ".ply") {
+        mesh = std::make_shared<Mesh>(read_ply(path, transform));
+    } else if (path.extension() == ".stl") {
+        mesh = std::make_shared<Mesh>(read_stl(path, transform));
+    } else {
+        LOG_ERROR("Unable to open file format for ",
+                  path.extension(),
+                  " on line ",
+                  line_number_character_offset + ins.tellg());
+        return;
+    }
+
     const auto num_tris = mesh->get_num_triangles();
     for (std::size_t i = 0; i < num_tris; ++i) {
         auto tri = std::make_shared<Triangle>(mesh, i);

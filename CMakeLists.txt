@@ -52,6 +52,8 @@ set(SOURCES
         base/RunningStats.h
         base/Scene.h
         base/SmartToRawPointerIterator.h
+        base/STLReader.h
+        base/STLReader.cpp
         base/Tile.h
         base/TileScheduler.h
         base/Util.h

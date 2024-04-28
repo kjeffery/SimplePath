@@ -1,8 +1,10 @@
 #pragma once
 
+#include "AffineSpace.h"
 #include "BBox.h"
-#include "Vector3.h"
+#include "LinearSpace3x3.h"
 #include "Ray.h"
+#include "Vector3.h"
 
 #include <cassert>
 #include <utility>

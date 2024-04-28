@@ -616,16 +616,34 @@ inline bool operator!=(const BaseVector3<type>& a, const BaseVector3<type>& b) n
 }
 
 template <VectorType type>
-inline bool compare(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
+std::partial_ordering operator<=>(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
+{
+    if (a.x != b.x) {
+        return a.x <=> b.x;
+    }
+    if (a.y != b.y) {
+        return a.y <=> b.y;
+    }
+    return a.z <=> b.z;
+}
+
+template <VectorType type>
+bool compare(const BaseVector3<type>& a, const BaseVector3<type>& b) noexcept
 {
     return float_compare(a.x, b.x) && float_compare(a.y, b.y) && float_compare(a.z, b.z);
 }
 
 template <VectorType type>
-inline bool compare_epsilon(const BaseVector3<type>& a, const BaseVector3<type>& b, const float epsilon) noexcept
+bool compare_epsilon(const BaseVector3<type>& a, const BaseVector3<type>& b, const float epsilon) noexcept
 {
     return float_compare_epsilon(a.x, b.x, epsilon) && float_compare_epsilon(a.y, b.y, epsilon) &&
             float_compare_epsilon(a.z, b.z, epsilon);
+}
+
+template <VectorType type>
+bool is_zero(const BaseVector3<type>& a) noexcept
+{
+    return float_compare(a.x, 0.0f) && float_compare(a.y, 0.0f) && float_compare(a.z, 0.0f);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

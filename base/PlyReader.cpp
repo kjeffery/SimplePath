@@ -17,11 +17,13 @@
 #include "../math/Transformation.h"
 
 namespace sp {
+namespace {
 struct Face
 {
     std::array<unsigned, 3> vertex_indices;
     Normal3                 face_normal;
 };
+} // anonymous namespace
 
 // Ply types:
 // name        type        number of bytes
@@ -213,7 +215,7 @@ struct LittleEndianTypeReader final : TypeReader
     {
         T val;
         ins.read(reinterpret_cast<char*>(std::addressof(val)), sizeof(val));
-        return little_endian(val);
+        return little_endian_to_native(val);
     }
 };
 
@@ -233,7 +235,7 @@ struct BigEndianTypeReader final : TypeReader
     {
         T val;
         ins.read(reinterpret_cast<char*>(std::addressof(val)), sizeof(val));
-        return big_endian(val);
+        return big_endian_to_native(val);
     }
 };
 
